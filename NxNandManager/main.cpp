@@ -9,7 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <chrono>
-#include <ctime>  
+#include <ctime>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <Wincrypt.h>
@@ -18,7 +18,10 @@
 using namespace std;
 #define BUFSIZE 262144
 #define MD5LEN  16
-
+#define BOOT0   1001
+#define BOOT1   1002
+#define RAWNAND 1003
+#define UNKNOWN 1004
 
 //#define wszDrive L"\\\\.\\PHYSICALDRIVE3"
 
@@ -39,7 +42,7 @@ LPWSTR convertCharArrayToLPWSTR(const char* charArray)
 
 BOOL GetDriveGeometry(LPWSTR wszPath, DISK_GEOMETRY *pdg)
 {
-	HANDLE hDevice = INVALID_HANDLE_VALUE;  // handle to the drive to be examined 
+	HANDLE hDevice = INVALID_HANDLE_VALUE;  // handle to the drive to be examined
 	BOOL bResult = FALSE;                 // results flag
 	DWORD junk = 0;                     // discard results
 
@@ -80,10 +83,9 @@ std::string GetMD5Hash(const char* szPath) {
 
 	std::string md5hash;
 	LPWSTR wszPath = convertCharArrayToLPWSTR(szPath);
-	unsigned long DiskSize = sGetFileSize(szPath);
-	HANDLE hDisk;
-	
+
 	// Get handle to the file or I/O device
+	HANDLE hDisk;
 	hDisk = CreateFileW(wszPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 	if (hDisk == INVALID_HANDLE_VALUE)
 	{
@@ -91,6 +93,14 @@ std::string GetMD5Hash(const char* szPath) {
 		CloseHandle(hDisk);
 	}
 	else {
+
+        // Get size
+        LARGE_INTEGER size;
+        if (!GetFileSizeEx(hDisk, &size)) {
+            printf("GetFileSizeEx failed \n");
+            return NULL;
+        }
+
 		BOOL bSuccess;
 		DWORD buffSize = BUFSIZE, bytesRead = 0, cbHash = 0;
 		BYTE buffRead[BUFSIZE], rgbHash[MD5LEN];
@@ -99,9 +109,9 @@ std::string GetMD5Hash(const char* szPath) {
 		HCRYPTHASH hHash = 0;
 		CHAR rgbDigits[] = "0123456789abcdef";
 		cbHash = MD5LEN;
-		
+
 		// Get handle to the crypto provider
-		if (!CryptAcquireContext(&hProv,  NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) 
+		if (!CryptAcquireContext(&hProv,  NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
 		{
 			printf("CryptAcquireContext failed");
 			CloseHandle(hDisk);
@@ -132,11 +142,11 @@ std::string GetMD5Hash(const char* szPath) {
 				return NULL;
 			}
 
-			printf("Computing MD5 checksum... (%d%%) \r", (readAmount * 100) / DiskSize);
+			printf("Computing MD5 checksum... (%d%%) \r", (readAmount * 100) / size.QuadPart);
 		}
 		printf("\n");
 		CloseHandle(hDisk);
-		
+
 		// Build checksum
 		if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
 		{
@@ -155,7 +165,7 @@ std::string GetMD5Hash(const char* szPath) {
 		{
 			printf("CryptGetHashParam failed\n");
 		}
-	}	
+	}
 	return NULL;
 }
 
@@ -166,7 +176,7 @@ std::string GetLastErrorAsString()
 	if (errorMessageID == 0)
 		return std::string(); //No error message has been recorded
 
-	LPSTR messageBuffer = nullptr;
+	LPSTR messageBuffer = NULL;
 	size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 		NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
 
@@ -177,12 +187,71 @@ std::string GetLastErrorAsString()
 
 	return message;
 }
+constexpr char hexmap[] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                           '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+std::string hexStr(unsigned char *data, int len)
+{
+  std::string s(len * 2, ' ');
+  for (int i = 0; i < len; ++i) {
+    s[2 * i]     = hexmap[(data[i] & 0xF0) >> 4];
+    s[2 * i + 1] = hexmap[data[i] & 0x0F];
+  }
+  return s;
+}
+
+int getStorageInfo(HANDLE storage, NxStorage *nxdata)
+{
+   // Get storage infos
+    nxdata->type = UNKNOWN;
+    DWORD bytesRead = 0;
+    DWORD dwPtr = SetFilePointer(storage, 0x0530, NULL, FILE_BEGIN);
+    if (dwPtr != INVALID_SET_FILE_POINTER)
+    {
+        BYTE buff[12];
+        ReadFile(storage, buff, 12, &bytesRead, NULL);
+        // Look for boot_data_version + block_size_log2 + page_size_log2
+        if (0 != bytesRead && hexStr(buff, 12) == "010021000e00000009000000") nxdata->type = BOOT0;
+    }
+
+    if(nxdata->type == UNKNOWN) {
+        dwPtr = SetFilePointer(storage, 0x12D0, NULL, FILE_BEGIN);
+        if (dwPtr != INVALID_SET_FILE_POINTER)
+        {
+            BYTE buff[4];
+            ReadFile(storage, buff, 4, &bytesRead, NULL);
+            // Look for "PK11" magic offset
+            if (0 != bytesRead && hexStr(buff, 4) == "504b3131") nxdata->type = BOOT1;
+        }
+    }
+
+    if(nxdata->type == UNKNOWN) {
+        dwPtr = SetFilePointer(storage, 0x298, NULL, FILE_BEGIN);
+        if (dwPtr != INVALID_SET_FILE_POINTER)
+        {
+            BYTE buff[15];
+            ReadFile(storage, buff, 15, &bytesRead, NULL);
+            // Look for "P R O D I N F O" string in GPT
+            if (0 != bytesRead && hexStr(buff, 15) == "500052004f00440049004e0046004f") nxdata->type = RAWNAND;
+        }
+    }
+    // Reset pointer
+    dwPtr = SetFilePointer(storage, FILE_BEGIN, NULL, FILE_BEGIN);
+
+    // Get size
+    LARGE_INTEGER size;
+    if (!GetFileSizeEx(storage, &size)) {
+        printf("GetFileSizeEx failed \n");
+        return -1;
+    } else {
+        nxdata->size = size.QuadPart;
+    };
+}
 
 int main(int argc, char* argv[])
 {
 	printf("NxNandManager by eliboa \n");
-	const char* output = nullptr;
-	const char* input = nullptr;
+	const char* output = NULL;
+	const char* input = NULL;
 	BOOL BYPASS_MD5SUM = FALSE;
 	BOOL DEBUG_MODE = FALSE;
 
@@ -193,7 +262,7 @@ int main(int argc, char* argv[])
 		return -1;
 	};
 
-	if (argc == 1) 
+	if (argc == 1)
 	{
 		PrintUsage();
 		return -1;
@@ -206,18 +275,18 @@ int main(int argc, char* argv[])
 		const char OUTPUT_ARGUMENT[] = "-o";
 		const char BYPASS_MD5SUM_FLAG[] = "BYPASS_MD5SUM";
 		const char DEBUG_MODE_FLAG[] = "DEBUG_MODE";
-		
-		if (_strnicmp(currArg, INPUT_ARGUMENT, array_countof(INPUT_ARGUMENT) - 1) == 0 && i < argc) 
-			input = argv[++i];		
-		if (_strnicmp(currArg, OUTPUT_ARGUMENT, array_countof(OUTPUT_ARGUMENT) - 1) == 0 && i < argc) 
+
+		if (_strnicmp(currArg, INPUT_ARGUMENT, array_countof(INPUT_ARGUMENT) - 1) == 0 && i < argc)
+			input = argv[++i];
+		if (_strnicmp(currArg, OUTPUT_ARGUMENT, array_countof(OUTPUT_ARGUMENT) - 1) == 0 && i < argc)
 			output = argv[++i];
-		if (_strnicmp(currArg, BYPASS_MD5SUM_FLAG, array_countof(BYPASS_MD5SUM_FLAG) - 1) == 0) 
+		if (_strnicmp(currArg, BYPASS_MD5SUM_FLAG, array_countof(BYPASS_MD5SUM_FLAG) - 1) == 0)
 			BYPASS_MD5SUM = TRUE;
-		if (_strnicmp(currArg, DEBUG_MODE_FLAG, array_countof(DEBUG_MODE_FLAG) - 1) == 0) 
-			DEBUG_MODE = TRUE;			
+		if (_strnicmp(currArg, DEBUG_MODE_FLAG, array_countof(DEBUG_MODE_FLAG) - 1) == 0)
+			DEBUG_MODE = TRUE;
 	}
 
-	if (nullptr == output || nullptr == input) {
+	if (NULL == output || NULL == input) {
 		PrintUsage();
 		return -1;
 	}
@@ -230,18 +299,19 @@ int main(int argc, char* argv[])
 
 
 	// LPWSTR wszDrive = L"\\\\.\\PHYSICALDRIVE3";
+	NxStorage *nxdata = (NxStorage *)malloc(sizeof(NxStorage));
 	LPWSTR wszDrive = convertCharArrayToLPWSTR(input);
-	DISK_GEOMETRY pdg = { 0 };
-	BOOL isDrive = FALSE;      
-	unsigned long long DiskSize = 0;
 
+    // Is this really useful ?
+    DISK_GEOMETRY pdg = { 0 };
+    unsigned long long DiskSize = 0;
+    BOOL isDrive = FALSE;
 	isDrive = GetDriveGeometry(wszDrive, &pdg);
-
 	if (isDrive)
 	{
-		DiskSize = pdg.Cylinders.QuadPart * (ULONG)pdg.TracksPerCylinder 
+		DiskSize = pdg.Cylinders.QuadPart * (ULONG)pdg.TracksPerCylinder
 			* (ULONG)pdg.SectorsPerTrack * (ULONG)pdg.BytesPerSector;
-		
+
 		if (DEBUG_MODE) {
 			wprintf(L"Drive path      = %ws\n", wszDrive);
 			wprintf(L"Cylinders       = %I64d\n", pdg.Cylinders);
@@ -251,16 +321,6 @@ int main(int argc, char* argv[])
 			wprintf(L"Disk size       = %I64d (Bytes)\n"
 				L"                = %.2f (Gb)\n",
 				DiskSize, (double)DiskSize / (1024 * 1024 * 1024));
-		}
-	}
-	else
-	{
-		DiskSize = sGetFileSize(input);
-		if (DiskSize <= 0)
-		{
-			wprintf(L"Unable to detect input %ld.\n", GetLastError());
-			system("PAUSE");
-			return 0;
 		}
 	}
 
@@ -278,6 +338,21 @@ int main(int argc, char* argv[])
 		printf("%s", "Successfully open the drive/file \n");
 		auto start = std::chrono::system_clock::now();
 
+        getStorageInfo(hDisk, nxdata);
+        if (DEBUG_MODE)
+        {
+            switch(nxdata->type) {
+                case BOOT0: printf("Input storage type is BOOT0\n");
+                            break;
+                case BOOT1: printf("Input storage type is BOOT1\n");
+                            break;
+                case RAWNAND: printf("Input storage type is RAWNAND\n");
+                            break;
+                case UNKNOWN: printf("Input storage type is UNKNOWN\n");
+                            break;
+            }
+        }
+
 		BOOL bSuccess;
 		DWORD buffSize = BUFSIZE, bytesRead = 0, bytesWrite = 0, cbHash = 0;
 		BYTE buffRead[BUFSIZE], rgbHash[MD5LEN];
@@ -285,12 +360,13 @@ int main(int argc, char* argv[])
 		HCRYPTPROV hProv = 0;
 		HCRYPTHASH hHash = 0;
 		CHAR rgbDigits[] = "0123456789abcdef";
-		std::string md5hash;		
+		std::string md5hash;
 		cbHash = MD5LEN;
-		
+
+
 		ofstream binOutput;
 		binOutput.open(output, ofstream::out | ofstream::binary);
-		
+
 		if (!BYPASS_MD5SUM)
 		{
 			// Get handle to the crypto provider
@@ -346,7 +422,7 @@ int main(int argc, char* argv[])
 			bytesWrite += bytesRead;
 			//printf("write %ld of %ld\n", bytesRead, bytesWrite);
 
-			printf("Dumping raw data... (%d%%) \r", (readAmount * 100) / DiskSize);			
+			printf("Dumping raw data... (%d%%) \r", (readAmount * 100) / nxdata->size);
 
 		}
 		printf("\nFinished. %ld bytes\n", readAmount);
@@ -378,6 +454,8 @@ int main(int argc, char* argv[])
 			CryptDestroyHash(hHash);
 			CryptReleaseContext(hProv, 0);
 
+			if(DEBUG_MODE) printf("MD5 sum for INPUT is %s\n", md5hash.c_str());
+
 			// Compute then compare output checksum
 			if (md5hash == GetMD5Hash(output)) printf("Verified (checksums are IDENTICAL)\n");
 			else printf("ERROR : checksums are DIFFERENT \n");
@@ -387,7 +465,7 @@ int main(int argc, char* argv[])
 		auto end = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed_seconds = end - start;
 		std::time_t end_time = std::chrono::system_clock::to_time_t(end);
-		printf("Elapsed time : %.2f s.\n", elapsed_seconds.count());		
+		printf("Elapsed time : %.2f s.\n", elapsed_seconds.count());
 	}
 
 	system("PAUSE");
