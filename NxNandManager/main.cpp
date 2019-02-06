@@ -1,7 +1,7 @@
 // NxNandManager
 //
 
-//#include "stdafx.h"
+#include "stdafx.h"
 #include <windows.h>
 #include <winioctl.h>
 #include <stdio.h>
@@ -72,6 +72,13 @@ BOOL GetDriveGeometry(LPWSTR wszPath, DISK_GEOMETRY *pdg)
 	return (bResult);
 }
 
+u64 GetFilePointerEx (HANDLE hFile) {
+    LARGE_INTEGER liOfs={0};
+    LARGE_INTEGER liNew={0};
+    SetFilePointerEx(hFile, liOfs, &liNew, FILE_CURRENT);
+    return liNew.QuadPart;
+}
+
 unsigned long sGetFileSize(std::string filename)
 {
 	struct stat stat_buf;
@@ -89,7 +96,7 @@ std::string GetMD5Hash(const char* szPath) {
 	hDisk = CreateFileW(wszPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 	if (hDisk == INVALID_HANDLE_VALUE)
 	{
-		printf("%s", "Could not open %s\n", wszPath);
+		printf("Could not open %s\n", wszPath);
 		CloseHandle(hDisk);
 	}
 	else {
@@ -142,7 +149,7 @@ std::string GetMD5Hash(const char* szPath) {
 				return NULL;
 			}
 
-			printf("Computing MD5 checksum... (%d%%) \r", (readAmount * 100) / size.QuadPart);
+			printf("Computing MD5 checksum... (%d%%) \r", (int)(readAmount * 100 / size.QuadPart));
 		}
 		printf("\n");
 		CloseHandle(hDisk);
@@ -235,7 +242,7 @@ int getStorageInfo(HANDLE storage, NxStorage *nxdata)
         }
     }
     // Reset pointer
-    dwPtr = SetFilePointer(storage, FILE_BEGIN, NULL, FILE_BEGIN);
+    dwPtr = SetFilePointer(storage, 0, NULL, FILE_BEGIN);
 
     // Get size
     LARGE_INTEGER size;
@@ -351,6 +358,9 @@ int main(int argc, char* argv[])
                 case UNKNOWN: printf("Input storage type is UNKNOWN\n");
                             break;
             }
+
+            printf("Input size is %I64d bytes\n", nxdata->size);
+            printf("Current pointer is %I64d \n", GetFilePointerEx(hDisk));
         }
 
 		BOOL bSuccess;
@@ -422,7 +432,7 @@ int main(int argc, char* argv[])
 			bytesWrite += bytesRead;
 			//printf("write %ld of %ld\n", bytesRead, bytesWrite);
 
-			printf("Dumping raw data... (%d%%) \r", (readAmount * 100) / nxdata->size);
+			printf("Dumping raw data... (%d%%) \r", (int)(readAmount * 100 / nxdata->size));
 
 		}
 		printf("\nFinished. %ld bytes\n", readAmount);
@@ -464,7 +474,6 @@ int main(int argc, char* argv[])
 		// Compute elapsed time
 		auto end = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed_seconds = end - start;
-		std::time_t end_time = std::chrono::system_clock::to_time_t(end);
 		printf("Elapsed time : %.2f s.\n", elapsed_seconds.count());
 	}
 
