@@ -69,7 +69,7 @@ BOOL GetDriveGeometry(LPWSTR wszPath, DISK_GEOMETRY *pdg)
 	return (bResult);
 }
 
-long sGetFileSize(std::string filename)
+unsigned long sGetFileSize(std::string filename)
 {
 	struct stat stat_buf;
 	int rc = stat(filename.c_str(), &stat_buf);
@@ -84,7 +84,7 @@ std::string GetMD5Hash(const char* szPath) {
 	HANDLE hDisk;
 	
 	// Get handle to the file or I/O device
-	hDisk = CreateFileW(wszPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	hDisk = CreateFileW(wszPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 	if (hDisk == INVALID_HANDLE_VALUE)
 	{
 		printf("%s", "Could not open %s\n", wszPath);
@@ -233,7 +233,7 @@ int main(int argc, char* argv[])
 	LPWSTR wszDrive = convertCharArrayToLPWSTR(input);
 	DISK_GEOMETRY pdg = { 0 };
 	BOOL isDrive = FALSE;      
-	unsigned long DiskSize = 0;
+	unsigned long long DiskSize = 0;
 
 	isDrive = GetDriveGeometry(wszDrive, &pdg);
 
@@ -266,7 +266,7 @@ int main(int argc, char* argv[])
 
 	// Get handle to the file or I/O device
 	HANDLE hDisk;
-	hDisk = CreateFileW(wszDrive, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	hDisk = CreateFileW(wszDrive, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 
 	if (hDisk == INVALID_HANDLE_VALUE)
 	{
@@ -279,8 +279,8 @@ int main(int argc, char* argv[])
 		auto start = std::chrono::system_clock::now();
 
 		BOOL bSuccess;
-		DWORD buffSize = BUFSIZE, bytesRead = 0, cbHash = 0;
-		BYTE buffRead[BUFSIZE], rgbHash[MD5LEN];;
+		DWORD buffSize = BUFSIZE, bytesRead = 0, bytesWrite = 0, cbHash = 0;
+		BYTE buffRead[BUFSIZE], rgbHash[MD5LEN];
 		ULONGLONG readAmount = 0;
 		HCRYPTPROV hProv = 0;
 		HCRYPTHASH hHash = 0;
@@ -322,6 +322,11 @@ int main(int argc, char* argv[])
 			if (0 == bytesRead) break;
 			readAmount += bytesRead;
 
+			//printf("read %ld of %ld\n", bytesRead, readAmount);
+			//
+			//if(readAmount > BUFSIZE * 10) break;
+			//
+
 			if (!BYPASS_MD5SUM)
 			{
 				// Hash every read buffer
@@ -338,9 +343,13 @@ int main(int argc, char* argv[])
 
 			// Write buffer to output stream
 			binOutput.write((char*)buffRead, bytesRead);
-			printf("Dumping raw data... (%d%%) \r", (readAmount * 100) / DiskSize);
+			bytesWrite += bytesRead;
+			//printf("write %ld of %ld\n", bytesRead, bytesWrite);
+
+			printf("Dumping raw data... (%d%%) \r", (readAmount * 100) / DiskSize);			
+
 		}
-		printf("\nFinished. %ld bytes\n", sGetFileSize(output));
+		printf("\nFinished. %ld bytes\n", readAmount);
 		binOutput.close();
 		CloseHandle(hDisk);
 
