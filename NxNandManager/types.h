@@ -4,8 +4,8 @@ typedef unsigned long long int u64;
 
 typedef struct _NxStorage
 {
-    int type;
-    u64 size;
+	int type;
+	u64 size;
 	BOOL isDrive;
 
 } NxStorage;

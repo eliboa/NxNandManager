@@ -18,10 +18,10 @@ LPWSTR convertCharArrayToLPWSTR(const char* charArray)
 
 
 u64 GetFilePointerEx (HANDLE hFile) {
-    LARGE_INTEGER liOfs={0};
-    LARGE_INTEGER liNew={0};
-    SetFilePointerEx(hFile, liOfs, &liNew, FILE_CURRENT);
-    return liNew.QuadPart;
+	LARGE_INTEGER liOfs={0};
+	LARGE_INTEGER liNew={0};
+	SetFilePointerEx(hFile, liOfs, &liNew, FILE_CURRENT);
+	return liNew.QuadPart;
 }
 
 unsigned long sGetFileSize(std::string filename)
@@ -35,8 +35,7 @@ std::string GetLastErrorAsString()
 {
 	//Get the error message, if any.
 	DWORD errorMessageID = ::GetLastError();
-	if (errorMessageID == 0)
-		return std::string(); //No error message has been recorded
+	if (errorMessageID == 0) return std::string(); //No error message has been recorded
 
 	LPSTR messageBuffer = NULL;
 	size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -55,10 +54,11 @@ constexpr char hexmap[] = {'0', '1', '2', '3', '4', '5', '6', '7',
                            '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 std::string hexStr(unsigned char *data, int len)
 {
-  std::string s(len * 2, ' ');
-  for (int i = 0; i < len; ++i) {
-    s[2 * i]     = hexmap[(data[i] & 0xF0) >> 4];
-    s[2 * i + 1] = hexmap[data[i] & 0x0F];
-  }
-  return s;
+	std::string s(len * 2, ' ');
+	for (int i = 0; i < len; ++i)
+	{
+		s[2 * i]     = hexmap[(data[i] & 0xF0) >> 4];
+		s[2 * i + 1] = hexmap[data[i] & 0x0F];
+	}
+	return s;
 }
