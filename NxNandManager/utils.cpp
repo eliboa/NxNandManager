@@ -62,3 +62,47 @@ std::string hexStr(unsigned char *data, int len)
 	}
 	return s;
 }
+
+BOOL AskYesNoQuestion(const char* question)
+{
+	BOOL bContinue = TRUE;
+	string s;
+	while (bContinue)
+	{
+		printf("%s (Y/N)\n", question);
+		cin >> ws;
+		getline(cin, s);
+		if (s.empty())
+		{
+			continue;
+		}
+		switch (toupper(s[0]))
+		{
+		case 'Y':
+			return TRUE;
+			break;
+		case 'N':
+			return FALSE;
+			break;
+		}
+	}
+}
+
+const char* GetNxStorageTypeAsString(int type)
+{
+	switch (type)
+	{
+	case BOOT0:
+		return "BOOT0";
+		break;
+	case BOOT1:
+		return "BOOT1";
+		break;
+	case RAWNAND:
+		return "RAWNAND";
+		break;
+	default:
+		return "UNKNOWN";
+		break;
+	}
+}

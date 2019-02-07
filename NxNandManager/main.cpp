@@ -16,12 +16,6 @@
 #include "utils.h"
 
 using namespace std;
-#define BUFSIZE 262144
-#define MD5LEN  16
-#define BOOT0   1001
-#define BOOT1   1002
-#define RAWNAND 1003
-#define UNKNOWN 1004
 
 BOOL BYPASS_MD5SUM = FALSE;
 BOOL DEBUG_MODE = FALSE;
@@ -60,26 +54,18 @@ BOOL GetDriveGeometry(LPWSTR wszPath, DISK_GEOMETRY* pdg)
 
 std::string GetMD5Hash(const char* szPath)
 {
-
+	NxStorage* nxdata = (NxStorage*)malloc(sizeof(NxStorage));
 	std::string md5hash;
 	LPWSTR wszPath = convertCharArrayToLPWSTR(szPath);
 
 	// Get handle to the file or I/O device
 	HANDLE hDisk;
 	hDisk = CreateFileW(wszPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-	if (hDisk == INVALID_HANDLE_VALUE)
+	if (hDisk == INVALID_HANDLE_VALUE || !GetStorageInfo(convertCharArrayToLPWSTR(szPath), nxdata))
 	{
 		printf("Could not open %s\n", wszPath);
 		CloseHandle(hDisk);
 	} else {
-
-		// Get size
-		LARGE_INTEGER size;
-		if (!GetFileSizeEx(hDisk, &size))
-		{
-			printf("GetFileSizeEx failed \n");
-			return NULL;
-		}
 
 		BOOL bSuccess;
 		DWORD buffSize = BUFSIZE, bytesRead = 0, cbHash = 0;
@@ -125,7 +111,7 @@ std::string GetMD5Hash(const char* szPath)
 				return NULL;
 			}
 
-			printf("Computing MD5 checksum... (%d%%) \r", (int)(readAmount * 100 / size.QuadPart));
+			printf("Computing MD5 checksum... (%d%%) \r", (int)(readAmount * 100 / nxdata->size));
 		}
 		printf("\n");
 		CloseHandle(hDisk);
@@ -151,7 +137,7 @@ std::string GetMD5Hash(const char* szPath)
 }
 
 
-BOOL getStorageInfo(LPWSTR storage, NxStorage* nxdata)
+BOOL GetStorageInfo(LPWSTR storage, NxStorage* nxdata)
 {
 	DISK_GEOMETRY pdg = { 0 };
 	nxdata->isDrive = FALSE;
@@ -180,12 +166,6 @@ BOOL getStorageInfo(LPWSTR storage, NxStorage* nxdata)
 
 	if (hStorage == INVALID_HANDLE_VALUE)
 	{
-		if (nxdata->isDrive)
-		{
-			printf("Could not open physical drive. Make sur to run this program as an administrator.\n");
-		} else {
-			printf("Error while opening %s \n", storage);
-		}
 		CloseHandle(hStorage);
 		return FALSE;
 	}
@@ -315,165 +295,230 @@ int main(int argc, char* argv[])
 		printf("BYPASS_MD5SUM is %s. \n", BYPASS_MD5SUM ? "true" : "false");
 	}
 
-	// LPWSTR wszDrive = L"\\\\.\\PHYSICALDRIVE3";
 	NxStorage* nxdata = (NxStorage*)malloc(sizeof(NxStorage));
+	NxStorage* nxdataOut = (NxStorage*)malloc(sizeof(NxStorage));
 	LPWSTR wInput = convertCharArrayToLPWSTR(input);
+	LPWSTR wOutput = convertCharArrayToLPWSTR(output);
 
-	if (!getStorageInfo(wInput, nxdata))
+	if (!GetStorageInfo(wInput, nxdata))
 	{
+		if (nxdata->isDrive)
+		{
+			printf("Could not open physical drive. Make sure to run this program as an administrator.\n");
+		} else {
+			printf("Error while opening %s \n", wInput);
+		}
 		system("PAUSE");
 		return 0;
-	} else {
-		if (DEBUG_MODE)
-		{
-			switch (nxdata->type)
-			{
-			case BOOT0:
-				printf("Input storage type is BOOT0\n");
-				break;
-			case BOOT1:
-				printf("Input storage type is BOOT1\n");
-				break;
-			case RAWNAND:
-				printf("Input storage type is RAWNAND\n");
-				break;
-			case UNKNOWN:
-				printf("Input storage type is UNKNOWN\n");
-				break;
-			}
-			printf("Input size is %I64d bytes\n", nxdata->size);
-		}
+	}
+	if (DEBUG_MODE)
+	{
+		printf("Input storage type is %s\n", GetNxStorageTypeAsString(nxdata->type));
+		printf("Input size is %I64d bytes\n", nxdata->size);
+	}
 
-		// Get handle to the file or I/O device
-		HANDLE hDisk;
-		hDisk = CreateFileW(wInput, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-		if (hDisk == INVALID_HANDLE_VALUE)
+	if (GetStorageInfo(wOutput, nxdataOut))
+	{
+		// Output exists
+		if (!nxdataOut->isDrive)
 		{
-			if (nxdata->isDrive)
+			// Output file already exists					
+			if (!AskYesNoQuestion("Output file already exists. Do you want to overwrite it ?"))
 			{
-				printf("Could not open physical drive. Make sur to run this program as an administrator.\n");
-			} else {
-				printf("Error while opening %s \n", input);
+				printf("Operation cancelled.\n");
+				system("PAUSE");
+				return 0;
 			}
-			CloseHandle(hDisk);
 		} else {
-			printf("%s", "Successfully open the drive/file \n");
-			auto start = std::chrono::system_clock::now();
-
-			BOOL bSuccess;
-			DWORD buffSize = BUFSIZE, bytesRead = 0, bytesWrite = 0, cbHash = 0;
-			BYTE buffRead[BUFSIZE], rgbHash[MD5LEN];
-			u64 readAmount = 0;
-			HCRYPTPROV hProv = 0;
-			HCRYPTHASH hHash = 0;
-			CHAR rgbDigits[] = "0123456789abcdef";
-			std::string md5hash;
-			cbHash = MD5LEN;
-
-			ofstream binOutput;
-			binOutput.open(output, ofstream::out | ofstream::binary);
-
-			if (!BYPASS_MD5SUM)
+			// Output is a logical drive
+			printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
+				   "            BE VERY CAUTIOUS !!!\n\n");			
+			if (nxdata->type != nxdataOut->type)
 			{
-				// Get handle to the crypto provider
-				if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
+				printf("Input data type (%s) doesn't match output data type (%s)\n", GetNxStorageTypeAsString(nxdata->type), GetNxStorageTypeAsString(nxdataOut->type));
+				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
 				{
-					DWORD dwStatus = GetLastError();
-					printf("CryptAcquireContext failed: %d\n", dwStatus);
-					CloseHandle(hDisk);
+					printf("Operation cancelled.\n");
 					system("PAUSE");
 					return 0;
 				}
-
-				// Create the hash
-				if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
+			}
+			if (nxdata->size != nxdataOut->size || nxdata->type == nxdataOut->type)
+			{
+				if (nxdata->size != nxdataOut->size)
 				{
-					printf("CryptCreateHash failed");
-					CloseHandle(hDisk);
+					printf("Input data size (%I64d bytes) doesn't match output data size (%I64d bytes)\n", nxdata->size, nxdataOut->size);
+				}
+				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+				{
+					printf("Operation cancelled.\n");
 					system("PAUSE");
 					return 0;
 				}
-			} else {
-				printf("MD5 Checksum validation bypassed\n");
 			}
-
-			// Read stream
-			while (bSuccess = ReadFile(hDisk, buffRead, buffSize, &bytesRead, NULL))
-			{
-				if (0 == bytesRead)
-				{
-					break;
-				}
-				readAmount += bytesRead;
-
-				if (!BYPASS_MD5SUM)
-				{
-					// Hash every read buffer
-					if (!CryptHashData(hHash, buffRead, bytesRead, 0))
-					{
-						printf("CryptHashData failed: \n");
-						CryptReleaseContext(hProv, 0);
-						CryptDestroyHash(hHash);
-						CloseHandle(hDisk);
-						system("PAUSE");
-						return 0;
-					}
-				}
-
-				// Write buffer to output stream
-				binOutput.write((char*)buffRead, bytesRead);
-				bytesWrite += bytesRead;
-				//printf("write %ld of %ld\n", bytesRead, bytesWrite);
-
-				printf("Dumping raw data... (%d%%) \r", (int)(readAmount * 100 / nxdata->size));
-			}
-			printf("\nFinished. %ld bytes\n", readAmount);
-			binOutput.close();
-			CloseHandle(hDisk);
-
-			// Check dump integrity
-			if (!BYPASS_MD5SUM)
-			{
-				// Build checksum for input file/drive
-				if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
-				{
-					char* buf;
-					size_t sz;
-					for (DWORD i = 0; i < cbHash; i++)
-					{
-						sz = snprintf(NULL, 0, "%c%c", rgbDigits[rgbHash[i] >> 4], rgbDigits[rgbHash[i] & 0xf]);
-						buf = (char*)malloc(sz + 1);
-						snprintf(buf, sz + 1, "%c%c", rgbDigits[rgbHash[i] >> 4], rgbDigits[rgbHash[i] & 0xf]);
-						md5hash.append(buf);
-					}
-				} else {
-					printf("\nFailed to get hash value.\n");
-					system("PAUSE");
-					return 0;
-				}
-				CryptDestroyHash(hHash);
-				CryptReleaseContext(hProv, 0);
-
-				if (DEBUG_MODE)
-				{
-					printf("MD5 sum for INPUT is %s\n", md5hash.c_str());
-				}
-
-				// Compute then compare output checksum
-				if (md5hash == GetMD5Hash(output))
-				{
-					printf("Verified (checksums are IDENTICAL)\n");
-				} else {
-					printf("ERROR : checksums are DIFFERENT \n");
-				}
-			}
-
-			// Compute elapsed time
-			auto end = std::chrono::system_clock::now();
-			std::chrono::duration<double> elapsed_seconds = end - start;
-			printf("Elapsed time : %.2f s.\n", elapsed_seconds.count());
 		}
 	}
+
+	// Get handle to the input file or I/O device
+	HANDLE hDisk;
+	hDisk = CreateFileW(wInput, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	if (hDisk == INVALID_HANDLE_VALUE)
+	{
+		if (nxdata->isDrive)
+		{
+			printf("Could not open physical drive (input). Make sur to run this program as an administrator.\n");
+		} else {
+			printf("Error while opening %s \n", input);
+		}
+		CloseHandle(hDisk);
+		system("PAUSE");
+		return 0;
+	}
+
+	// Get handle to the output file or I/O device
+	HANDLE hDiskOut;
+	if (nxdataOut->isDrive)
+	{
+		hDiskOut = CreateFileW(wOutput, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	} else {
+		hDiskOut = CreateFileW(wOutput, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	}
+
+	if (hDiskOut == INVALID_HANDLE_VALUE)
+	{
+		if (nxdataOut->isDrive)
+		{
+			printf("Could not open physical drive (output). Make sur to run this program as an administrator.\n");
+			printf("%s\n", GetLastErrorAsString().c_str());
+		} else {
+			printf("Error while creating %s \n", output);
+		}
+		CloseHandle(hDiskOut);
+		system("PAUSE");
+		return 0;
+	}
+
+	BOOL bSuccess, bSuccessW;
+	DWORD buffSize = BUFSIZE, bytesRead = 0, bytesWriten = 0, cbHash = 0;
+	BYTE buffRead[BUFSIZE], rgbHash[MD5LEN];
+	u64 readAmount = 0;
+	HCRYPTPROV hProv = 0;
+	HCRYPTHASH hHash = 0;
+	CHAR rgbDigits[] = "0123456789abcdef";
+	std::string md5hash;
+	cbHash = MD5LEN;
+
+	if (!BYPASS_MD5SUM)
+	{
+		// Get handle to the crypto provider
+		if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
+		{
+			DWORD dwStatus = GetLastError();
+			printf("CryptAcquireContext failed: %d\n", dwStatus);
+			CloseHandle(hDisk);
+			system("PAUSE");
+			return 0;
+		}
+
+		// Create the hash
+		if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
+		{
+			printf("CryptCreateHash failed");
+			CloseHandle(hDisk);
+			system("PAUSE");
+			return 0;
+		}
+	} else {
+		printf("MD5 Checksum validation bypassed\n");
+	}
+
+	// Read stream
+	auto start = std::chrono::system_clock::now();
+	while (bSuccess = ReadFile(hDisk, buffRead, buffSize, &bytesRead, NULL))
+	{
+		if (!bSuccess)
+		{
+			printf("Error during read operation : %s \n", GetLastErrorAsString().c_str());
+			system("PAUSE");
+			return 0;
+		}
+		if (0 == bytesRead)
+		{
+			break;
+		}
+		readAmount += bytesRead;
+
+		if (!BYPASS_MD5SUM)
+		{
+			// Hash every read buffer
+			if (!CryptHashData(hHash, buffRead, bytesRead, 0))
+			{
+				printf("CryptHashData failed: \n");
+				CryptReleaseContext(hProv, 0);
+				CryptDestroyHash(hHash);
+				CloseHandle(hDisk);
+				system("PAUSE");
+				return 0;
+			}
+		}
+
+		// Write buffer to output stream
+		bSuccessW = WriteFile(hDiskOut, buffRead, bytesRead, &bytesWriten, NULL);
+		if (!bSuccessW)
+		{
+			printf("Error during write operation : %s \n", GetLastErrorAsString().c_str());
+			system("PAUSE");
+			return 0;
+		}
+		printf("Copying raw data... (%d%%) \r", (int)(readAmount * 100 / nxdata->size));
+	}
+	printf("\nFinished. %ld bytes dumped\n", readAmount);
+	CloseHandle(hDisk);
+	CloseHandle(hDiskOut);
+
+	// Check dump integrity
+	if (!BYPASS_MD5SUM)
+	{
+		// Build checksum for input file/drive
+		if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
+		{
+			char* buf;
+			size_t sz;
+			for (DWORD i = 0; i < cbHash; i++)
+			{
+				sz = snprintf(NULL, 0, "%c%c", rgbDigits[rgbHash[i] >> 4], rgbDigits[rgbHash[i] & 0xf]);
+				buf = (char*)malloc(sz + 1);
+				snprintf(buf, sz + 1, "%c%c", rgbDigits[rgbHash[i] >> 4], rgbDigits[rgbHash[i] & 0xf]);
+				md5hash.append(buf);
+			}
+		} else {
+			printf("\nFailed to get hash value.\n");
+			system("PAUSE");
+			return 0;
+		}
+		CryptDestroyHash(hHash);
+		CryptReleaseContext(hProv, 0);
+
+		if (DEBUG_MODE)
+		{
+			printf("MD5 sum for INPUT is %s\n", md5hash.c_str());
+		}
+
+		// Compute then compare output checksum
+		if (md5hash == GetMD5Hash(output))
+		{
+			printf("Verified (checksums are IDENTICAL)\n");
+		} else {
+			printf("ERROR : checksums are DIFFERENT \n");
+		}
+	}
+
+	// Compute elapsed time
+	auto end = std::chrono::system_clock::now();
+	std::chrono::duration<double> elapsed_seconds = end - start;
+	printf("Elapsed time : %.2f s.\n", elapsed_seconds.count());
+	
+
 	system("PAUSE");
 	return 0;
 }
