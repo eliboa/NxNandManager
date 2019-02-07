@@ -8,6 +8,8 @@ typedef struct _NxStorage
 {
     int type;
     u64 size;
+	BOOL isDrive;
+
 } NxStorage;
 
 template<typename T, size_t ARR_SIZE>
