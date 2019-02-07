@@ -1,7 +1,5 @@
 #pragma once
 
-
-
 typedef unsigned long long int u64;
 
 typedef struct _NxStorage
