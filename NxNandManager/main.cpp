@@ -208,13 +208,15 @@ BOOL GetStorageInfo(LPWSTR storage, NxStorage* nxdata)
 		dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{
+			BYTE buffGpt[0x4200];
 			BYTE sbuff[15];
-			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
-			memcpy(sbuff, &buff[0x98], 15);
+			ReadFile(hStorage, buffGpt, 0x4200, &bytesRead, NULL);
+			memcpy(sbuff, &buffGpt[0x98], 15);
 			// Look for "P R O D I N F O" string in GPT at offet 0x298
 			if (0 != bytesRead && hexStr(sbuff, 15) == "500052004f00440049004e0046004f")
 			{
 				nxdata->type = RAWNAND;
+				ParseGpt(buffGpt);				
 			}
 		}
 	}
@@ -237,13 +239,38 @@ BOOL GetStorageInfo(LPWSTR storage, NxStorage* nxdata)
 	return TRUE;
 }
 
+BOOL ParseGpt(unsigned char *gptHeader) 
+{
+	GptHeader *hdr = (GptHeader *)gptHeader;
+	for (u32 i = 0; i < hdr->num_part_ents; i++)
+	{
+		GptEntry *ent = (GptEntry *)(gptHeader + (hdr->part_ent_lba - 1) * NX_EMMC_BLOCKSIZE + i * sizeof(GptEntry));
+		GptPartition *part = (GptPartition *)malloc(sizeof(GptPartition));
+		part->lba_start = ent->lba_start;
+		part->lba_end = ent->lba_end;
+		part->attrs = ent->attrs;
+		
+		char name[37];
+		for (u32 i = 0; i < 36; i++)
+		{
+			part->name[i] = ent->name[i];
+		}
+		part->name[36] = '0';
+		
+		if (DEBUG_MODE)
+		{
+			printf("Partition %d : %s starts at %u lba, ends at %u lba\n", i, part->name, part->lba_start, part->lba_end);
+		}
+	}
+}
+
 int main(int argc, char* argv[])
 {
 	//printf("NxNandManager by eliboa \n");
 	const char* output = NULL;
 	const char* input = NULL;
 
-	// Arguments, controles & usage
+	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
 		printf("Usage: NxNandManager.exe -i inputFilename.bin|physicalDisk -o outputFilename.bin|physicalDisk [lFlags] \n\n");
 		printf("lFlags could be:\n");
@@ -366,7 +393,7 @@ int main(int argc, char* argv[])
 	HANDLE hDisk;
 	hDisk = CreateFileW(wInput, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 	if (hDisk == INVALID_HANDLE_VALUE)
-	{
+	{		
 		if (nxdata->isDrive)
 		{
 			printf("Could not open physical drive (input). Make sur to run this program as an administrator.\n");
@@ -380,12 +407,7 @@ int main(int argc, char* argv[])
 
 	// Get handle to the output file or I/O device
 	HANDLE hDiskOut;
-	if (nxdataOut->isDrive)
-	{
-		hDiskOut = CreateFileW(wOutput, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-	} else {
-		hDiskOut = CreateFileW(wOutput, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-	}
+	hDiskOut = CreateFileW(wOutput, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, nxdataOut->isDrive ? OPEN_EXISTING : CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 
 	if (hDiskOut == INVALID_HANDLE_VALUE)
 	{
