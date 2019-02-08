@@ -245,7 +245,10 @@ int main(int argc, char* argv[])
 
 	// Arguments, controles & usage
 	auto PrintUsage = []() -> int {
-		printf("Usage: NxNandManager.exe -i inputFilename.bin -o outputFilename.bin [lFlags] \n");
+		printf("Usage: NxNandManager.exe -i inputFilename.bin|physicalDisk -o outputFilename.bin|physicalDisk [lFlags] \n\n");
+		printf("lFlags could be:\n");
+			printf("BYPASS_MD5SUM: Doesn't check the MD5 during the dump, take less time but very less secure.\n");
+			printf("DEBUG_MODE: Enable the debug mode.\n");
 		return -1;
 	};
 
@@ -264,19 +267,19 @@ int main(int argc, char* argv[])
 	{
 		char* currArg = argv[i];
 
-		if (_strnicmp(currArg, INPUT_ARGUMENT, array_countof(INPUT_ARGUMENT) - 1) == 0 && i < argc)
+		if (strncmp(currArg, INPUT_ARGUMENT, array_countof(INPUT_ARGUMENT) - 1) == 0 && i < argc)
 		{
 			input = argv[++i];
 		}
-		if (_strnicmp(currArg, OUTPUT_ARGUMENT, array_countof(OUTPUT_ARGUMENT) - 1) == 0 && i < argc)
+		if (strncmp(currArg, OUTPUT_ARGUMENT, array_countof(OUTPUT_ARGUMENT) - 1) == 0 && i < argc)
 		{
 			output = argv[++i];
 		}
-		if (_strnicmp(currArg, BYPASS_MD5SUM_FLAG, array_countof(BYPASS_MD5SUM_FLAG) - 1) == 0)
+		if (strncmp(currArg, BYPASS_MD5SUM_FLAG, array_countof(BYPASS_MD5SUM_FLAG) - 1) == 0)
 		{
 			BYPASS_MD5SUM = TRUE;
 		}
-		if (_strnicmp(currArg, DEBUG_MODE_FLAG, array_countof(DEBUG_MODE_FLAG) - 1) == 0)
+		if (strncmp(currArg, DEBUG_MODE_FLAG, array_countof(DEBUG_MODE_FLAG) - 1) == 0)
 		{
 			DEBUG_MODE = TRUE;
 		}
