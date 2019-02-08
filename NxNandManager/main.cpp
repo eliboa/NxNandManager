@@ -141,6 +141,8 @@ BOOL GetStorageInfo(LPWSTR storage, NxStorage* nxdata)
 {
 	DISK_GEOMETRY pdg = { 0 };
 	nxdata->isDrive = FALSE;
+	nxdata->firstPartion = NULL;
+
 	if (GetDriveGeometry(storage, &pdg))
 	{
 		nxdata->isDrive = TRUE;
@@ -216,7 +218,7 @@ BOOL GetStorageInfo(LPWSTR storage, NxStorage* nxdata)
 			if (0 != bytesRead && hexStr(sbuff, 15) == "500052004f00440049004e0046004f")
 			{
 				nxdata->type = RAWNAND;
-				ParseGpt(buffGpt);				
+				ParseGpt(nxdata, buffGpt);				
 			}
 		}
 	}
@@ -239,17 +241,21 @@ BOOL GetStorageInfo(LPWSTR storage, NxStorage* nxdata)
 	return TRUE;
 }
 
-BOOL ParseGpt(unsigned char *gptHeader) 
+BOOL ParseGpt(NxStorage* nxStorage, unsigned char* gptHeader)
 {
 	GptHeader *hdr = (GptHeader *)gptHeader;
-	for (u32 i = 0; i < hdr->num_part_ents; i++)
+
+	// Iterate partitions backwards (from GPT header) 
+	for (int i = hdr->num_part_ents - 1; i >= 0; --i)
 	{
+		// Get GPT entry
 		GptEntry *ent = (GptEntry *)(gptHeader + (hdr->part_ent_lba - 1) * NX_EMMC_BLOCKSIZE + i * sizeof(GptEntry));
+
+		// Set new partition
 		GptPartition *part = (GptPartition *)malloc(sizeof(GptPartition));
 		part->lba_start = ent->lba_start;
 		part->lba_end = ent->lba_end;
-		part->attrs = ent->attrs;
-		
+		part->attrs = ent->attrs;		
 		char name[37];
 		for (u32 i = 0; i < 36; i++)
 		{
@@ -257,11 +263,23 @@ BOOL ParseGpt(unsigned char *gptHeader)
 		}
 		part->name[36] = '0';
 		
-		if (DEBUG_MODE)
+		// Add partition to linked list
+		part->next = nxStorage->firstPartion;
+		nxStorage->firstPartion = part;
+	}
+	if (DEBUG_MODE)
+	{
+		GptPartition *cur = nxStorage->firstPartion;
+		int i = 0;
+		// Iterate partition list
+		while (NULL != cur)
 		{
-			printf("Partition %d : %s starts at %u lba, ends at %u lba\n", i, part->name, part->lba_start, part->lba_end);
+			printf("Partition %d : %s starts at %u lba, ends at %u lba\n", i, cur->name, cur->lba_start, cur->lba_end);
+			i++;
+			cur = cur->next;
 		}
 	}
+	return hdr->num_part_ents > 0 ? TRUE : FALSE;
 }
 
 int main(int argc, char* argv[])
@@ -269,10 +287,12 @@ int main(int argc, char* argv[])
 	//printf("NxNandManager by eliboa \n");
 	const char* output = NULL;
 	const char* input = NULL;
+	int io_num = 1;
+	const char* partition = NULL;
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
-		printf("Usage: NxNandManager.exe -i inputFilename.bin|physicalDisk -o outputFilename.bin|physicalDisk [lFlags] \n\n");
+		printf("Usage: NxNandManager.exe -i inputFilename.bin|physicalDisk -o outputFilename.bin|physicalDisk [-part=nxPartitionName] [lFlags] \n\n");
 		printf("lFlags could be:\n");
 		printf("BYPASS_MD5SUM: Doesn't check the MD5 during the dump, take less time but very less secure.\n");
 		printf("DEBUG_MODE: Enable the debug mode.\n");
@@ -287,6 +307,7 @@ int main(int argc, char* argv[])
 
 	const char INPUT_ARGUMENT[] = "-i";
 	const char OUTPUT_ARGUMENT[] = "-o";
+	const char PARTITION_ARGUMENT[] = "-part";
 	const char BYPASS_MD5SUM_FLAG[] = "BYPASS_MD5SUM";
 	const char DEBUG_MODE_FLAG[] = "DEBUG_MODE";
 
@@ -301,6 +322,18 @@ int main(int argc, char* argv[])
 		if (strncmp(currArg, OUTPUT_ARGUMENT, array_countof(OUTPUT_ARGUMENT) - 1) == 0 && i < argc)
 		{
 			output = argv[++i];
+		}
+		if (strncmp(currArg, PARTITION_ARGUMENT, array_countof(PARTITION_ARGUMENT) - 1) == 0)
+		{
+			u32 len= array_countof(PARTITION_ARGUMENT) - 1;
+			if (currArg[len] == '=')
+			{
+				partition = &currArg[len + 1];
+			}
+			else if (currArg[len] == 0)
+			{
+				if (i == argc - 1) return PrintUsage();
+			}
 		}
 		if (strncmp(currArg, BYPASS_MD5SUM_FLAG, array_countof(BYPASS_MD5SUM_FLAG) - 1) == 0)
 		{
@@ -317,11 +350,13 @@ int main(int argc, char* argv[])
 		PrintUsage();
 		return -1;
 	}
+	if (NULL != output && NULL != input) io_num = 2;
 
 	if (DEBUG_MODE)
 	{
-		printf("INPUT is %s. Length is %d. \n", input, strlen(input));
-		printf("OUTPUT is %s. Length is %d. \n", output, strlen(output));
+		printf("INPUT ARGUMENT is %s. \n", input);
+		printf("OUTPUT ARGUMENT is %s. \n", output);
+		if (NULL != partition) printf("PARTITION ARGUMENT is %s. \n", partition);
 		printf("BYPASS_MD5SUM is %s. \n", BYPASS_MD5SUM ? "true" : "false");
 	}
 
@@ -389,44 +424,74 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	// Get handle to the input file or I/O device
 	HANDLE hDisk;
-	hDisk = CreateFileW(wInput, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-	if (hDisk == INVALID_HANDLE_VALUE)
-	{		
-		if (nxdata->isDrive)
-		{
-			printf("Could not open physical drive (input). Make sur to run this program as an administrator.\n");
-		} else {
-			printf("Error while opening %s \n", input);
-		}
-		CloseHandle(hDisk);
-		system("PAUSE");
-		return 0;
-	}
-
-	// Get handle to the output file or I/O device
 	HANDLE hDiskOut;
-	hDiskOut = CreateFileW(wOutput, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, nxdataOut->isDrive ? OPEN_EXISTING : CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	BOOL isInput;
+	u64 bytesToWrite = NULL;
 
-	if (hDiskOut == INVALID_HANDLE_VALUE)
-	{
-		if (nxdataOut->isDrive)
+	// iterate input/output
+	for (int i = 1; i <= io_num; i++)
+	{	
+		isInput = i == 2 ? FALSE : TRUE;
+		if (isInput)
 		{
-			printf("Could not open physical drive (output). Make sur to run this program as an administrator.\n");
-			printf("%s\n", GetLastErrorAsString().c_str());
+			// Get handle to the INPUT file or I/O device
+			hDisk = CreateFileW(wInput, GENERIC_READ, FILE_SHARE_READ, NULL, 
+									OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 		} else {
-			printf("Error while creating %s \n", output);
+			// Get handle to the OUTPUT file or I/O device
+			hDiskOut = CreateFileW(wOutput, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, 
+									nxdataOut->isDrive ? OPEN_EXISTING : CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 		}
-		CloseHandle(hDiskOut);
-		system("PAUSE");
-		return 0;
+
+		// Invalid handle	
+		if ((!isInput && hDiskOut == INVALID_HANDLE_VALUE) || hDisk == INVALID_HANDLE_VALUE)
+		{
+			if ((!isInput && nxdataOut->isDrive || nxdata->isDrive))
+			{
+				printf("Could not open physical drive (%s). Make sure to run this program as an administrator.\n", isInput ? "input" : "output");
+			} else {
+				printf("Error while opening %s \n", isInput ? input : output);
+			}
+			CloseHandle(isInput ? hDisk : hDiskOut);
+			system("PAUSE");
+			return 0;
+		}
+
+		if (NULL != partition && ((isInput && NULL != nxdata->firstPartion) || NULL != nxdataOut->firstPartion))
+		{
+			// Iterate GPT partition list
+			GptPartition *cur = isInput ? nxdata->firstPartion : nxdataOut->firstPartion;
+			while (NULL != cur)
+			{
+				// If partition exists in input/output stream
+				if (strncmp(cur->name, partition, strlen(partition)) == 0)
+				{
+					// Try to set pointers
+					if (SetFilePointer(!isInput ? hDiskOut : hDisk, cur->lba_start * NX_EMMC_BLOCKSIZE, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER)
+					{
+						if (DEBUG_MODE) printf("Pointer set for %s partition %s\n", !isInput ? "writing to" : "reading from", cur->name);
+						// Set number of bytes to read						
+						if(isInput) bytesToWrite = (cur->lba_end - cur->lba_start + 1) * NX_EMMC_BLOCKSIZE;
+
+					} 
+					else if (DEBUG_MODE) 
+					{
+						printf("Failed to set pointer for %s partition %s\n", !isInput ? "writing to" : "reading from", cur->name);
+					}
+					break;
+				}
+				cur = cur->next;
+			}
+		}
+		NxStorage* curNxdata = i == 2 ? nxdataOut : nxdata;		
 	}
+
 
 	BOOL bSuccess, bSuccessW;
-	DWORD buffSize = BUFSIZE, bytesRead = 0, bytesWriten = 0, cbHash = 0;
-	BYTE buffRead[BUFSIZE], rgbHash[MD5LEN];
-	u64 readAmount = 0;
+	DWORD buffSize = BUFSIZE, bytesRead = 0, bytesWrite = 0, bytesWriten = 0, cbHash = 0;
+	BYTE buffRead[BUFSIZE], buffWrite[BUFSIZE], rgbHash[MD5LEN];
+	u64 readAmount = 0, writeAmount = 0;
 	HCRYPTPROV hProv = 0;
 	HCRYPTHASH hHash = 0;
 	CHAR rgbDigits[] = "0123456789abcdef";
@@ -459,6 +524,7 @@ int main(int argc, char* argv[])
 
 	// Read stream
 	auto start = std::chrono::system_clock::now();
+
 	while (bSuccess = ReadFile(hDisk, buffRead, buffSize, &bytesRead, NULL))
 	{
 		if (!bSuccess)
@@ -473,10 +539,25 @@ int main(int argc, char* argv[])
 		}
 		readAmount += bytesRead;
 
+		if (NULL != bytesToWrite && readAmount > bytesToWrite)
+		{
+			// Adjust write buffer
+			memcpy(buffWrite, &buffRead[0], buffSize - (readAmount - bytesToWrite));
+			bytesWrite = buffSize - (readAmount - bytesToWrite);
+			if (bytesWrite == 0)
+			{
+				break;
+			}
+		} else {
+			// Copy read to write buffer
+			memcpy(buffWrite, &buffRead[0], buffSize);
+			bytesWrite = buffSize;
+		}
+
 		if (!BYPASS_MD5SUM)
 		{
 			// Hash every read buffer
-			if (!CryptHashData(hHash, buffRead, bytesRead, 0))
+			if (!CryptHashData(hHash, buffWrite, bytesWrite, 0))
 			{
 				printf("CryptHashData failed: \n");
 				CryptReleaseContext(hProv, 0);
@@ -488,13 +569,21 @@ int main(int argc, char* argv[])
 		}
 
 		// Write buffer to output stream
-		bSuccessW = WriteFile(hDiskOut, buffRead, bytesRead, &bytesWriten, NULL);
+		bSuccessW = WriteFile(hDiskOut, buffWrite, bytesWrite, &bytesWriten, NULL);
 		if (!bSuccessW)
 		{
 			printf("Error during write operation : %s \n", GetLastErrorAsString().c_str());
 			system("PAUSE");
 			return 0;
+		} else {
+			writeAmount += bytesWriten;
 		}
+		
+		if (NULL != bytesToWrite && writeAmount >= bytesToWrite)
+		{
+			break;
+		}
+		
 		printf("Copying raw data... (%d%%) \r", (int)(readAmount * 100 / nxdata->size));
 	}
 	printf("\nFinished. %ld bytes dumped\n", readAmount);

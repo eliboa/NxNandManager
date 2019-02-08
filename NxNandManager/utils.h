@@ -21,7 +21,7 @@
 #define GPT_PART_NAME_LEN 36
 
 BOOL GetStorageInfo(LPWSTR storage, NxStorage* nxdata);
-BOOL ParseGpt(unsigned char *gptHeader);
+BOOL ParseGpt(NxStorage* nxStorage, unsigned char *gptHeader);
 
 wchar_t *convertCharArrayToLPCWSTR(const char* charArray);
 LPWSTR convertCharArrayToLPWSTR(const char* charArray);

@@ -7,13 +7,6 @@ typedef unsigned long long int u64;
 typedef char s8;
 
 
-typedef struct _NxStorage
-{
-	int type;
-	u64 size;
-	BOOL isDrive;
-
-} NxStorage;
 
 typedef struct _GptHeader
 {
@@ -44,14 +37,23 @@ typedef struct _GptEntry
 	u16 name[36];
 } GptEntry;
 
-typedef struct _GptPartition
-{
+
+typedef struct GptPartition GptPartition;
+struct GptPartition {
 	u32 lba_start;
 	u32 lba_end;
 	u64 attrs;
 	s8 name[37];
-} GptPartition;
+	GptPartition *next;
+};
 
+typedef struct NxStorage NxStorage;
+struct NxStorage {
+	int type;
+	u64 size;
+	BOOL isDrive;
+	GptPartition *firstPartion;
+};
 
 template<typename T, size_t ARR_SIZE>
 size_t array_countof(T(&)[ARR_SIZE]) { return ARR_SIZE; }
