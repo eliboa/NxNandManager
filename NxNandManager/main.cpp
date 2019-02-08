@@ -247,8 +247,8 @@ int main(int argc, char* argv[])
 	auto PrintUsage = []() -> int {
 		printf("Usage: NxNandManager.exe -i inputFilename.bin|physicalDisk -o outputFilename.bin|physicalDisk [lFlags] \n\n");
 		printf("lFlags could be:\n");
-			printf("BYPASS_MD5SUM: Doesn't check the MD5 during the dump, take less time but very less secure.\n");
-			printf("DEBUG_MODE: Enable the debug mode.\n");
+		printf("BYPASS_MD5SUM: Doesn't check the MD5 during the dump, take less time but very less secure.\n");
+		printf("DEBUG_MODE: Enable the debug mode.\n");
 		return -1;
 	};
 
