@@ -31,3 +31,4 @@ std::string GetLastErrorAsString();
 std::string hexStr(unsigned char *data, int len);
 BOOL AskYesNoQuestion(const char* question);
 const char* GetNxStorageTypeAsString(int type);
+void throwException(const char* errorStr=NULL);

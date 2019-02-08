@@ -69,7 +69,7 @@ BOOL AskYesNoQuestion(const char* question)
 	string s;
 	while (bContinue)
 	{
-		printf("%s (Y/N)\n", question);
+		printf("%s (Y/N) : ", question);
 		cin >> ws;
 		getline(cin, s);
 		if (s.empty())
@@ -105,4 +105,11 @@ const char* GetNxStorageTypeAsString(int type)
 		return "UNKNOWN";
 		break;
 	}
+}
+
+void throwException(const char* errorStr)
+{
+	if(NULL != errorStr) printf("%s\n", errorStr);
+	system("PAUSE");
+	exit(EXIT_FAILURE);
 }

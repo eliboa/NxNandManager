@@ -292,17 +292,17 @@ int main(int argc, char* argv[])
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
-		printf("Usage: NxNandManager.exe -i inputFilename.bin|physicalDisk -o outputFilename.bin|physicalDisk [-part=nxPartitionName] [lFlags] \n\n");
+		printf("Usage: NxNandManager.exe -i inputFilename|physicalDisk -o outputFilename|physicalDisk [-part=nxPartitionName] [lFlags] \n\n");
 		printf("lFlags could be:\n");
 		printf("BYPASS_MD5SUM: Doesn't check the MD5 during the dump, take less time but very less secure.\n");
 		printf("DEBUG_MODE: Enable the debug mode.\n");
+		throwException();
 		return -1;
 	};
 
 	if (argc == 1)
 	{
 		PrintUsage();
-		return -1;
 	}
 
 	const char INPUT_ARGUMENT[] = "-i";
@@ -373,8 +373,7 @@ int main(int argc, char* argv[])
 		} else {
 			printf("Error while opening %s \n", wInput);
 		}
-		system("PAUSE");
-		return 0;
+		throwException();
 	}
 	if (DEBUG_MODE)
 	{
@@ -390,9 +389,8 @@ int main(int argc, char* argv[])
 			// Output file already exists					
 			if (!AskYesNoQuestion("Output file already exists. Do you want to overwrite it ?"))
 			{
-				printf("Operation cancelled.\n");
-				system("PAUSE");
-				return 0;
+				throwException("Operation cancelled.\n");
+
 			}
 		} else {
 			// Output is a logical drive
@@ -403,9 +401,7 @@ int main(int argc, char* argv[])
 				printf("Input data type (%s) doesn't match output data type (%s)\n", GetNxStorageTypeAsString(nxdata->type), GetNxStorageTypeAsString(nxdataOut->type));
 				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
 				{
-					printf("Operation cancelled.\n");
-					system("PAUSE");
-					return 0;
+					throwException("Operation cancelled.\n");
 				}
 			}
 			if (nxdata->size != nxdataOut->size || nxdata->type == nxdataOut->type)
@@ -416,9 +412,7 @@ int main(int argc, char* argv[])
 				}
 				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
 				{
-					printf("Operation cancelled.\n");
-					system("PAUSE");
-					return 0;
+					throwException("Operation cancelled.\n");
 				}
 			}
 		}
@@ -454,8 +448,7 @@ int main(int argc, char* argv[])
 				printf("Error while opening %s \n", isInput ? input : output);
 			}
 			CloseHandle(isInput ? hDisk : hDiskOut);
-			system("PAUSE");
-			return 0;
+			throwException();
 		}
 
 		if (NULL != partition && ((isInput && NULL != nxdata->firstPartion) || NULL != nxdataOut->firstPartion))
@@ -506,17 +499,14 @@ int main(int argc, char* argv[])
 			DWORD dwStatus = GetLastError();
 			printf("CryptAcquireContext failed: %d\n", dwStatus);
 			CloseHandle(hDisk);
-			system("PAUSE");
-			return 0;
+			throwException();
 		}
 
 		// Create the hash
 		if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
 		{
-			printf("CryptCreateHash failed");
 			CloseHandle(hDisk);
-			system("PAUSE");
-			return 0;
+			throwException("CryptCreateHash failed\n");
 		}
 	} else {
 		printf("MD5 Checksum validation bypassed\n");
@@ -530,8 +520,7 @@ int main(int argc, char* argv[])
 		if (!bSuccess)
 		{
 			printf("Error during read operation : %s \n", GetLastErrorAsString().c_str());
-			system("PAUSE");
-			return 0;
+			throwException();
 		}
 		if (0 == bytesRead)
 		{
@@ -558,13 +547,11 @@ int main(int argc, char* argv[])
 		{
 			// Hash every read buffer
 			if (!CryptHashData(hHash, buffWrite, bytesWrite, 0))
-			{
-				printf("CryptHashData failed: \n");
+			{				
 				CryptReleaseContext(hProv, 0);
 				CryptDestroyHash(hHash);
 				CloseHandle(hDisk);
-				system("PAUSE");
-				return 0;
+				throwException("CryptHashData failed: \n");
 			}
 		}
 
@@ -573,20 +560,26 @@ int main(int argc, char* argv[])
 		if (!bSuccessW)
 		{
 			printf("Error during write operation : %s \n", GetLastErrorAsString().c_str());
-			system("PAUSE");
-			return 0;
+			throwException();
 		} else {
 			writeAmount += bytesWriten;
 		}
 		
+		int percent = NULL != bytesToWrite ? readAmount * 100 / bytesToWrite : readAmount * 100 / nxdata->size;
+		printf("Copying raw data from input %s (type: %s%s%s) to output %s (type: %s)... (%d%%) \r", 
+				nxdata->isDrive ? "drive" : "file",
+				GetNxStorageTypeAsString(nxdata->type), NULL != bytesToWrite && NULL != partition ? ", partition: " : "", 
+				NULL != bytesToWrite && NULL != partition ? partition : "",
+				nxdataOut->isDrive ? "drive" : "file",
+				GetNxStorageTypeAsString(nxdataOut->type),
+				NULL != bytesToWrite ? (int)(writeAmount * 100 / bytesToWrite) : (int)(writeAmount * 100 / nxdata->size));
+
 		if (NULL != bytesToWrite && writeAmount >= bytesToWrite)
 		{
 			break;
 		}
-		
-		printf("Copying raw data... (%d%%) \r", (int)(readAmount * 100 / nxdata->size));
 	}
-	printf("\nFinished. %ld bytes dumped\n", readAmount);
+	printf("\nFinished. %ld bytes dumped\n", writeAmount);
 	CloseHandle(hDisk);
 	CloseHandle(hDiskOut);
 
@@ -606,9 +599,7 @@ int main(int argc, char* argv[])
 				md5hash.append(buf);
 			}
 		} else {
-			printf("\nFailed to get hash value.\n");
-			system("PAUSE");
-			return 0;
+			throwException("\nFailed to get hash value.\n");
 		}
 		CryptDestroyHash(hHash);
 		CryptReleaseContext(hProv, 0);
@@ -630,8 +621,7 @@ int main(int argc, char* argv[])
 	// Compute elapsed time
 	auto end = std::chrono::system_clock::now();
 	std::chrono::duration<double> elapsed_seconds = end - start;
-	printf("Elapsed time : %.2f s.\n", elapsed_seconds.count());
-	
+	printf("Elapsed time : %.2fs.\n", elapsed_seconds.count());	
 
 	system("PAUSE");
 	return 0;
