@@ -107,6 +107,28 @@ const char* GetNxStorageTypeAsString(int type)
 	}
 }
 
+std::string GetReadableSize(u64 size)
+{
+	char buf[100];
+	if (size / (1024 * 1024 * 1024) > 0)
+	{
+		sprintf_s(buf, sizeof(buf), "%.2f Gb", (double)size / (1024 * 1024 * 1024));
+	}
+	else if (size / (1024 * 1024) > 0)
+	{
+		sprintf_s(buf, sizeof(buf), "%.2f Mb", (double)size / (1024 * 1024));
+	}
+	else if (size / 1024 > 0)
+	{
+		sprintf_s(buf, sizeof(buf), "%.2f Kb", (double)size / 1024);
+	}
+	else 
+	{
+		sprintf_s(buf, sizeof(buf), "%I64d byte%s", size, size>1 ? "s" : "");
+	}	
+	return std::string(buf);
+}
+
 void throwException(const char* errorStr)
 {
 	if(NULL != errorStr) printf("%s\n", errorStr);

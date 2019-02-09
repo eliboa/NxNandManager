@@ -31,4 +31,5 @@ std::string GetLastErrorAsString();
 std::string hexStr(unsigned char *data, int len);
 BOOL AskYesNoQuestion(const char* question);
 const char* GetNxStorageTypeAsString(int type);
+std::string GetReadableSize(u64 size);
 void throwException(const char* errorStr=NULL);

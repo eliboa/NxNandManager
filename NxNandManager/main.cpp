@@ -142,6 +142,7 @@ BOOL GetStorageInfo(LPWSTR storage, NxStorage* nxdata)
 	DISK_GEOMETRY pdg = { 0 };
 	nxdata->isDrive = FALSE;
 	nxdata->firstPartion = NULL;
+	nxdata->size = 0;
 
 	if (GetDriveGeometry(storage, &pdg))
 	{
@@ -287,6 +288,7 @@ int main(int argc, char* argv[])
 	//printf("NxNandManager by eliboa \n");
 	const char* output = NULL;
 	const char* input = NULL;
+	BOOL info = FALSE;
 	int io_num = 1;
 	const char* partition = NULL;
 
@@ -308,6 +310,7 @@ int main(int argc, char* argv[])
 	const char INPUT_ARGUMENT[] = "-i";
 	const char OUTPUT_ARGUMENT[] = "-o";
 	const char PARTITION_ARGUMENT[] = "-part";
+	const char INFO_ARGUMENT[] = "--info";
 	const char BYPASS_MD5SUM_FLAG[] = "BYPASS_MD5SUM";
 	const char DEBUG_MODE_FLAG[] = "DEBUG_MODE";
 
@@ -335,6 +338,10 @@ int main(int argc, char* argv[])
 				if (i == argc - 1) return PrintUsage();
 			}
 		}
+		if (strncmp(currArg, INFO_ARGUMENT, array_countof(INFO_ARGUMENT) - 1) == 0)
+		{
+			info = TRUE;
+		}
 		if (strncmp(currArg, BYPASS_MD5SUM_FLAG, array_countof(BYPASS_MD5SUM_FLAG) - 1) == 0)
 		{
 			BYPASS_MD5SUM = TRUE;
@@ -345,7 +352,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (NULL == output || NULL == input)
+	if (NULL == input || (NULL == output && !info))
 	{
 		PrintUsage();
 		return -1;
@@ -381,7 +388,7 @@ int main(int argc, char* argv[])
 		printf("Input size is %I64d bytes\n", nxdata->size);
 	}
 
-	if (GetStorageInfo(wOutput, nxdataOut))
+	if (GetStorageInfo(wOutput, nxdataOut) && !info)
 	{
 		// Output exists
 		if (!nxdataOut->isDrive)
@@ -390,9 +397,9 @@ int main(int argc, char* argv[])
 			if (!AskYesNoQuestion("Output file already exists. Do you want to overwrite it ?"))
 			{
 				throwException("Operation cancelled.\n");
-
 			}
-		} else {
+		} 
+		else {
 			// Output is a logical drive
 			printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
 				   "            BE VERY CAUTIOUS !!!\n\n");			
@@ -427,6 +434,34 @@ int main(int argc, char* argv[])
 	for (int i = 1; i <= io_num; i++)
 	{	
 		isInput = i == 2 ? FALSE : TRUE;
+
+		// --info option specified
+		if (info)
+		{
+			NxStorage* curNxdata = i == 2 ? nxdataOut : nxdata;
+			if(io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
+			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
+			printf("NAND type : %s\n", GetNxStorageTypeAsString(curNxdata->type));
+			printf("Size      : %s\n", GetReadableSize(curNxdata->size).c_str());
+			if (NULL != curNxdata->firstPartion)
+			{
+				int i = 0;
+				GptPartition *cur = curNxdata->firstPartion;
+				while (NULL != cur)
+				{
+					u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
+					printf("%s%02d %s  (%s)\n", i == 0 ? "Partitions: " : "            ", ++i, cur->name, GetReadableSize(size).c_str());
+					cur = cur->next;
+				}
+			}
+			// If there's nothing left to do, exit (we don't want to pursue with i/o operations)
+			if(i == io_num)
+			{
+				system("PAUSE");
+				return 0;
+			}
+		}
+
 		if (isInput)
 		{
 			// Get handle to the INPUT file or I/O device
@@ -441,7 +476,7 @@ int main(int argc, char* argv[])
 		// Invalid handle	
 		if ((!isInput && hDiskOut == INVALID_HANDLE_VALUE) || hDisk == INVALID_HANDLE_VALUE)
 		{
-			if ((!isInput && nxdataOut->isDrive || nxdata->isDrive))
+			if(isInput ? nxdata->isDrive : nxdataOut->isDrive)
 			{
 				printf("Could not open physical drive (%s). Make sure to run this program as an administrator.\n", isInput ? "input" : "output");
 			} else {
@@ -450,18 +485,19 @@ int main(int argc, char* argv[])
 			CloseHandle(isInput ? hDisk : hDiskOut);
 			throwException();
 		}
-
-		if (NULL != partition && ((isInput && NULL != nxdata->firstPartion) || NULL != nxdataOut->firstPartion))
+		
+		// Partition specified, inspect i/o partition table
+		if(NULL != partition && (isInput ? NULL != nxdata->firstPartion : NULL != nxdataOut->firstPartion))
 		{
-			// Iterate GPT partition list
+			// Iterate GPT entry
 			GptPartition *cur = isInput ? nxdata->firstPartion : nxdataOut->firstPartion;
 			while (NULL != cur)
 			{
-				// If partition exists in input/output stream
+				// If partition exists in i/o stream
 				if (strncmp(cur->name, partition, strlen(partition)) == 0)
 				{
 					// Try to set pointers
-					if (SetFilePointer(!isInput ? hDiskOut : hDisk, cur->lba_start * NX_EMMC_BLOCKSIZE, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER)
+					if (SetFilePointer(isInput ? hDisk : hDiskOut, cur->lba_start * NX_EMMC_BLOCKSIZE, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER)
 					{
 						if (DEBUG_MODE) printf("Pointer set for %s partition %s\n", !isInput ? "writing to" : "reading from", cur->name);
 						// Set number of bytes to read						
@@ -477,9 +513,8 @@ int main(int argc, char* argv[])
 				cur = cur->next;
 			}
 		}
-		NxStorage* curNxdata = i == 2 ? nxdataOut : nxdata;		
-	}
 
+	}
 
 	BOOL bSuccess, bSuccessW;
 	DWORD buffSize = BUFSIZE, bytesRead = 0, bytesWrite = 0, bytesWriten = 0, cbHash = 0;
@@ -563,23 +598,21 @@ int main(int argc, char* argv[])
 			throwException();
 		} else {
 			writeAmount += bytesWriten;
-		}
-		
+		}	
 		int percent = NULL != bytesToWrite ? readAmount * 100 / bytesToWrite : readAmount * 100 / nxdata->size;
-		printf("Copying raw data from input %s (type: %s%s%s) to output %s (type: %s)... (%d%%) \r", 
+		printf("Copying raw data from input %s (type: %s%s%s) to output %s... (%d%%) \r", 
 				nxdata->isDrive ? "drive" : "file",
 				GetNxStorageTypeAsString(nxdata->type), NULL != bytesToWrite && NULL != partition ? ", partition: " : "", 
 				NULL != bytesToWrite && NULL != partition ? partition : "",
 				nxdataOut->isDrive ? "drive" : "file",
-				GetNxStorageTypeAsString(nxdataOut->type),
-				NULL != bytesToWrite ? (int)(writeAmount * 100 / bytesToWrite) : (int)(writeAmount * 100 / nxdata->size));
+ 				NULL != bytesToWrite ? (int)(writeAmount * 100 / bytesToWrite) : (int)(writeAmount * 100 / nxdata->size));
 
 		if (NULL != bytesToWrite && writeAmount >= bytesToWrite)
 		{
 			break;
 		}
 	}
-	printf("\nFinished. %ld bytes dumped\n", writeAmount);
+	printf("\nFinished. %s dumped\n", GetReadableSize(writeAmount).c_str());
 	CloseHandle(hDisk);
 	CloseHandle(hDiskOut);
 
