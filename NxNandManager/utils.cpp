@@ -87,7 +87,7 @@ BOOL AskYesNoQuestion(const char* question)
 		}
 	}
 }
-
+/*
 const char* GetNxStorageTypeAsString(int type)
 {
 	switch (type)
@@ -106,7 +106,7 @@ const char* GetNxStorageTypeAsString(int type)
 		break;
 	}
 }
-
+*/
 std::string GetReadableSize(u64 size)
 {
 	char buf[100];

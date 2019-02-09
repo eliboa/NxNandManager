@@ -3,7 +3,7 @@ CFLAGS=-std=c++11 -Wall
 EXEC_NAME=NxNandManager.exe
 INCLUDES=
 LIBS=
-OBJ_FILES=utils.o main.o
+OBJ_FILES=utils.o NxStorage.o main.o
 INSTALL_DIR=build
 
 all : $(EXEC_NAME)
