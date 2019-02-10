@@ -29,6 +29,7 @@ using namespace std;
 
 BOOL BYPASS_MD5SUM = FALSE;
 BOOL DEBUG_MODE = FALSE;
+BOOL FORCE = FALSE;
 
 std::string GetMD5Hash(const char* szPath)
 {
@@ -145,6 +146,7 @@ int main(int argc, char* argv[])
 	const char INFO_ARGUMENT[] = "--info";
 	const char BYPASS_MD5SUM_FLAG[] = "BYPASS_MD5SUM";
 	const char DEBUG_MODE_FLAG[] = "DEBUG_MODE";
+	const char FORCE_FLAG[] = "FORCE";
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -185,6 +187,10 @@ int main(int argc, char* argv[])
 		{
 			DEBUG_MODE = TRUE;
 		}
+		if (strncmp(currArg, FORCE_FLAG, array_countof(FORCE_FLAG) - 1) == 0)
+		{
+			FORCE = TRUE;
+		}
 	}
 
 	#if defined(ENABLE_GUI)
@@ -216,6 +222,11 @@ int main(int argc, char* argv[])
 	}
 	if (NULL != output && NULL != input) io_num = 2;
 
+	if (FORCE)
+	{
+		printf("Force mode activated, no questions will be asked.\n");
+	}
+
 	if (DEBUG_MODE)
 	{
 		printf("INPUT ARGUMENT is %s. \n", input);
@@ -241,24 +252,36 @@ int main(int argc, char* argv[])
 	{
 		if (nxdataOut.size > 0 && !nxdataOut.isDrive)
 		{
-			// Output file already exists					
-			if (!AskYesNoQuestion("Output file already exists. Do you want to overwrite it ?"))
+			if (!FORCE)
 			{
-				throwException("Operation cancelled.\n");
+				// Output file already exists					
+				if (!AskYesNoQuestion("Output file already exists. Do you want to overwrite it ?"))
+				{
+					throwException("Operation cancelled.\n");
+				}
 			}
 		}
 
 		if (nxdataOut.isDrive)
 		{
 			// Output is a logical drive
-			printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
-				"            BE VERY CAUTIOUS !!!\n\n");
+			if (!FORCE)
+			{
+				printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
+					"            BE VERY CAUTIOUS !!!\n\n");
+			}
 			if (nxdata.type != nxdataOut.type)
 			{
 				printf("Input data type (%s) doesn't match output data type (%s)\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
-				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+				if (!FORCE)
 				{
-					throwException("Operation cancelled.\n");
+					if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+					{
+						throwException("Operation cancelled.\n");
+					}
+				} else {
+					printf("You can't continue in force mode for security reason.");
+					return 40;
 				}
 			}
 			if (nxdata.size != nxdataOut.size || nxdata.type == nxdataOut.type)
@@ -267,9 +290,15 @@ int main(int argc, char* argv[])
 				{
 					printf("Input data size (%I64d bytes) doesn't match output data size (%I64d bytes)\n", nxdata.size, nxdataOut.size);
 				}
-				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+				if (!FORCE)
 				{
-					throwException("Operation cancelled.\n");
+					if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+					{
+						throwException("Operation cancelled.\n");
+					}
+				} else {
+					printf("You can't continue in force mode for security reason.");
+					return 41;
 				}
 			}
 		}
@@ -323,9 +352,15 @@ int main(int argc, char* argv[])
 		}
 		else if (rc == -1)
 		{
-			if (!AskYesNoQuestion("Unable to detect partition from input. Continue anyway (dump all partitions) ?"))
+			if (!FORCE)
 			{
-				throwException("Operation canceled\n");
+				if (!AskYesNoQuestion("Unable to detect partition from input. Continue anyway (dump all partitions) ?"))
+				{
+					throwException("Operation canceled\n");
+				}
+			} else {
+				printf("No partition detected for your input, you can't continue in force mode for security reason.");
+				return 42;
 			}
 		}
 
@@ -337,9 +372,15 @@ int main(int argc, char* argv[])
 		}
 		else if (rc == -1 && nxdataOut.type == RAWNAND)
 		{
-			if (!AskYesNoQuestion("Unable to detect partition from output. Continue anyway (will overwrite to entire file/disk) ?"))
+			if (!FORCE)
 			{
-				throwException("Operation canceled\n");
+				if (!AskYesNoQuestion("Unable to detect partition from output. Continue anyway (will overwrite to entire file/disk) ?"))
+				{
+					throwException("Operation canceled\n");
+				}
+			} else {
+				printf("No partitions detected in your Rawnand output, you can't continue in force mode for security reason.");
+				return 43;
 			}
 		}
 
