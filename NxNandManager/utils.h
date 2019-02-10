@@ -23,3 +23,5 @@ BOOL AskYesNoQuestion(const char* question);
 //const char* GetNxStorageTypeAsString(int type);
 std::string GetReadableSize(u64 size);
 void throwException(const char* errorStr=NULL);
+char* ListPhysicalDrives();
+char * flipAndCodeBytes(const char * str, int pos, int flip, char * buf);
