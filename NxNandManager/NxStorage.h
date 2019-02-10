@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include <Wincrypt.h>
 #include <string>
 #include "utils.h"
 
@@ -61,14 +62,6 @@ struct GptPartition {
 	u64 attrs;
 	s8 name[37];
 	GptPartition *next;
-};
-
-typedef struct NxStorage NxStorage;
-struct NxData {
-	int type;
-	u64 size;
-	BOOL isDrive;
-	GptPartition *firstPartion;
 };
 
 class NxStorage {

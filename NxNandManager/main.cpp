@@ -201,10 +201,8 @@ int main(int argc, char* argv[])
 			return -1;
 		}
 
-		MainDialog dlg;
+		MainDialog dlg(input, output);
 		dlg.DoModal();
-
-		system("PAUSE");
 		return 0;
 	}
 	#endif
