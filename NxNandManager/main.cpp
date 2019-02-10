@@ -1,6 +1,6 @@
 // NxNandManager
 
-//#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
+#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
 
 #if defined(ENABLE_GUI)
 	#include "stdafx.h"
@@ -18,10 +18,11 @@
 #include "types.h"
 #include "utils.h"
 #include "NxStorage.h"
+#include <afxwinappex.h>
 
 #if defined(ENABLE_GUI)
 	#include "MainDialog.h"
-	CWinApp theApp;
+	CWinAppEx theApp;
 #endif
 
 using namespace std;
@@ -114,6 +115,7 @@ std::string GetMD5Hash(const char* szPath)
 }
 int main(int argc, char* argv[])
 {
+
 	//printf("NxNandManager by eliboa \n");
 	const char* output = NULL;
 	const char* input = NULL;
