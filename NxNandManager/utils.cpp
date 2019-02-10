@@ -86,7 +86,9 @@ BOOL AskYesNoQuestion(const char* question)
 			break;
 		}
 	}
+	return FALSE;
 }
+
 /*
 const char* GetNxStorageTypeAsString(int type)
 {
