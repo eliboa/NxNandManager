@@ -137,19 +137,19 @@ void throwException(const char* errorStr)
 	system("PAUSE");
 	exit(EXIT_FAILURE);
 }
-// Returns char array of every compatible physical disk number
-char* ListPhysicalDrives()
+// Concatenate every compatible physical disk n° in a string
+std::string ListPhysicalDrives()
 {
 	int num_drive = 0;
-	char compatibleDrives[27];
+	std::string compatibleDrives;
 
 	for (int drive = 0; drive < 26; drive++)
 	{		
 		char driveName[256];
 		sprintf_s(driveName, 256, "\\\\.\\PhysicalDrive%d", drive);		
-		
+
 		HANDLE hPhysicalDriveIOCTL = 0;
-		hPhysicalDriveIOCTL = CreateFile(convertCharArrayToLPCWSTR(driveName), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+		hPhysicalDriveIOCTL = CreateFileW(convertCharArrayToLPWSTR(driveName), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
 		if (hPhysicalDriveIOCTL == INVALID_HANDLE_VALUE)
 		{
 			break;
@@ -180,12 +180,12 @@ char* ListPhysicalDrives()
 			if (strncmp(vendorId, VID, array_countof(VID) - 1) == 0 && strncmp(productId, PID, array_countof(PID) - 1) == 0)
 			{
 				std::string s = std::to_string(drive);
-				compatibleDrives[num_drive] = s[0];
+				compatibleDrives.append(s);
 				num_drive++;
 			}
 		}
 	}
-	compatibleDrives[num_drive] = '\0';
+	//compatibleDrives[num_drive] = '\0';
 	return compatibleDrives;
 }
 

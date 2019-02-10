@@ -25,8 +25,8 @@ BOOL MainDialog::OnInitDialog()
 	CDialog::OnInitDialog();
 
 	CComboBox *pComboBox = (CComboBox*)GetDlgItem(IDC_INPUT_COMBO);
-	char* drives = ListPhysicalDrives();
-	CString csDrives(*drives);
+	std::string drives = ListPhysicalDrives();
+	CString csDrives(drives.c_str());
 	for (int i = 0; i < csDrives.GetLength(); ++i)
 	{
 		CString driveName;
