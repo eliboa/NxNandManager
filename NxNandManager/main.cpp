@@ -154,7 +154,7 @@ int main(int argc, char* argv[])
 		char* currArg = argv[i];
 		if (strncmp(currArg, LIST_ARGUMENT, array_countof(LIST_ARGUMENT) - 1) == 0)
 		{
-			printf("%s", ListPhysicalDrives();
+			cout << ListPhysicalDrives();
 			return 0;
 		}
 		if (strncmp(currArg, GUI_ARGUMENT, array_countof(GUI_ARGUMENT) - 1) == 0)
