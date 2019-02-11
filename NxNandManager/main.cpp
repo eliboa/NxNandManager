@@ -203,7 +203,7 @@ int main(int argc, char* argv[])
 
 	if (LIST && !gui)
 	{
-		cout << ListPhysicalDrives();
+		printf("%s", ListPhysicalDrives().c_str());
 		return 0;
 	}
 	#if defined(ENABLE_GUI)
