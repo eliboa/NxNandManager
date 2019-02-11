@@ -186,7 +186,7 @@ std::string ListPhysicalDrives()
 		}
 	}
 	//compatibleDrives[num_drive] = '\0';
-	if (compatibleDrives == "")
+	if (num_drive == 0)
 	{
 		compatibleDrives = "No compatible drive detected.\n\n";
 	} else {
