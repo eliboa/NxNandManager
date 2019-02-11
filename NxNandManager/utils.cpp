@@ -180,8 +180,7 @@ std::string ListPhysicalDrives()
 			if (strncmp(vendorId, VID, array_countof(VID) - 1) == 0 && strncmp(productId, PID, array_countof(PID) - 1) == 0)
 			{
 				std::string s = std::to_string(drive);
-				compatibleDrives.append(s);
-				compatibleDrives = compatibleDrives + "\n";
+				compatibleDrives.append("\\\\.\\PhysicalDrive" + s + "\n");
 				num_drive++;
 			}
 		}
