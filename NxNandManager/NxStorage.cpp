@@ -77,11 +77,14 @@ void NxStorage::InitStorage()
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{
 			BYTE sbuff[4];
+			BYTE sbuff51[4];
 			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
 			memcpy(sbuff, &buff[0xD0], 4);
+			memcpy(sbuff51, &buff[0xF0], 4);
 			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT1 hex = %s\n", hexStr(sbuff, 4).c_str());
+			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT2 hex = %s\n", hexStr(sbuff51, 4).c_str());
 			// Look for "PK11" magic offset at offset 0x12D0
-			if (0 != bytesRead && hexStr(sbuff, 4) == "504b3131")
+			if (0 != bytesRead && (hexStr(sbuff, 4) == "504b3131" || hexStr(sbuff51, 4) == "504b3131"))
 			{
 				type = BOOT1;
 			}
@@ -113,11 +116,10 @@ void NxStorage::InitStorage()
 	{
 		if (!GetFileSizeEx(hStorage, &Lsize))
 		{
-			//printf("GetFileSizeEx failed. %s \n", GetLastErrorAsString().c_str());
-			CloseHandle(hStorage);
+			printf("NxStorage::InitStorage GetFileSizeEx failed.\n");
 		} else {
 			size = Lsize.QuadPart;
-			if (DEBUG_MODE) printf("NxStorage::InitStorage - File size = %I64d\n", size);
+			if (DEBUG_MODE) printf("NxStorage::InitStorage - File size = %I64d bytes\n", size);
 		}
 	}
 	CloseHandle(hStorage);
