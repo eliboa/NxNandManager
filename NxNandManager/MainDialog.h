@@ -38,11 +38,12 @@ public:
 	char* input;
 	char* output;
 
-	afx_msg void OnEnChangeInput();	
 	afx_msg void OnBnClickedDumpAll();
 	afx_msg void OnEnChangeOutput();
 	afx_msg void OnBnClickedOk();
 	afx_msg void OnLbnSelchangePartlist();
-	afx_msg void OnCbnSelchangeInputCombo();
-	afx_msg void OnCbnEditchangeInputCombo();
+	afx_msg void OnChangeINPUT();
+	afx_msg void InitInputCombo();
+	CString GetCurrentInput();
+	void AddInputComboString(CString inStr);
 };

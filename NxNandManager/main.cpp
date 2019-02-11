@@ -1,6 +1,6 @@
 // NxNandManager
 
-//#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
+#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
 
 #if defined(ENABLE_GUI)
 	#include "stdafx.h"
