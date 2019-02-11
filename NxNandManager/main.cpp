@@ -144,6 +144,7 @@ int main(int argc, char* argv[])
 	const char OUTPUT_ARGUMENT[] = "-o";
 	const char PARTITION_ARGUMENT[] = "-part";
 	const char INFO_ARGUMENT[] = "--info";
+	const char LIST_ARGUMENT[] = "--list";
 	const char BYPASS_MD5SUM_FLAG[] = "BYPASS_MD5SUM";
 	const char DEBUG_MODE_FLAG[] = "DEBUG_MODE";
 	const char FORCE_FLAG[] = "FORCE";
@@ -151,6 +152,11 @@ int main(int argc, char* argv[])
 	for (int i = 1; i < argc; i++)
 	{
 		char* currArg = argv[i];
+		if (strncmp(currArg, LIST_ARGUMENT, array_countof(LIST_ARGUMENT) - 1) == 0)
+		{
+			cout << ListPhysicalDrives();
+			return 0;
+		}
 		if (strncmp(currArg, GUI_ARGUMENT, array_countof(GUI_ARGUMENT) - 1) == 0)
 		{
 			gui = TRUE;
