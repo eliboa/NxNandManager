@@ -31,6 +31,7 @@ using namespace std;
 BOOL BYPASS_MD5SUM = FALSE;
 BOOL DEBUG_MODE = FALSE;
 BOOL FORCE = FALSE;
+BOOL LIST = FALSE;
 
 std::string GetMD5Hash(const char* szPath)
 {
@@ -154,13 +155,14 @@ int main(int argc, char* argv[])
 		char* currArg = argv[i];
 		if (strncmp(currArg, LIST_ARGUMENT, array_countof(LIST_ARGUMENT) - 1) == 0)
 		{
-			cout << ListPhysicalDrives();
-			return 0;
+			LIST = TRUE;
 		}
-		if (strncmp(currArg, GUI_ARGUMENT, array_countof(GUI_ARGUMENT) - 1) == 0)
-		{
-			gui = TRUE;
-		}
+		#if defined(ENABLE_GUI)
+			if (strncmp(currArg, GUI_ARGUMENT, array_countof(GUI_ARGUMENT) - 1) == 0)
+			{
+				gui = TRUE;
+			}
+		#endif
 		if (strncmp(currArg, INPUT_ARGUMENT, array_countof(INPUT_ARGUMENT) - 1) == 0 && i < argc)
 		{
 			input = argv[++i];
@@ -199,6 +201,11 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	if (LIST && !gui)
+	{
+		cout << ListPhysicalDrives();
+		return 0;
+	}
 	#if defined(ENABLE_GUI)
 	if (gui)
 	{
