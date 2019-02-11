@@ -1,8 +1,9 @@
 #include "NxStorage.h"
-
+#include "NxNandManager.h"
 
 NxStorage::NxStorage(const char* storage)
 {
+	if (DEBUG_MODE) printf("NxStorage::NxStorage - path = %s\n", storage);
 	path = storage;
 	pathLPWSTR = convertCharArrayToLPWSTR(storage);
 	type = UNKNOWN;
@@ -20,7 +21,7 @@ void NxStorage::InitStorage()
 {
 	HANDLE hDevice = INVALID_HANDLE_VALUE;
 	BOOL bResult = FALSE;
-	DWORD junk = 0;
+	DWORD junk = 0;	
 
 	hDevice = CreateFileW(pathLPWSTR,
 		0,
@@ -37,6 +38,7 @@ void NxStorage::InitStorage()
 		{
 			isDrive = TRUE;
 			size = pdg.Cylinders.QuadPart * (ULONG)pdg.TracksPerCylinder * (ULONG)pdg.SectorsPerTrack * (ULONG)pdg.BytesPerSector;
+			if (DEBUG_MODE) printf("NxStorage::InitStorage - Drive size is %I64d bytes\n", size);
 		}
 	}
 	CloseHandle(hDevice);
@@ -48,6 +50,8 @@ void NxStorage::InitStorage()
 	if (hStorage == INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(hStorage);
+		type = INVALID;
+		if (DEBUG_MODE) printf("NxStorage::InitStorage - No such file or drive (INVALID_HANDLE) - %s\n", path);
 		return;
 	}
 
@@ -59,6 +63,7 @@ void NxStorage::InitStorage()
 		BYTE sbuff[12];
 		ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
 		memcpy(sbuff, &buff[0x130], 12);
+		if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT0 hex = %s\n", hexStr(sbuff, 12).c_str());
 		// Look for boot_data_version + block_size_log2 + page_size_log2 at offset 0x0530
 		if (0 != bytesRead && hexStr(sbuff, 12) == "010021000e00000009000000")
 		{
@@ -74,6 +79,7 @@ void NxStorage::InitStorage()
 			BYTE sbuff[4];
 			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
 			memcpy(sbuff, &buff[0xD0], 4);
+			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT1 hex = %s\n", hexStr(sbuff, 4).c_str());
 			// Look for "PK11" magic offset at offset 0x12D0
 			if (0 != bytesRead && hexStr(sbuff, 4) == "504b3131")
 			{
@@ -91,6 +97,7 @@ void NxStorage::InitStorage()
 			BYTE sbuff[15];
 			ReadFile(hStorage, buffGpt, 0x4200, &bytesRead, NULL);
 			memcpy(sbuff, &buffGpt[0x98], 15);
+			if (DEBUG_MODE) printf("NxStorage::InitStorage - RAWNAND hex = %s\n", hexStr(sbuff, 15).c_str());
 			// Look for "P R O D I N F O" string in GPT at offet 0x298
 			if (0 != bytesRead && hexStr(sbuff, 15) == "500052004f00440049004e0046004f")
 			{
@@ -110,6 +117,7 @@ void NxStorage::InitStorage()
 			CloseHandle(hStorage);
 		} else {
 			size = Lsize.QuadPart;
+			if (DEBUG_MODE) printf("NxStorage::InitStorage - File size = %I64d\n", size);
 		}
 	}
 	CloseHandle(hStorage);
@@ -119,7 +127,6 @@ void NxStorage::InitStorage()
 BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 {
 	GptHeader *hdr = (GptHeader *)gptHeader;
-
 	// Iterate partitions backwards (from GPT header) 
 	for (int i = hdr->num_part_ents - 1; i >= 0; --i)
 	{
@@ -142,6 +149,8 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 		// Add partition to linked list
 		part->next = firstPartion;
 		firstPartion = part;
+
+		if (DEBUG_MODE) printf("NxStorage::ParseGpt - Partition %s found\n", part->name);
 	}
 
 	return hdr->num_part_ents > 0 ? TRUE : FALSE;
@@ -164,6 +173,7 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, const char* p
 
 	if (*hHandle == INVALID_HANDLE_VALUE)
 	{
+		if (DEBUG_MODE) printf("NxStorage::GetIOHandle - Failed to get handle for read/write to %s\n", path);
 		return -3;
 	}
 
@@ -182,6 +192,7 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, const char* p
 					*bytesToRead = (cur->lba_end - cur->lba_start + 1) * NX_EMMC_BLOCKSIZE;
 					return 0;
 				} else {
+					if (DEBUG_MODE) printf("NxStorage::GetIOHandle - Failed to set pointer to specific partition %s\n", partition);
 					return -2;
 				}
 				break;

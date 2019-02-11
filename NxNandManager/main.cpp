@@ -1,6 +1,5 @@
 // NxNandManager
-
-#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
+//#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
 
 #if defined(ENABLE_GUI)
 	#include "stdafx.h"
@@ -19,7 +18,7 @@
 #include "types.h"
 #include "utils.h"
 #include "NxStorage.h"
-
+#include "NxNandManager.h"
 
 #if defined(ENABLE_GUI)
 	#include "MainDialog.h"
@@ -29,7 +28,8 @@
 using namespace std;
 
 BOOL BYPASS_MD5SUM = FALSE;
-BOOL DEBUG_MODE = FALSE;
+bool DEBUG_MODE = false;
+//BOOL DEBUG_MODE = FALSE;
 BOOL FORCE = FALSE;
 BOOL LIST = FALSE;
 

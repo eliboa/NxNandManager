@@ -155,6 +155,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="MainDialog.h" />
+    <ClInclude Include="NxNandManager.h" />
     <ClInclude Include="NxStorage.h" />
     <ClInclude Include="ProgressDialog.h" />
     <ClInclude Include="resource.h" />

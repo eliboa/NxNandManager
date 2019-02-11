@@ -42,6 +42,9 @@
     <ClInclude Include="UIThread.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="NxNandManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
