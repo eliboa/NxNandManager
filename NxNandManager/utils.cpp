@@ -181,11 +181,18 @@ std::string ListPhysicalDrives()
 			{
 				std::string s = std::to_string(drive);
 				compatibleDrives.append(s);
+				compatibleDrives = compatibleDrives + "\n";
 				num_drive++;
 			}
 		}
 	}
 	//compatibleDrives[num_drive] = '\0';
+	if (compatibleDrives == "")
+	{
+		compatibleDrives = "No compatible drive detected.\n\n";
+	} else {
+		compatibleDrives = compatibleDrives + "\n";
+	}
 	return compatibleDrives;
 }
 
