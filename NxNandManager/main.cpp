@@ -35,9 +35,10 @@ BOOL LIST = FALSE;
 
 std::string GetMD5Hash(const char* szPath)
 {
-	NxStorage* nxdata = (NxStorage*)malloc(sizeof(NxStorage));
+	if(DEBUG_MODE) printf("GetMD5Hash begin for %s\n", szPath);
 	std::string md5hash;
 	LPWSTR wszPath = convertCharArrayToLPWSTR(szPath);
+	NxStorage nxdata(szPath);
 
 	// Get handle to the file or I/O device
 	HANDLE hDisk;
@@ -73,6 +74,7 @@ std::string GetMD5Hash(const char* szPath)
 			return NULL;
 		}
 
+		if(DEBUG_MODE) printf("GetMD5Hash, CryptoHash created\n");
 		// Read stream
 		while (bSuccess = ReadFile(hDisk, buffRead, buffSize, &bytesRead, NULL))
 		{
@@ -92,7 +94,7 @@ std::string GetMD5Hash(const char* szPath)
 				return NULL;
 			}
 
-			printf("Computing MD5 checksum... (%d%%) \r", (int)(readAmount * 100 / nxdata->size));
+			printf("Computing MD5 checksum... (%d%%) \r", (int)(readAmount * 100 / nxdata.size));
 		}
 		printf("\n");
 		CloseHandle(hDisk);
@@ -350,7 +352,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (nxdata.size > 0 && nxdataOut.type != INVALID)
+	if (nxdata.size > 0)
 	{
 		HANDLE hDisk, hDiskOut;
 		u64 bytesToRead = nxdata.size, readAmount = 0, writeAmount = 0;
@@ -431,7 +433,7 @@ int main(int argc, char* argv[])
 		while (bSuccess = nxdata.dumpStorage(&hDisk, &hDiskOut, &readAmount, &writeAmount, bytesToRead, !BYPASS_MD5SUM ? &hHash : NULL))
 		{
 			int percent = (u64)writeAmount * 100 / (u64)bytesToRead;
-			printf("Copying raw data from input %s (type: %s%s%s) to output %s... (%d%%) \r",
+			printf("Copying from input %s (type: %s%s%s) to output %s... (%d%%) \r",
 				nxdata.isDrive ? "drive" : "file",
 				nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
 				nxdata.size != bytesToRead && NULL != partition ? partition : "",
