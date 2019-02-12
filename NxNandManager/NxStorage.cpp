@@ -92,7 +92,7 @@ void NxStorage::InitStorage()
 			ReadFile(hStorage, buffGpt, 0x4200, &bytesRead, NULL);
 			if (0 != bytesRead)
 			{
-				type = RAWNAND;
+				type = UNKNOWN; // Reset type, we'll look for real Nx partitions when parsing GPT
 				this->ParseGpt(buffGpt);
 			}
 		}
@@ -135,6 +135,11 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 		}
 		part->name[36] = '0';
 
+		// GPT contains NX NAND partition
+		if (strcmp(part->name, "PRODINFO") == 0)
+		{
+			type = RAWNAND;
+		}
 		// Add partition to linked list
 		part->next = firstPartion;
 		firstPartion = part;

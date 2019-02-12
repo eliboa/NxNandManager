@@ -86,8 +86,9 @@ static MagicOffsets mgkOffArr[] =
 	{ 0x12E8, "504B3131", 4, BOOT1, 4},
 	{ 0x12D0, "504B3131", 4, BOOT1, 5},	
 	{ 0x12F0, "504B3131", 4, BOOT1, 5.1},
-	// RAWNAND -> Look for "P R O D I N F O" string in GPT
-	{ 0x298, "500052004F00440049004E0046004F", 15, RAWNAND, 0}	
+	// RAWNAND -> Look for GPT partition 
+	{ 0x200, "4546492050415254", 8, RAWNAND, 0 }
+	//{ 0x298, "500052004F00440049004E0046004F", 15, RAWNAND, 0}	
 };
 
 class NxStorage {
