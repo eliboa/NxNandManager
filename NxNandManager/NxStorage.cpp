@@ -248,6 +248,88 @@ BOOL NxStorage::dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmou
 	return TRUE;
 }
 
+std::string NxStorage::GetMD5Hash()
+{
+	if(DEBUG_MODE) printf("GetMD5Hash begin for %s\n", path);
+	std::string md5hash;
+
+	// Get handle to the file or I/O device
+	HANDLE hDisk;
+	if(GetIOHandle(&hDisk, GENERIC_READ) < 0)
+	{
+		printf("Could not open %s\n", path);
+		CloseHandle(hDisk);
+		return "";
+	} 
+
+	BOOL bSuccess;
+	DWORD buffSize = BUFSIZE, bytesRead = 0, cbHash = 0;
+	BYTE buffRead[BUFSIZE], rgbHash[MD5LEN];
+	ULONGLONG readAmount = 0;
+	HCRYPTPROV hProv = 0;
+	HCRYPTHASH hHash = 0;
+	CHAR rgbDigits[] = "0123456789abcdef";
+	cbHash = MD5LEN;
+
+	// Get handle to the crypto provider
+	if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
+	{
+		printf("CryptAcquireContext failed");
+		CloseHandle(hDisk);
+		return NULL;
+	}
+
+	// Create new hash
+	if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
+	{
+		printf("CryptCreateHash failed");
+		CloseHandle(hDisk);
+		return NULL;
+	}
+
+	if(DEBUG_MODE) printf("GetMD5Hash, CryptoHash created\n");
+	// Read stream
+	while (bSuccess = ReadFile(hDisk, buffRead, buffSize, &bytesRead, NULL))
+	{
+		if (0 == bytesRead)
+		{
+			break;
+		}
+		readAmount += bytesRead;
+
+		// Hash every read buffer
+		if (!CryptHashData(hHash, buffRead, bytesRead, 0))
+		{
+			printf("CryptHashData failed: \n");
+			CryptReleaseContext(hProv, 0);
+			CryptDestroyHash(hHash);
+			CloseHandle(hDisk);
+			return NULL;
+		}
+		printf("Computing MD5 checksum... (%d%%) \r", (int)(readAmount * 100 / size));
+	}
+	printf("\n");
+	CloseHandle(hDisk);
+
+	// Build checksum
+	if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
+	{
+		char* buf;
+		size_t sz;
+		for (DWORD i = 0; i < cbHash; i++)
+		{
+			sz = snprintf(NULL, 0, "%c%c", rgbDigits[rgbHash[i] >> 4], rgbDigits[rgbHash[i] & 0xf]);
+			buf = (char*)malloc(sz + 1);
+			snprintf(buf, sz + 1, "%c%c", rgbDigits[rgbHash[i] >> 4], rgbDigits[rgbHash[i] & 0xf]);
+			md5hash.append(buf);
+		}
+		return md5hash;
+	} else {
+		printf("CryptGetHashParam failed\n");
+	}	
+	return "";
+}
+
 const char* NxStorage::GetNxStorageTypeAsString()
 {
 	switch (type)

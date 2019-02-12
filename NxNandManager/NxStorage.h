@@ -96,10 +96,13 @@ class NxStorage {
 		int GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, const char* partition = NULL, u64 *bytesToRead = NULL);
 		BOOL dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmount, u64* writeAmount, u64 bytesToWrite, HCRYPTHASH* hHash = NULL);
 		const char* GetNxStorageTypeAsString();		
+		void InitStorage();
+		GptPartition *firstPartion;
+		std::string GetMD5Hash();	
 
 	private:
 		BOOL ParseGpt(unsigned char* gptHeader);
-		void InitStorage();
+
 
 	public:
 		const char* path;
@@ -109,6 +112,5 @@ class NxStorage {
 		BOOL isDrive;
 		DISK_GEOMETRY pdg;
 		int partCount;
-		GptPartition *firstPartion;
 };
 
