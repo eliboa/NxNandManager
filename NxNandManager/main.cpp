@@ -11,7 +11,6 @@
 #include <string>
 #include <fstream>
 #include <iostream>
-#include <chrono>
 #include <ctime>
 #include <Wincrypt.h>
 #include <sys/types.h>
@@ -413,7 +412,7 @@ int main(int argc, char* argv[])
 		// Compute elapsed time
 		auto end = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed_seconds = end - start;
-		printf("Elapsed time : %.2fs.\n", elapsed_seconds.count());
+		printf("Elapsed time : %s.\n", GetReadableElapsedTime(elapsed_seconds).c_str());
 	}
 	system("PAUSE");
 	return 0;

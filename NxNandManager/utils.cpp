@@ -133,6 +133,24 @@ std::string GetReadableSize(u64 size)
 	return std::string(buf);
 }
 
+std::string GetReadableElapsedTime(std::chrono::duration<double> elapsed_seconds)
+{
+	char buf[64];	
+	int seconds = (int)elapsed_seconds.count();
+	int minutes = seconds / 60;
+	if (minutes > 1) seconds = seconds % 60;
+	int hours = minutes / 60;
+	if (hours > 1 ) minutes = minutes % 60;
+
+	if (seconds > 1)
+	{
+		sprintf_s(buf, 64, "%02d:%02d:%02d", hours, minutes, seconds);
+	} else {
+		sprintf_s(buf, 64, "%.2fs", elapsed_seconds.count());
+	}
+	return std::string(buf);
+}
+
 void throwException(const char* errorStr)
 {
 	if(NULL != errorStr) printf("%s\n", errorStr);

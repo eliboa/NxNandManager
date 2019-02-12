@@ -7,6 +7,7 @@
 #include "types.h"
 #include <sys/stat.h>
 #include <iostream>
+#include <chrono>
 
 // MinGW
 #if defined(__MINGW32__) || defined(__MINGW64__)
@@ -34,6 +35,7 @@ std::string GetLastErrorAsString();
 std::string hexStr(unsigned char *data, int len);
 BOOL AskYesNoQuestion(const char* question);
 std::string GetReadableSize(u64 size);
+std::string GetReadableElapsedTime(std::chrono::duration<double> elapsed_seconds);
 void throwException(const char* errorStr=NULL);
 std::string ListPhysicalDrives();
 char * flipAndCodeBytes(const char * str, int pos, int flip, char * buf);

@@ -60,7 +60,7 @@ void NxStorage::InitStorage()
 	BYTE buff[0x200];
 	BYTE sbuff[0x200];
 	// Look for for magic offset
-	for (int i=0; i < array_countof(mgkOffArr); i++)
+	for (int i=0; i < (int)array_countof(mgkOffArr); i++)
 	{
 		if(DEBUG_MODE)
 		{
@@ -129,7 +129,6 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 		part->lba_start = ent->lba_start;
 		part->lba_end = ent->lba_end;
 		part->attrs = ent->attrs;
-		char name[37];
 		for (u32 i = 0; i < 36; i++)
 		{
 			part->name[i] = ent->name[i];
@@ -203,16 +202,19 @@ BOOL NxStorage::dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmou
 
 	if (NULL != bytesToWrite && *writeAmount >= bytesToWrite)
 	{
+		if (DEBUG_MODE) printf("NxStorage::dumpStorage - all data dumped. writeAmount=%I64d, bytesToWrite=%I64d\n", *writeAmount, bytesToWrite);
 		return FALSE;
 	}
 
 	// Read buffer
 	if (!ReadFile(*hHandleIn, buffer, buffSize, &bytesRead, NULL))
 	{
+		if (DEBUG_MODE) printf("NxStorage::dumpStorage - failed ReadFile()\n");
 		return FALSE;
 	}
 	if (0 == bytesRead)
 	{
+		if (DEBUG_MODE) printf("NxStorage::dumpStorage - 0 == bytesRead\n");
 		return FALSE;
 	}
 	*readAmount += (DWORD) bytesRead;
@@ -222,6 +224,7 @@ BOOL NxStorage::dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmou
 		// Adjust write buffer
 		memcpy(wbuffer, &buffer[0], buffSize - (*readAmount - bytesToWrite));
 		bytesWrite = buffSize - (*readAmount - bytesToWrite);
+		if (DEBUG_MODE) printf("NxStorage::dumpStorage - Adjust write buffer, new buff size is %I64d\n", bytesWrite);
 		if (bytesWrite == 0)
 		{
 			return FALSE;
