@@ -58,14 +58,13 @@ void NxStorage::InitStorage()
 
 	DWORD bytesRead = 0;
 	BYTE buff[0x200];
-
+	
 	// Look for for magic offset
 	for (int i=0; i < array_countof(mgkOffArr); i++)
 	{
 		if(DEBUG_MODE)
 		{
-			printf("mgkOffArr %d - offset = %I64d, magic = %s, sizeof magic = %I64d, type = %d, fw = %.2f\n", 
-					i, mgkOffArr[i].offset, mgkOffArr[i].magic, mgkOffArr[i].size, mgkOffArr[i].type, mgkOffArr[i].fw);
+			printf("Looking for magic \"%s\" at offset %I64d\n", mgkOffArr[i].magic, mgkOffArr[i].offset);
 		}
 		u64 ptrReadOffset = (int)(mgkOffArr[i].offset / NX_EMMC_BLOCKSIZE) * NX_EMMC_BLOCKSIZE;
 		u64 ptrInBuffOffset = mgkOffArr[i].offset % NX_EMMC_BLOCKSIZE;
@@ -84,18 +83,15 @@ void NxStorage::InitStorage()
 		}
 	}	
 
-	if (type == UNKNOWN)
+	// Read & parse GPT
+	if (type == RAWNAND)
 	{
 		DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{
 			BYTE buffGpt[0x4200];
-			BYTE sbuff[15];
 			ReadFile(hStorage, buffGpt, 0x4200, &bytesRead, NULL);
-			memcpy(sbuff, &buffGpt[0x98], 15);
-			if (DEBUG_MODE) printf("NxStorage::InitStorage - RAWNAND hex = %s\n", hexStr(sbuff, 15).c_str());
-			// Look for "P R O D I N F O" string in GPT at offet 0x298
-			if (0 != bytesRead && hexStr(sbuff, 15) == "500052004F00440049004E0046004F")
+			if (0 != bytesRead)
 			{
 				type = RAWNAND;
 				this->ParseGpt(buffGpt);

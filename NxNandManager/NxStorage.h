@@ -75,13 +75,19 @@ struct MagicOffsets {
 
 static MagicOffsets mgkOffArr[] =
 {	
+	// { offset, magic, size, type, firwmare }
+
+	// BOOT0 => Look for boot_data_version + block_size_log2 + page_size_log2
 	{ 0x0530, "010021000E00000009000000", 12, BOOT0, 0},
+	// BOOT1 => Look for PK11 magic	
 	{ 0x13B4, "504B3131", 4, BOOT1, 1},
 	{ 0x13F0, "504B3131", 4, BOOT1, 2},
 	{ 0x1424, "504B3131", 4, BOOT1, 3},	
 	{ 0x12E8, "504B3131", 4, BOOT1, 4},
 	{ 0x12D0, "504B3131", 4, BOOT1, 5},	
-	{ 0x12F0, "504B3131", 4, BOOT1, 5.1}	
+	{ 0x12F0, "504B3131", 4, BOOT1, 5.1},
+	// RAWNAND -> Look for "P R O D I N F O" string in GPT
+	{ 0x298, "500052004F00440049004E0046004F", 15, RAWNAND, 0}	
 };
 
 class NxStorage {
