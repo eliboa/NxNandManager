@@ -60,6 +60,8 @@ std::string hexStr(unsigned char *data, int len)
 		s[2 * i]     = hexmap[(data[i] & 0xF0) >> 4];
 		s[2 * i + 1] = hexmap[data[i] & 0x0F];
 	}
+	for (auto & c: s) c = toupper(c);
+
 	return s;
 }
 
@@ -137,7 +139,7 @@ void throwException(const char* errorStr)
 	system("PAUSE");
 	exit(EXIT_FAILURE);
 }
-// Concatenate every compatible physical disk n° in a string
+// Concatenate every compatible physical disk nï¿½ in a string
 std::string ListPhysicalDrives()
 {
 	int num_drive = 0;

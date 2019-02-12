@@ -64,6 +64,26 @@ struct GptPartition {
 	GptPartition *next;
 };
 
+typedef struct MagicOffsets MagicOffsets;
+struct MagicOffsets {
+	u64 offset;
+	const char* magic;
+	u64 size;
+	int type;
+	float fw;
+};
+
+static MagicOffsets mgkOffArr[] =
+{	
+	{ 0x0530, "010021000E00000009000000", 12, BOOT0, 0},
+	{ 0x13B4, "504B3131", 4, BOOT1, 1},
+	{ 0x13F0, "504B3131", 4, BOOT1, 2},
+	{ 0x1424, "504B3131", 4, BOOT1, 3},	
+	{ 0x12E8, "504B3131", 4, BOOT1, 4},
+	{ 0x12D0, "504B3131", 4, BOOT1, 5},	
+	{ 0x12F0, "504B3131", 4, BOOT1, 5.1}	
+};
+
 class NxStorage {
 	public: 
 		NxStorage(const char* storage);
@@ -85,3 +105,4 @@ class NxStorage {
 		int partCount;
 		GptPartition *firstPartion;
 };
+

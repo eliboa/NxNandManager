@@ -19,6 +19,7 @@ NxStorage::NxStorage(const char* storage)
 // Initialize and retrieve storage information
 void NxStorage::InitStorage()
 {
+	if (DEBUG_MODE) printf("NxStorage::InitStorage - Initialize\n");
 	HANDLE hDevice = INVALID_HANDLE_VALUE;
 	BOOL bResult = FALSE;
 	DWORD junk = 0;	
@@ -57,44 +58,35 @@ void NxStorage::InitStorage()
 
 	DWORD bytesRead = 0;
 	BYTE buff[0x200];
-	DWORD dwPtr = SetFilePointer(hStorage, 0x0400, NULL, FILE_BEGIN);
-	if (dwPtr != INVALID_SET_FILE_POINTER)
-	{
-		BYTE sbuff[12];
-		ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
-		memcpy(sbuff, &buff[0x130], 12);
-		if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT0 hex = %s\n", hexStr(sbuff, 12).c_str());
-		// Look for boot_data_version + block_size_log2 + page_size_log2 at offset 0x0530
-		if (0 != bytesRead && hexStr(sbuff, 12) == "010021000e00000009000000")
-		{
-			type = BOOT0;
-		}
-	}
 
-	if (type == UNKNOWN)
+	// Look for for magic offset
+	for (int i=0; i < array_countof(mgkOffArr); i++)
 	{
-		dwPtr = SetFilePointer(hStorage, 0x1200, NULL, FILE_BEGIN);
-		if (dwPtr != INVALID_SET_FILE_POINTER)
+		if(DEBUG_MODE)
 		{
-			BYTE sbuff[4], sbuff4[4], sbuff51[4];
+			printf("mgkOffArr %d - offset = %I64d, magic = %s, sizeof magic = %I64d, type = %d, fw = %.2f\n", 
+					i, mgkOffArr[i].offset, mgkOffArr[i].magic, mgkOffArr[i].size, mgkOffArr[i].type, mgkOffArr[i].fw);
+		}
+		u64 ptrReadOffset = (int)(mgkOffArr[i].offset / NX_EMMC_BLOCKSIZE) * NX_EMMC_BLOCKSIZE;
+		u64 ptrInBuffOffset = mgkOffArr[i].offset % NX_EMMC_BLOCKSIZE;
+		DWORD dwPtr = SetFilePointer(hStorage, ptrReadOffset, NULL, FILE_BEGIN);
+		if (dwPtr != INVALID_SET_FILE_POINTER)
+		{				
 			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
-			memcpy(sbuff, &buff[0xD0], 4);
-			memcpy(sbuff4, &buff[0xE8], 4);
-			memcpy(sbuff51, &buff[0xF0], 4);
-			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT1 hex fw >5 = %s\n", hexStr(sbuff, 4).c_str());
-			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT1 hex fw 4 = %s\n", hexStr(sbuff4, 4).c_str());
-			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT1 hex fw 5.1 = %s\n", hexStr(sbuff51, 4).c_str());
-			// Look for "PK11" magic offset at offset 0x12D0
-			if (0 != bytesRead && (hexStr(sbuff, 4) == "504b3131" || hexStr(sbuff4, 4) == "504b3131" || hexStr(sbuff51, 4) == "504b3131"))
-			{
-				type = BOOT1;
+			BYTE sbuff[4];
+			memcpy(sbuff, &buff[ptrInBuffOffset], mgkOffArr[i].size);	
+			if (0 != bytesRead && (hexStr(sbuff, mgkOffArr[i].size) == mgkOffArr[i].magic))
+			{					
+				type = mgkOffArr[i].type;
+				if(DEBUG_MODE) printf("magic offset found ! Type = %s, firmware = %.2f\n", GetNxStorageTypeAsString(), mgkOffArr[i].fw);
+				break;			
 			}
 		}
-	}
+	}	
 
 	if (type == UNKNOWN)
 	{
-		dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
+		DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{
 			BYTE buffGpt[0x4200];
@@ -103,7 +95,7 @@ void NxStorage::InitStorage()
 			memcpy(sbuff, &buffGpt[0x98], 15);
 			if (DEBUG_MODE) printf("NxStorage::InitStorage - RAWNAND hex = %s\n", hexStr(sbuff, 15).c_str());
 			// Look for "P R O D I N F O" string in GPT at offet 0x298
-			if (0 != bytesRead && hexStr(sbuff, 15) == "500052004f00440049004e0046004f")
+			if (0 != bytesRead && hexStr(sbuff, 15) == "500052004F00440049004E0046004F")
 			{
 				type = RAWNAND;
 				this->ParseGpt(buffGpt);
