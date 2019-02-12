@@ -58,7 +58,7 @@ void NxStorage::InitStorage()
 
 	DWORD bytesRead = 0;
 	BYTE buff[0x200];
-	
+	BYTE sbuff[0x200];
 	// Look for for magic offset
 	for (int i=0; i < array_countof(mgkOffArr); i++)
 	{
@@ -72,7 +72,6 @@ void NxStorage::InitStorage()
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{				
 			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
-			BYTE sbuff[4];
 			memcpy(sbuff, &buff[ptrInBuffOffset], mgkOffArr[i].size);	
 			if (0 != bytesRead && (hexStr(sbuff, mgkOffArr[i].size) == mgkOffArr[i].magic))
 			{					
