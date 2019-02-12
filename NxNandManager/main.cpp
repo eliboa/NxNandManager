@@ -44,10 +44,17 @@ int main(int argc, char* argv[])
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
-		printf("Usage: NxNandManager.exe -i inputFilename|physicalDisk -o outputFilename|physicalDisk [-part=nxPartitionName] [lFlags] \n\n");
+		printf("Usage: NxNandManager.exe [--list] [--info] -i inputFilename|\\\\.\\PhysicalDiskX -o outputFilename|\\\\.\\PhysicalDiskX [-part=nxPartitionName] [lFlags] \n\n");
+		printf("Params are:\n\n");
+		printf("--list : List compatible device for dump/restaure, doesn't need other params.\n");
+		printf("--info: Display infos for the input device/file witch is passed for input param, must be used with -i param only.");
+		printf("-i \"input_path\" : Input device/file.");
+		printf("-o \"output_path\" : Output device/file.");
+		printf("-part : Dump/restaure for a specific partition of the rawnand, value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\", \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\", \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\".");
 		printf("lFlags could be:\n");
-		printf("BYPASS_MD5SUM: Doesn't check the MD5 during the dump, take less time but very less secure.\n");
+		printf("BYPASS_MD5SUM: Doesn't check the MD5 during the dump, take less time but very less secure. If this flag is used for restaure, the MD5 is not required to do it (useful with the FORCE flag).\n");
 		printf("DEBUG_MODE: Enable the debug mode.\n");
+		printf("FORCE : Doesn't ask any questions during the program.\n");
 		throwException();
 		return -1;
 	};
