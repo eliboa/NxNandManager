@@ -76,15 +76,16 @@ void NxStorage::InitStorage()
 		dwPtr = SetFilePointer(hStorage, 0x1200, NULL, FILE_BEGIN);
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{
-			BYTE sbuff[4];
-			BYTE sbuff51[4];
+			BYTE sbuff[4], sbuff4[4], sbuff51[4];
 			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
 			memcpy(sbuff, &buff[0xD0], 4);
+			memcpy(sbuff4, &buff[0xE8], 4);
 			memcpy(sbuff51, &buff[0xF0], 4);
-			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT1 hex = %s\n", hexStr(sbuff, 4).c_str());
-			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT2 hex = %s\n", hexStr(sbuff51, 4).c_str());
+			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT1 hex fw >5 = %s\n", hexStr(sbuff, 4).c_str());
+			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT1 hex fw 4 = %s\n", hexStr(sbuff4, 4).c_str());
+			if (DEBUG_MODE) printf("NxStorage::InitStorage - BOOT1 hex fw 5.1 = %s\n", hexStr(sbuff51, 4).c_str());
 			// Look for "PK11" magic offset at offset 0x12D0
-			if (0 != bytesRead && (hexStr(sbuff, 4) == "504b3131" || hexStr(sbuff51, 4) == "504b3131"))
+			if (0 != bytesRead && (hexStr(sbuff, 4) == "504b3131" || hexStr(sbuff4, 4) == "504b3131" || hexStr(sbuff51, 4) == "504b3131"))
 			{
 				type = BOOT1;
 			}
