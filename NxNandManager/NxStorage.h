@@ -110,6 +110,7 @@ class NxStorage {
 		LPWSTR pathLPWSTR;
 		int type;
 		u64 size;
+		u64 raw_size;
 		BOOL isDrive;
 		DISK_GEOMETRY pdg;
 		int partCount;

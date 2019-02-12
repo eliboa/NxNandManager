@@ -7,7 +7,7 @@ NxStorage::NxStorage(const char* storage)
 	path = storage;
 	pathLPWSTR = convertCharArrayToLPWSTR(storage);
 	type = UNKNOWN;
-	size = 0;
+	size = 0, raw_size = 0;
 	isDrive = FALSE;
 	pdg = { 0 };
 	partCount = 0;
@@ -117,6 +117,8 @@ void NxStorage::InitStorage()
 BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 {
 	GptHeader *hdr = (GptHeader *)gptHeader;
+	raw_size = hdr->alt_lba * NX_EMMC_BLOCKSIZE + 0x200;
+
 	// Iterate partitions backwards (from GPT header) 
 	for (int i = hdr->num_part_ents - 1; i >= 0; --i)
 	{

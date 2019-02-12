@@ -222,9 +222,11 @@ int main(int argc, char* argv[])
 					return 40;
 				}
 			}
-			if (nxdata.size != nxdataOut.size || nxdata.type == nxdataOut.type)
+			u64 in_size = nxdata.raw_size > 0 ? nxdata.raw_size : nxdata.size;
+			u64 out_size = nxdataOut.raw_size > 0 ? nxdataOut.raw_size : nxdataOut.size;
+			if (in_size != out_size || nxdata.type == nxdataOut.type)
 			{
-				if (nxdata.size != nxdataOut.size)
+				if (in_size != out_size)
 				{
 					printf("Input data size (%I64d bytes) doesn't match output data size (%I64d bytes)\n", nxdata.size, nxdataOut.size);
 				}
@@ -242,14 +244,14 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	// iterate input/output
-	for (int i = 1; i <= io_num; i++)
+	// --info option specified
+	if (info)
 	{
-		BOOL isInput = i == 2 ? FALSE : TRUE;
-
-		// --info option specified
-		if (info)
+		// iterate input/output
+		for (int i = 1; i <= io_num; i++)
 		{
+			BOOL isInput = i == 2 ? FALSE : TRUE;
+
 			NxStorage* curNxdata = i == 2 ? &nxdataOut : &nxdata;
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
@@ -279,6 +281,10 @@ int main(int argc, char* argv[])
 	{
 		HANDLE hDisk, hDiskOut;
 		u64 bytesToRead = nxdata.size, readAmount = 0, writeAmount = 0;
+		if (nxdata.type == RAWNAND && nxdata.raw_size > 0 && NULL == partition)
+		{
+			bytesToRead = nxdata.raw_size;
+		}
 		BOOL bSuccess;
 		int rc;
 
@@ -351,17 +357,20 @@ int main(int argc, char* argv[])
 		}
 
 		// Read stream
+		int percent = -1;
 		auto start = std::chrono::system_clock::now();
-
 		while (bSuccess = nxdata.dumpStorage(&hDisk, &hDiskOut, &readAmount, &writeAmount, bytesToRead, !BYPASS_MD5SUM ? &hHash : NULL))
 		{
-			int percent = (u64)writeAmount * 100 / (u64)bytesToRead;
-			printf("Copying from input %s (type: %s%s%s) to output %s... (%d%%) \r",
-				nxdata.isDrive ? "drive" : "file",
-				nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
-				nxdata.size != bytesToRead && NULL != partition ? partition : "",
-				nxdataOut.isDrive ? "drive" : "file",
-				percent);
+			int new_percent = (u64)writeAmount * 100 / (u64)bytesToRead;
+			if (new_percent > percent) {
+				percent = new_percent;
+				printf("Copying from input %s (type: %s%s%s) to output %s... (%d%%) \r",
+					nxdata.isDrive ? "drive" : "file",
+					nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
+					nxdata.size != bytesToRead && NULL != partition ? partition : "",
+					nxdataOut.isDrive ? "drive" : "file",
+					percent);
+			}
 		}
 		printf("\nFinished. %s dumped\n", GetReadableSize(writeAmount).c_str());
 		CloseHandle(hDisk);
