@@ -6,13 +6,14 @@
 
 using namespace std;
 
-#define BUFSIZE 262144
-#define MD5LEN  16
-#define INVALID 1000
-#define BOOT0   1001
-#define BOOT1   1002
-#define RAWNAND 1003
-#define UNKNOWN 1004
+#define BUFSIZE   0x40000
+#define MD5LEN    16
+#define INVALID   1000
+#define BOOT0     1001
+#define BOOT1     1002
+#define RAWNAND	  1003
+#define PARTITION 1005
+#define UNKNOWN   1004
 #define NX_GPT_FIRST_LBA 1
 #define NX_GPT_NUM_BLOCKS 33
 #define NX_EMMC_BLOCKSIZE 512
@@ -73,10 +74,15 @@ struct MagicOffsets {
 	float fw;
 };
 
+typedef struct NxPartition NxPartition;
+struct NxPartition {
+	s8 name[37];
+	u64 size;
+};
+
 static MagicOffsets mgkOffArr[] =
 {	
 	// { offset, magic, size, type, firwmare }
-
 	// BOOT0 => Look for boot_data_version + block_size_log2 + page_size_log2
 	{ 0x0530, "010021000E00000009000000", 12, BOOT0, 0},
 	// BOOT1 => Look for PK11 magic	
@@ -87,8 +93,22 @@ static MagicOffsets mgkOffArr[] =
 	{ 0x12D0, "504B3131", 4, BOOT1, 5},	
 	{ 0x12F0, "504B3131", 4, BOOT1, 5.1},
 	// RAWNAND -> Look for GPT partition 
-	{ 0x200, "4546492050415254", 8, RAWNAND, 0 }
-	//{ 0x298, "500052004F00440049004E0046004F", 15, RAWNAND, 0}	
+	{ 0x200, "4546492050415254", 8, RAWNAND, 0 }	
+};
+
+static NxPartition partInfoArr[] =
+{
+	{ "PRODINFO",               0x003FBC00  },
+	{ "PRODINFOF",              0x00400000  },
+	{ "BCPKG2-1-Normal-Main",   0x00800000  },
+	{ "BCPKG2-2-Normal-Sub",    0x00800000  },
+	{ "BCPKG2-3-SafeMode-Main", 0x00800000  },
+	{ "BCPKG2-4-SafeMode-Sub",  0x00800000  },
+	{ "BCPKG2-5-Repair-Main",   0x00800000  },
+	{ "BCPKG2-6-Repair-Sub",    0x00800000  },
+	{ "SAFE",                   0x04000000  },
+	{ "SYSTEM",                 0xA0000000  },
+	{ "USER",                   0x680000000 }
 };
 
 class NxStorage {
@@ -97,8 +117,7 @@ class NxStorage {
 		int GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, const char* partition = NULL, u64 *bytesToRead = NULL);
 		BOOL dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmount, u64* writeAmount, u64 bytesToWrite, HCRYPTHASH* hHash = NULL);
 		const char* GetNxStorageTypeAsString();		
-		void InitStorage();
-		GptPartition *firstPartion;
+		void InitStorage();		
 		std::string GetMD5Hash();	
 
 	private:
@@ -114,7 +133,9 @@ class NxStorage {
 		BOOL isDrive;
 		BOOL backupGPTfound;
 		DISK_GEOMETRY pdg;
+		GptPartition *firstPartion;
 		int partCount;
 		BOOL autoRcm;
+		s8 partitionName[37];
 };
 

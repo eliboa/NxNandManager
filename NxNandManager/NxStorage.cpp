@@ -12,6 +12,7 @@ NxStorage::NxStorage(const char* storage)
 	pdg = { 0 };
 	partCount = 0;
 	firstPartion = NULL;
+	partitionName[0] = '\0';
 
 	this->InitStorage();
 }
@@ -56,6 +57,19 @@ void NxStorage::InitStorage()
 		return;
 	}
 
+	// Get size
+	LARGE_INTEGER Lsize;
+	if (!isDrive)
+	{
+		if (!GetFileSizeEx(hStorage, &Lsize))
+		{
+			printf("NxStorage::InitStorage GetFileSizeEx failed.\n");
+		} else {
+			size = Lsize.QuadPart;
+			if (DEBUG_MODE) printf("NxStorage::InitStorage - File size = %I64d bytes\n", size);
+		}
+	}
+
 	DWORD bytesRead = 0;
 	BYTE buff[0x200];
 	BYTE sbuff[0x200];
@@ -82,6 +96,23 @@ void NxStorage::InitStorage()
 		}
 	}	
 
+	// Try to identify partition files (comparing file name & file size)
+	// -> this is pretty shitty but we'll just stick with this for now)
+	if (type == UNKNOWN)
+	{
+		for (int i = 0; i < (int)array_countof(partInfoArr); i++)
+		{
+			std::string basename = base_name(std::string(path));
+			basename = remove_extension(basename);
+			if (strncmp(partInfoArr[i].name, basename.c_str(), strlen(basename.c_str())) == 0 && partInfoArr[i].size == size)
+			{
+				strcpy_s(partitionName, partInfoArr[i].name);
+				type = PARTITION;
+			}
+		}
+	}
+
+	// Detect autoRCM
 	if (type == BOOT0)
 	{
 		DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
@@ -124,18 +155,6 @@ void NxStorage::InitStorage()
 		}
 	}
 
-	// Get size
-	LARGE_INTEGER Lsize;
-	if (!isDrive)
-	{
-		if (!GetFileSizeEx(hStorage, &Lsize))
-		{
-			printf("NxStorage::InitStorage GetFileSizeEx failed.\n");
-		} else {
-			size = Lsize.QuadPart;
-			if (DEBUG_MODE) printf("NxStorage::InitStorage - File size = %I64d bytes\n", size);
-		}
-	}
 	CloseHandle(hStorage);
 }
 
@@ -368,6 +387,7 @@ std::string NxStorage::GetMD5Hash()
 
 const char* NxStorage::GetNxStorageTypeAsString()
 {
+	std::string buffStr;
 	switch (type)
 	{
 	case BOOT0:
@@ -381,6 +401,9 @@ const char* NxStorage::GetNxStorageTypeAsString()
 		break;
 	case INVALID:
 		return "INVALID";
+		break;
+	case PARTITION:
+		return "PARTITION";
 		break;
 	default:
 		return "UNKNOWN";

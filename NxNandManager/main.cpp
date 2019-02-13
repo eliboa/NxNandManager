@@ -255,7 +255,7 @@ int main(int argc, char* argv[])
 			NxStorage* curNxdata = i == 2 ? &nxdataOut : &nxdata;
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
-			printf("NAND type : %s\n", curNxdata->GetNxStorageTypeAsString());
+			printf("NAND type : %s %s\n", curNxdata->GetNxStorageTypeAsString(),curNxdata->partitionName);
 			if(curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");			
 			printf("Size      : %s\n", GetReadableSize(curNxdata->size).c_str());
 			if (NULL != curNxdata->firstPartion)
@@ -265,7 +265,7 @@ int main(int argc, char* argv[])
 				while (NULL != cur)
 				{
 					u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
-					printf("%s%02d %s  (%s)\n", i == 1 ? "Partitions: " : "            ", ++i, cur->name, GetReadableSize(size).c_str());
+					printf("%s%02d %s  (%s)\n", i == 0 ? "Partitions: " : "            ", ++i, cur->name, GetReadableSize(size).c_str());
 					cur = cur->next;
 				}
 			}
