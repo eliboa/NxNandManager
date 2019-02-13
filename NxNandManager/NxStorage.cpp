@@ -8,7 +8,7 @@ NxStorage::NxStorage(const char* storage)
 	pathLPWSTR = convertCharArrayToLPWSTR(storage);
 	type = UNKNOWN;
 	size = 0, raw_size = 0;
-	isDrive = FALSE;
+	isDrive = FALSE, backupGPTfound = FALSE, autoRcm = FALSE;
 	pdg = { 0 };
 	partCount = 0;
 	firstPartion = NULL;
@@ -82,6 +82,19 @@ void NxStorage::InitStorage()
 		}
 	}	
 
+	if (type == BOOT0)
+	{
+		DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
+		if (dwPtr != INVALID_SET_FILE_POINTER)
+		{
+			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
+			if (0 != bytesRead)
+			{
+				if(buff[0x10] != 0xF7) autoRcm = TRUE;
+			}
+		}
+	}
+
 	// Read & parse GPT
 	if (type == RAWNAND)
 	{
@@ -94,6 +107,19 @@ void NxStorage::InitStorage()
 			{
 				type = UNKNOWN; // Reset type, we'll look for real Nx partitions when parsing GPT
 				this->ParseGpt(buffGpt);
+
+				// Look for backup GPT
+				if(raw_size > 0 && type == RAWNAND) {
+					dwPtr = SetFilePointer(hStorage, raw_size - NX_EMMC_BLOCKSIZE, NULL, FILE_BEGIN);
+					if (dwPtr != INVALID_SET_FILE_POINTER)
+					{
+						ReadFile(hStorage, buffGpt, 0x4200, &bytesRead, NULL);
+						if (0 != bytesRead) {
+							GptHeader *hdr = (GptHeader *)buffGpt;
+							if(hdr->num_part_ents > 0) backupGPTfound == TRUE;
+						}
+					}
+				}
 			}
 		}
 	}
@@ -117,7 +143,8 @@ void NxStorage::InitStorage()
 BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 {
 	GptHeader *hdr = (GptHeader *)gptHeader;
-	raw_size = hdr->alt_lba * NX_EMMC_BLOCKSIZE + 0x200;
+	raw_size = (hdr->alt_lba + 1) * NX_EMMC_BLOCKSIZE;
+
 
 	// Iterate partitions backwards (from GPT header) 
 	for (int i = hdr->num_part_ents - 1; i >= 0; --i)

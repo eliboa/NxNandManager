@@ -112,7 +112,9 @@ class NxStorage {
 		u64 size;
 		u64 raw_size;
 		BOOL isDrive;
+		BOOL backupGPTfound;
 		DISK_GEOMETRY pdg;
 		int partCount;
+		BOOL autoRcm;
 };
 

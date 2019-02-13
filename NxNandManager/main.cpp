@@ -256,6 +256,7 @@ int main(int argc, char* argv[])
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
 			printf("NAND type : %s\n", curNxdata->GetNxStorageTypeAsString());
+			if(curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");			
 			printf("Size      : %s\n", GetReadableSize(curNxdata->size).c_str());
 			if (NULL != curNxdata->firstPartion)
 			{
@@ -264,10 +265,11 @@ int main(int argc, char* argv[])
 				while (NULL != cur)
 				{
 					u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
-					printf("%s%02d %s  (%s)\n", i == 0 ? "Partitions: " : "            ", ++i, cur->name, GetReadableSize(size).c_str());
+					printf("%s%02d %s  (%s)\n", i == 1 ? "Partitions: " : "            ", ++i, cur->name, GetReadableSize(size).c_str());
 					cur = cur->next;
 				}
 			}
+			if(curNxdata->type == RAWNAND) printf("Backup GPT: %s\n", curNxdata->backupGPTfound ? "FOUND" : "MISSING !!!");
 			// If there's nothing left to do, exit (we don't want to pursue with i/o operations)
 			if (i == io_num)
 			{
@@ -318,7 +320,7 @@ int main(int argc, char* argv[])
 		{
 			if (!FORCE)
 			{
-				if (!AskYesNoQuestion("Unable to detect partition from output. Continue anyway (will overwrite to entire file/disk) ?"))
+				if (!AskYesNoQuestion("Unable to detect partition from output. Continue anyway (will overwrite entire file/disk) ?"))
 				{
 					throwException("Operation canceled\n");
 				}
