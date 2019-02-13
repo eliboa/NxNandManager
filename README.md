@@ -51,4 +51,4 @@ Splitted dump (such as SX (emu)NAND dump) will be added very soon
 ### Restore full NAND dump
 
 - Restore full raw NAND to physical drive :  
-```.\NxNandManager.exe -i \\.\PhysicalDrive3 -o \\.\PhysicalDrive3```
+```.\NxNandManager.exe -i "C:\Users\Public\NAND dump\rawnand.bin" -o \\.\PhysicalDrive3```
