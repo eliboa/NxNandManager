@@ -7,7 +7,7 @@ the primary purpose of which is to copy Nintendo Switch content (full NAND or sp
 
 ## Usage
 
-```NxNandManager.exe [--list] [--info] -i inputFilename|\\.\PhysicalDriveX [-o outputFilename|\\.\PhysicalDriveX [-part=nxPartitionName]] [lFlags]```
+```NxNandManager.exe [--list] [--info] -i inputFilename|\\.\PhysicalDriveX [-o outputFilename|\\.\PhysicalDriveX] [-part=nxPartitionName] [lFlags]```
 
 Arguments | Description | Example
 --------- | ----------- | -------
