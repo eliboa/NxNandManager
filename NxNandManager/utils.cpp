@@ -154,7 +154,6 @@ std::string GetReadableElapsedTime(std::chrono::duration<double> elapsed_seconds
 void throwException(const char* errorStr)
 {
 	if(NULL != errorStr) printf("%s\n", errorStr);
-	system("PAUSE");
 	exit(EXIT_FAILURE);
 }
 // Concatenate every compatible physical disk n� in a string
