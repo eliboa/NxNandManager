@@ -80,22 +80,18 @@ int main(int argc, char* argv[])
 		if (strncmp(currArg, LIST_ARGUMENT, array_countof(LIST_ARGUMENT) - 1) == 0)
 		{
 			LIST = TRUE;
-		}
-		#if defined(ENABLE_GUI)
-			if (strncmp(currArg, GUI_ARGUMENT, array_countof(GUI_ARGUMENT) - 1) == 0)
-			{
+		} else if (strncmp(currArg, GUI_ARGUMENT, array_countof(GUI_ARGUMENT) - 1) == 0)
+		{
+			#if defined(ENABLE_GUI)
 				gui = TRUE;
-			}
-		#endif
-		if (strncmp(currArg, INPUT_ARGUMENT, array_countof(INPUT_ARGUMENT) - 1) == 0 && i < argc)
+			#endif
+		} else if (strncmp(currArg, INPUT_ARGUMENT, array_countof(INPUT_ARGUMENT) - 1) == 0 && i < argc)
 		{
 			input = argv[++i];
-		}
-		if (strncmp(currArg, OUTPUT_ARGUMENT, array_countof(OUTPUT_ARGUMENT) - 1) == 0 && i < argc)
+		} else if (strncmp(currArg, OUTPUT_ARGUMENT, array_countof(OUTPUT_ARGUMENT) - 1) == 0 && i < argc)
 		{
 			output = argv[++i];
-		}
-		if (strncmp(currArg, PARTITION_ARGUMENT, array_countof(PARTITION_ARGUMENT) - 1) == 0)
+		} else if (strncmp(currArg, PARTITION_ARGUMENT, array_countof(PARTITION_ARGUMENT) - 1) == 0)
 		{
 			u32 len= array_countof(PARTITION_ARGUMENT) - 1;
 			if (currArg[len] == '=')
@@ -106,25 +102,24 @@ int main(int argc, char* argv[])
 			{
 				if (i == argc - 1) return PrintUsage();
 			}
-		}
-		if (strncmp(currArg, INFO_ARGUMENT, array_countof(INFO_ARGUMENT) - 1) == 0)
+		} else if (strncmp(currArg, INFO_ARGUMENT, array_countof(INFO_ARGUMENT) - 1) == 0)
 		{
 			info = TRUE;
-		}
-		if (strncmp(currArg, BYPASS_MD5SUM_FLAG, array_countof(BYPASS_MD5SUM_FLAG) - 1) == 0)
+		} else if (strncmp(currArg, BYPASS_MD5SUM_FLAG, array_countof(BYPASS_MD5SUM_FLAG) - 1) == 0)
 		{
 			BYPASS_MD5SUM = TRUE;
-		}
-		if (strncmp(currArg, DEBUG_MODE_FLAG, array_countof(DEBUG_MODE_FLAG) - 1) == 0)
+		} else if (strncmp(currArg, DEBUG_MODE_FLAG, array_countof(DEBUG_MODE_FLAG) - 1) == 0)
 		{
 			DEBUG_MODE = TRUE;
-		}
-		if (strncmp(currArg, FORCE_FLAG, array_countof(FORCE_FLAG) - 1) == 0)
+		} else if (strncmp(currArg, FORCE_FLAG, array_countof(FORCE_FLAG) - 1) == 0)
 		{
 			FORCE = TRUE;
+		} else {
+			printf("Argument (%s) is not allowed.\n", currArg);
+			return PrintUsage();
 		}
 	}
-	
+
 	#if defined(ENABLE_GUI)
 	if (gui)
 	{
