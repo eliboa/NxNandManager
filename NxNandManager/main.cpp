@@ -271,7 +271,6 @@ int main(int argc, char* argv[])
 			// If there's nothing left to do, exit (we don't want to pursue with i/o operations)
 			if (i == io_num)
 			{
-				system("PAUSE");
 				return 0;
 			}
 		}
@@ -423,7 +422,6 @@ int main(int argc, char* argv[])
 		std::chrono::duration<double> elapsed_seconds = end - start;
 		printf("Elapsed time : %s.\n", GetReadableElapsedTime(elapsed_seconds).c_str());
 	}
-	system("PAUSE");
 	return 0;
 }
 
