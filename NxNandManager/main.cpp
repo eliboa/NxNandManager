@@ -43,15 +43,16 @@ int main(int argc, char* argv[])
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
-		printf("Usage: NxNandManager.exe [--list] [--info] -i inputFilename|\\\\.\\PhysicalDiskX -o outputFilename|\\\\.\\PhysicalDiskX [-part=nxPartitionName] [lFlags] \n\n");
+		printf("Usage: NxNandManager.exe [--gui] [--list] [--info] -i inputFilename|\\\\.\\PhysicalDiskX -o outputFilename|\\\\.\\PhysicalDiskX [-part=nxPartitionName] [lFlags] \n\n");
 		printf("Params are:\n\n");
+		printf("--gui : Start the program in graphical mode, doesn't need other params.\n");
 		printf("--list : List compatible device for dump/restaure, doesn't need other params.\n");
 		printf("--info: Display infos for the input device/file witch is passed for input param, must be used with -i param only.");
 		printf("-i \"input_path\" : Input device/file.");
 		printf("-o \"output_path\" : Output device/file.");
 		printf("-part : Dump/restaure for a specific partition of the rawnand, value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\", \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\", \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\".");
 		printf("lFlags could be:\n");
-		printf("BYPASS_MD5SUM: Doesn't check the MD5 during the dump, take less time but very less secure. If this flag is used for restaure, the MD5 is not required to do it (useful with the FORCE flag).\n");
+		printf("BYPASS_MD5SUM: Doesn't check the MD5 during the copy, take less time but very less secure.\n");
 		printf("DEBUG_MODE: Enable the debug mode.\n");
 		printf("FORCE : Doesn't ask any questions during the program.\n");
 		throwException();
@@ -211,15 +212,14 @@ int main(int argc, char* argv[])
 			if (nxdata.type != nxdataOut.type)
 			{
 				printf("Input data type (%s) doesn't match output data type (%s)\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
-				if (!FORCE)
+				printf("For security reason, you can't continue.\n");
+				return 40;
+			}
+			if (!FORCE)
+			{
+				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
 				{
-					if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
-					{
-						throwException("Operation cancelled.\n");
-					}
-				} else {
-					printf("You can't continue in force mode for security reason.");
-					return 40;
+					throwException("Operation cancelled.\n");
 				}
 			}
 			u64 in_size = nxdata.raw_size > 0 ? nxdata.raw_size : nxdata.size;
@@ -229,16 +229,16 @@ int main(int argc, char* argv[])
 				if (in_size != out_size)
 				{
 					printf("Input data size (%I64d bytes) doesn't match output data size (%I64d bytes)\n", nxdata.size, nxdataOut.size);
-				}
-				if (!FORCE)
-				{
-					if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+					if (!FORCE)
 					{
-						throwException("Operation cancelled.\n");
+						if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+						{
+							throwException("Operation cancelled.\n");
+						}
+					} else {
+						printf("You can't continue in force mode for security reason.");
+						return 41;
 					}
-				} else {
-					printf("You can't continue in force mode for security reason.");
-					return 41;
 				}
 			}
 		}
