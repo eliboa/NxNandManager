@@ -7,7 +7,7 @@ NxStorage::NxStorage(const char* storage)
 	path = storage;
 	pathLPWSTR = convertCharArrayToLPWSTR(storage);
 	type = UNKNOWN;
-	size = 0, raw_size = 0;
+	size = 0;
 	isDrive = FALSE, backupGPTfound = FALSE, autoRcm = FALSE;
 	pdg = { 0 };
 	partCount = 0;
@@ -140,8 +140,8 @@ void NxStorage::InitStorage()
 				this->ParseGpt(buffGpt);
 
 				// Look for backup GPT
-				if(raw_size > 0 && type == RAWNAND) {
-					dwPtr = SetFilePointer(hStorage, raw_size - NX_EMMC_BLOCKSIZE, NULL, FILE_BEGIN);
+				if(type == RAWNAND) {
+					dwPtr = SetFilePointer(hStorage, size - NX_EMMC_BLOCKSIZE, NULL, FILE_BEGIN);
 					if (dwPtr != INVALID_SET_FILE_POINTER)
 					{
 						ReadFile(hStorage, buffGpt, 0x4200, &bytesRead, NULL);
@@ -162,7 +162,7 @@ void NxStorage::InitStorage()
 BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 {
 	GptHeader *hdr = (GptHeader *)gptHeader;
-	raw_size = (hdr->alt_lba + 1) * NX_EMMC_BLOCKSIZE;
+	size = (hdr->alt_lba + 1) * NX_EMMC_BLOCKSIZE;
 
 
 	// Iterate partitions backwards (from GPT header) 
@@ -409,4 +409,25 @@ const char* NxStorage::GetNxStorageTypeAsString()
 		return "UNKNOWN";
 		break;
 	}
+}
+
+BOOL NxStorage::IsValidPartition(const char * part_name, u64 part_size)
+{
+	// Iterate GPT entry
+	GptPartition *cur = firstPartion;
+	while (NULL != cur)
+	{
+		if (strncmp(cur->name, part_name, strlen(part_name)) == 0)
+		{
+			if (part_size == NULL)
+			{
+				return TRUE;
+			} else {
+				u64 cur_size = (cur->lba_end - cur->lba_start + 1) * NX_EMMC_BLOCKSIZE;
+				if (cur_size == part_size) return TRUE;
+			}
+		}
+		cur = cur->next;
+	}
+	return FALSE;
 }

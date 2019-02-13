@@ -150,7 +150,11 @@ std::string GetReadableElapsedTime(std::chrono::duration<double> elapsed_seconds
 	}
 	return std::string(buf);
 }
-
+void throwException(int rc, const char* errorStr)
+{
+	if (NULL != errorStr) printf("%s\n", errorStr);
+	exit(rc);
+}
 void throwException(const char* errorStr)
 {
 	if(NULL != errorStr) printf("%s\n", errorStr);

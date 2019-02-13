@@ -187,74 +187,7 @@ int main(int argc, char* argv[])
 		}
 		throwException();
 	}
-	if (NULL != output && !info)
-	{
-		if (nxdataOut.size > 0 && !nxdataOut.isDrive)
-		{
-			if (!FORCE)
-			{
-				// Output file already exists					
-				if (!AskYesNoQuestion("Output file already exists. Do you want to overwrite it ?"))
-				{
-					throwException("Operation cancelled.\n");
-				}
-			}
-		}
 
-		if (nxdataOut.isDrive)
-		{
-			// Output is a logical drive
-			if (!FORCE)
-			{
-				printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
-					"            BE VERY CAUTIOUS !!!\n\n");
-			}
-			if (nxdataOut.type == RAWNAND && nxdata.type == UNKNOWN && NULL != partition)
-			{
-				printf("Input data type is (%s) and output data type is (%s), you try to restaure a partition, be very cautious.\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
-				if (!FORCE)
-				{
-					if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
-					{
-						throwException("Operation cancelled.\n");
-					}
-				}
-			} else {
-				if (nxdata.type != nxdataOut.type)
-				{
-					printf("Input data type (%s) doesn't match output data type (%s)\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
-					printf("For security reason, you can't continue.\n");
-					return 40;
-				}
-				if (!FORCE)
-				{
-					if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
-					{
-						throwException("Operation cancelled.\n");
-					}
-				}
-			}
-			u64 in_size = nxdata.raw_size > 0 ? nxdata.raw_size : nxdata.size;
-			u64 out_size = nxdataOut.raw_size > 0 ? nxdataOut.raw_size : nxdataOut.size;
-			if (in_size != out_size || nxdata.type == nxdataOut.type)
-			{
-				if (in_size != out_size && NULL == partition)
-				{
-					printf("Input data size (%I64d bytes) doesn't match output data size (%I64d bytes)\n", nxdata.size, nxdataOut.size);
-					if (!FORCE)
-					{
-						if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
-						{
-							throwException("Operation cancelled.\n");
-						}
-					} else {
-						printf("You can't continue in force mode for security reason.");
-						return 41;
-					}
-				}
-			}
-		}
-	}
 
 	// --info option specified
 	if (info)
@@ -267,8 +200,8 @@ int main(int argc, char* argv[])
 			NxStorage* curNxdata = i == 2 ? &nxdataOut : &nxdata;
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
-			printf("NAND type : %s %s\n", curNxdata->GetNxStorageTypeAsString(),curNxdata->partitionName);
-			if(curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");			
+			printf("NAND type : %s %s\n", curNxdata->GetNxStorageTypeAsString(), curNxdata->partitionName);
+			if (curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
 			printf("Size      : %s\n", GetReadableSize(curNxdata->size).c_str());
 			if (NULL != curNxdata->firstPartion)
 			{
@@ -281,64 +214,156 @@ int main(int argc, char* argv[])
 					cur = cur->next;
 				}
 			}
-			if(curNxdata->type == RAWNAND) printf("Backup GPT: %s\n", curNxdata->backupGPTfound ? "FOUND" : "MISSING !!!");
+			if (curNxdata->type == RAWNAND) printf("Backup GPT: %s\n", curNxdata->backupGPTfound ? "FOUND" : "MISSING !!!");
 			// If there's nothing left to do, exit (we don't want to pursue with i/o operations)
 			if (i == io_num)
 			{
-				return 0;
+				exit(EXIT_SUCCESS);
+			}
+		}
+		exit(EXIT_SUCCESS);
+	}
+
+	// COPY TO OUTPUT
+	if (NULL != output)
+	{
+		// COPY TO FILE
+		if (!nxdataOut.isDrive)
+		{
+			if (NULL != partition && !nxdata.IsValidPartition(partition) && nxdata.type != PARTITION)
+			{
+				if (!FORCE)
+				{
+					if (!AskYesNoQuestion("Unable to detect partition from input. Continue anyway (dump all partitions) ?"))
+					{
+						throwException("Operation canceled\n");
+					}
+				} else {
+					throwException(ERR_INVALID_PART, "No partition detected for input, you can't continue in force mode for security reason.");
+				}
+			}
+			if (nxdataOut.size > 0 && !FORCE)
+			{
+				// Output file already exists					
+				if (!AskYesNoQuestion("Output file already exists. Do you want to overwrite it ?"))
+				{
+					throwException("Operation cancelled.\n");
+				}
+			}
+		}
+
+		// RESTORE TO PHYSICAL DRIVE
+		if (nxdataOut.isDrive)
+		{
+			// Output must RAWNAND type
+			if (nxdataOut.type != RAWNAND)
+			{
+				printf("Output (physical drive) unidentified (type = %s)\n", nxdataOut.GetNxStorageTypeAsString());
+				throwException(ERR_INVALID_OUTPUT);
+			}			
+
+			// If input type is PARTITION & -part not specified, look for a match in output GPT
+			if (nxdata.type == PARTITION && NULL == partition)
+			{
+				if (!nxdataOut.IsValidPartition(nxdata.partitionName, nxdata.size))
+				{
+					printf("Input partition (%s, %I64d bytes) not found in output stream (or size does not match)\n", nxdata.partitionName, nxdata.size);
+					throwException(ERR_IO_MISMATCH);
+				} else {
+					// -part arg set as input file partition
+					partition = nxdata.partitionName;
+				}
+			}
+			// If partition argument is specified
+			if (NULL != partition)
+			{
+				// Partition MUST exists in input stream (if RAWNAND)
+				if (nxdata.type == RAWNAND && !nxdata.IsValidPartition(partition))
+				{
+					throwException(ERR_INVALID_PART, "Partition not found in input stream (-i)");
+				}
+				// Input partition -part arg (if PARTITION)
+				if (nxdata.type == PARTITION)
+				{
+					if (strncmp(partition, nxdata.partitionName, strlen(nxdata.partitionName)) != 0)
+					{
+						printf("Input partition file (%s) mismatch -part argument (%s)\n", nxdata.partitionName, partition);
+						throwException(ERR_INVALID_PART);
+					}
+				}
+				// Partition must exists on output drive & size must match input size 
+				if (!nxdataOut.IsValidPartition(partition, nxdata.size))
+				{
+					printf("Input partition (%s, %I64d bytes) not found in output stream (or size does not match)\n", partition, nxdata.size);
+					throwException(ERR_IO_MISMATCH);
+				}
+			} else {
+				// Partition argument is not specified				
+				if (nxdata.type != nxdataOut.type)
+				{
+					printf("Input data type (%s) doesn't match output data type (%s)\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
+					throwException(ERR_IO_MISMATCH, "For security reason, you can't continue");
+				}
+				if (!FORCE)
+				{
+					if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+					{
+						throwException("Operation cancelled.\n");
+					}
+				}
+
+				if (nxdata.size != nxdataOut.size && NULL == partition)
+				{
+					printf("Input data size (%I64d bytes) doesn't match output data size (%I64d bytes)\n", nxdata.size, nxdataOut.size);
+					if (!FORCE)
+					{
+						if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+						{
+							throwException("Operation cancelled.\n");
+						}
+					} else {
+						throwException(ERR_IO_MISMATCH, "For security reason, you can't continue");
+					}
+				}				
+			}
+			if (!FORCE)
+			{
+				printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
+					"            BE VERY CAUTIOUS !!!\n\n");
+
+				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+				{
+					throwException("Operation cancelled.\n");
+				}
 			}
 		}
 	}
-
+	
+	// COPY
 	if (nxdata.size > 0)
 	{
 		HANDLE hDisk, hDiskOut;
 		u64 bytesToRead = nxdata.size, readAmount = 0, writeAmount = 0;
-		if (nxdata.type == RAWNAND && nxdata.raw_size > 0 && NULL == partition)
-		{
-			bytesToRead = nxdata.raw_size;
-		}
 		BOOL bSuccess;
 		int rc;
 
 		// Get handle for input
-		rc = nxdata.GetIOHandle(&hDisk, GENERIC_READ, partition, NULL != partition ? &bytesToRead : NULL);
-		if (rc < -1)
+		if (nxdata.type == PARTITION) 
 		{
-			throwException("Failed to get handle to input file/disk\n");
+			rc = nxdata.GetIOHandle(&hDisk, GENERIC_READ);
+		} else {
+			rc = nxdata.GetIOHandle(&hDisk, GENERIC_READ, partition, NULL != partition ? &bytesToRead : NULL);
 		}
-		else if (rc == -1)
+		if (rc < 0)
 		{
-			if (!FORCE)
-			{
-				if (!AskYesNoQuestion("Unable to detect partition from input. Continue anyway (dump all partitions) ?"))
-				{
-					throwException("Operation canceled\n");
-				}
-			} else {
-				printf("No partition detected for your input, you can't continue in force mode for security reason.");
-				return 42;
-			}
+			throwException(ERR_INPUT_HANDLE, "Failed to get handle to input file/disk\n");
 		}
 
 		// Get handle for output
 		rc = nxdataOut.GetIOHandle(&hDiskOut, GENERIC_WRITE, partition, NULL != partition ? &bytesToRead : NULL);
-		if (rc < -1)
+		if (rc < 0)
 		{
-			throwException("Failed to get handle to output file/disk\n");
-		}
-		else if (rc == -1 && nxdataOut.type == RAWNAND)
-		{
-			if (!FORCE)
-			{
-				if (!AskYesNoQuestion("Unable to detect partition from output. Continue anyway (will overwrite entire file/disk) ?"))
-				{
-					throwException("Operation canceled\n");
-				}
-			} else {
-				printf("No partitions detected in your Rawnand output, you can't continue in force mode for security reason.");
-				return 43;
-			}
+			throwException(ERR_OUTPUT_HANDLE, "Failed to get handle to output file/disk\n");
 		}
 
 		HCRYPTPROV hProv = 0;
@@ -356,14 +381,14 @@ int main(int argc, char* argv[])
 				DWORD dwStatus = GetLastError();
 				printf("CryptAcquireContext failed: %d\n", dwStatus);
 				CloseHandle(hDisk);
-				throwException();
+				throwException(ERR_CRYPTO_MD5);
 			}
 
 			// Create the hash
 			if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
 			{
 				CloseHandle(hDisk);
-				throwException("CryptCreateHash failed\n");
+				throwException(ERR_CRYPTO_MD5, "CryptCreateHash failed\n");
 			}
 		} else {
 			printf("MD5 Checksum validation bypassed\n");
@@ -411,7 +436,7 @@ int main(int argc, char* argv[])
 					md5hash.append(buf);
 				}
 			} else {
-				throwException("\nFailed to get hash value.\n");
+				throwException(ERR_CRYPTO_MD5, "\nFailed to get hash value.");
 			}
 			CryptDestroyHash(hHash);
 			CryptReleaseContext(hProv, 0);
