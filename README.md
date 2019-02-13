@@ -27,23 +27,23 @@ FORCE | Program will never prompt for user confirmation
 
 ### Dump full NAND to file
 
-- From physical drive (you first need to mount NX eMMC with [memloader](https://github.com/rajkosto/memloader) (via [TegraRcmGUI](https://github.com/eliboa/TegraRcmGUI) for ex) :
-```-i \\.\PhysicalDrive3 -o "C:\Users\Public\NAND dump\rawnand.bin" ```
+- From physical drive (you first need to mount NX eMMC with [memloader](https://github.com/rajkosto/memloader) (via [TegraRcmGUI](https://github.com/eliboa/TegraRcmGUI) for ex) :  
+```.\NxNandManager.exe -i \\.\PhysicalDrive3 -o "C:\Users\Public\NAND dump\rawnand.bin" ```
 
-- From existing dump file :
-```-i "C:\Users\Public\NAND dump\rawnand.bin" -o D:\rawnand2.bin ```
+- From existing dump file :  
+```.\NxNandManager.exe -i "C:\Users\Public\NAND dump\rawnand.bin" -o D:\rawnand2.bin ```
 
 
 ### Dump specific partition to file
 
-- Dump SYSTEM partition from physical drive :
-```-i \\.\PhysicalDrive3 -o "C:\Users\Public\NAND dump\PRODINFOF.bin" -part=SYSTEM```
+- Dump SYSTEM partition from physical drive :  
+```.\NxNandManager.exe -i \\.\PhysicalDrive3 -o "C:\Users\Public\NAND dump\PRODINFOF.bin" -part=SYSTEM```
 
-- Extract PRODINFOF partition from existing dump file :
-```-i "C:\Users\Public\NAND dump\rawnand.bin" -o D:\PRODINFOF.bin -part=PRODINFOF```
+- Extract PRODINFOF partition from existing dump file :  
+```.\NxNandManager.exe -i "C:\Users\Public\NAND dump\rawnand.bin" -o D:\PRODINFOF.bin -part=PRODINFOF```
 
 
 ### Restore full NAND dump
 
-- Restore full raw NAND to physical drive :
-```-i \\.\PhysicalDrive3 -o \\.\PhysicalDrive3```
+- Restore full raw NAND to physical drive :  
+```.\NxNandManager.exe -i \\.\PhysicalDrive3 -o \\.\PhysicalDrive3```
