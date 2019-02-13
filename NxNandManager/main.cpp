@@ -209,24 +209,36 @@ int main(int argc, char* argv[])
 				printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
 					"            BE VERY CAUTIOUS !!!\n\n");
 			}
-			if (nxdata.type != nxdataOut.type)
+			if (nxdataOut.type == RAWNAND && nxdata.type == UNKNOWN && NULL != partition)
 			{
-				printf("Input data type (%s) doesn't match output data type (%s)\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
-				printf("For security reason, you can't continue.\n");
-				return 40;
-			}
-			if (!FORCE)
-			{
-				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+				printf("Input data type is (%s) and output data type is (%s), you try to restaure a partition, be very cautious.\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
+				if (!FORCE)
 				{
-					throwException("Operation cancelled.\n");
+					if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+					{
+						throwException("Operation cancelled.\n");
+					}
+				}
+			} else {
+				if (nxdata.type != nxdataOut.type)
+				{
+					printf("Input data type (%s) doesn't match output data type (%s)\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
+					printf("For security reason, you can't continue.\n");
+					return 40;
+				}
+				if (!FORCE)
+				{
+					if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+					{
+						throwException("Operation cancelled.\n");
+					}
 				}
 			}
 			u64 in_size = nxdata.raw_size > 0 ? nxdata.raw_size : nxdata.size;
 			u64 out_size = nxdataOut.raw_size > 0 ? nxdataOut.raw_size : nxdataOut.size;
 			if (in_size != out_size || nxdata.type == nxdataOut.type)
 			{
-				if (in_size != out_size)
+				if (in_size != out_size && NULL == partition)
 				{
 					printf("Input data size (%I64d bytes) doesn't match output data size (%I64d bytes)\n", nxdata.size, nxdataOut.size);
 					if (!FORCE)
