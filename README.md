@@ -7,7 +7,7 @@ the primary purpose of which is to copy Nintendo Switch content (full NAND or sp
 
 ## Usage
 
-```NxNandManager.exe [--list] [--info] -i inputFilename|\\.\PhysicalDriveX [-o outputFilename|\.\PhysicalDriveX [-part=nxPartitionName]] [lFlags]```
+```NxNandManager.exe [--list] [--info] -i inputFilename|\\.\PhysicalDriveX [-o outputFilename|\\.\PhysicalDriveX [-part=nxPartitionName]] [lFlags]```
 
 Arguments | Description | Example
 --------- | ----------- | -------
@@ -22,6 +22,11 @@ lFlags | Description
 ------ | -----------
 BYPASS_MD5SUM | Used to by-pass all md5 verifications<br/>Dump/Restore is faster but less secure
 FORCE | Program will never prompt for user confirmation
+
+## Compatibility
+
+Hekate's rawnand/paritions dump are supported.
+Splitted dump (such as SX (emu)NAND dump) will be added very soon
 
 ## Examples
 
