@@ -22,6 +22,7 @@ lFlags | Description
 ------ | -----------
 BYPASS_MD5SUM | Used to by-pass all md5 verifications<br/>Dump/Restore is faster but less secure
 FORCE | Program will never prompt for user confirmation
+DEBUG_MODE | Program will display some infos that could be usful for debugging.
 
 ## Compatibility
 
