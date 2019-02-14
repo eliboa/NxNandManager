@@ -350,9 +350,9 @@ int main(int argc, char* argv[])
 		// Get handle for input
 		if (nxdata.type == PARTITION) 
 		{
-			rc = nxdata.GetIOHandle(&hDisk, GENERIC_READ);
+			rc = nxdata.GetIOHandle(&hDisk, GENERIC_READ, NULL);
 		} else {
-			rc = nxdata.GetIOHandle(&hDisk, GENERIC_READ, partition, NULL != partition ? &bytesToRead : NULL);
+			rc = nxdata.GetIOHandle(&hDisk, GENERIC_READ, NULL, partition, NULL != partition ? &bytesToRead : NULL);
 		}
 		if (rc < 0)
 		{
@@ -360,16 +360,11 @@ int main(int argc, char* argv[])
 		}
 
 		// Get handle for output
-		rc = nxdataOut.GetIOHandle(&hDiskOut, GENERIC_WRITE, partition, NULL != partition ? &bytesToRead : NULL);
+		rc = nxdataOut.GetIOHandle(&hDiskOut, GENERIC_WRITE, bytesToRead, partition, NULL != partition ? &bytesToRead : NULL);
 		if (rc < 0)
 		{
-			throwException(ERR_OUTPUT_HANDLE, "Failed to get handle to output file/disk\n");
-		}
-
-		// If output is a file, check free space on output disk
-		if(!nxdataOut.isDrive && bytesToRead > nxdataOut.fileDiskFreeBytes)
-		{
-			throwException(ERR_NO_SPACE_LEFT, "Output disk : not enough space.\n");
+			if(rc == ERR_NO_SPACE_LEFT) throwException(ERR_NO_SPACE_LEFT, "Output disk : not enough space !");
+			else throwException(ERR_OUTPUT_HANDLE, "Failed to get handle to output file/disk\n");
 		}
 
 		HCRYPTPROV hProv = 0;

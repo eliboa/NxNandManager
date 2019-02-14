@@ -328,3 +328,18 @@ char * flipAndCodeBytes(const char * str,  int pos, int flip, char * buf)
 
 	return buf;
 }
+
+std::string ExePath() 
+{	
+	char buffer[MAX_PATH];
+	#if defined(__MINGW32__) || defined(__MINGW64__)		
+		GetModuleFileName(NULL, buffer, MAX_PATH);
+	#else
+		TCHAR w_buffer[MAX_PATH];
+		size_t *junk = 0;
+		GetModuleFileName(NULL, w_buffer, MAX_PATH);
+		wcstombs_s(junk, buffer, w_buffer, MAX_PATH);
+	#endif
+	string::size_type pos = string(buffer).find_last_of("\\/");
+	return string(buffer).substr(0, pos);
+}

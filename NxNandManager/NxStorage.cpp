@@ -76,10 +76,18 @@ void NxStorage::InitStorage()
 		std::string path_str = std::string(path);
 		std::size_t pos = path_str.find(base_name(path_str));     
 		std::string dir = path_str.substr(0, pos); 
-		
+		if (dir.length() == 0)
+		{
+			dir = ExePath();
+		}
 		DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
 
-		BOOL fResult = GetDiskFreeSpace(dir.c_str(), &dwSectPerClust, &dwBytesPerSect, &dwFreeClusters, &dwTotalClusters);
+		#if defined(__MINGW32__) || defined(__MINGW64__)
+			const char * wpath = dir.c_str();
+		#else
+		LPWSTR wpath = convertCharArrayToLPWSTR(dir.c_str());
+		#endif
+		BOOL fResult = GetDiskFreeSpace(wpath, &dwSectPerClust, &dwBytesPerSect, &dwFreeClusters, &dwTotalClusters);
 		if (fResult)
         {
 			fileDiskTotalBytes = (u64)dwTotalClusters * dwSectPerClust * dwBytesPerSect;
@@ -227,7 +235,7 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 
 // Get handle to drive/file for read/write operation
 // & set pointers to a specific partition if specified
-int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, const char* partition, u64 *bytesToRead)
+int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWrite, const char* partition, u64 *bytesToRead)
 {
 	if (dwDesiredAccess == GENERIC_READ)
 	{
@@ -235,6 +243,13 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, const char* p
 		*hHandle = CreateFileW(pathLPWSTR, GENERIC_READ, FILE_SHARE_READ, NULL,
 			OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 	} else {
+
+		// Check space available on output disk for WRITE handle (only if partition is not specified)
+		if (!isDrive && NULL == partition && NULL != bytesToWrite && bytesToWrite - size > fileDiskFreeBytes)
+		{
+			return ERR_NO_SPACE_LEFT;
+		}
+
 		// Get handle for writing
 		int open_mode = OPEN_EXISTING;
 		if(NULL == partition && !isDrive) open_mode = CREATE_ALWAYS;
@@ -343,7 +358,7 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 	HANDLE hDisk;
 	u64 bytesToRead = size;
 	//if(GetIOHandle(&hDisk, GENERIC_READ) < 0)
-	if(GetIOHandle(&hDisk, GENERIC_READ, partition, &bytesToRead) < 0)
+	if(GetIOHandle(&hDisk, GENERIC_READ, NULL, partition, &bytesToRead) < 0)
 	{
 		printf("Could not open %s\n", path);
 		CloseHandle(hDisk);

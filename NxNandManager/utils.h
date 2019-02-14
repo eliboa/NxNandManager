@@ -42,6 +42,7 @@ void throwException(int rc, const char* errorStr=NULL);
 void throwException(const char* errorStr=NULL);
 std::string ListPhysicalDrives();
 char * flipAndCodeBytes(const char * str, int pos, int flip, char * buf);
+std::string ExePath();
 
 template<class T>
 T base_name(T const & path, T const & delims = "/\\")

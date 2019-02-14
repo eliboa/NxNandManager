@@ -55,17 +55,18 @@ int MainDialog::dumpStorage(NxStorage* nxInput, NxStorage* nxOutput, u64* bytesW
 	int rc;
 
 	// Get handle for input
-	rc = nxInput->GetIOHandle(&hDisk, GENERIC_READ, partition, NULL != partition ? &bytesToRead : NULL);
+	rc = nxInput->GetIOHandle(&hDisk, GENERIC_READ, NULL, partition, NULL != partition ? &bytesToRead : NULL);
 	if (rc < -1)
 	{
 		MessageBox(_T("Failed to get handle to input file/disk"), _T("Error"), MB_OK | MB_ICONERROR);
 		return -2;
 	}
 	// Get handle for output
-	rc = nxOutput->GetIOHandle(&hDiskOut, GENERIC_WRITE, partition, NULL != partition ? &bytesToRead : NULL);
+	rc = nxOutput->GetIOHandle(&hDiskOut, GENERIC_WRITE, bytesToRead, partition, NULL != partition ? &bytesToRead : NULL);
 	if (rc < -1)
 	{
-		MessageBox(_T("Failed to get handle to output file/disk"), _T("Error"), MB_OK | MB_ICONERROR);
+		if (rc == ERR_NO_SPACE_LEFT) MessageBox(_T("Output disk : not enough space !"), _T("Error"), MB_OK | MB_ICONERROR);
+		else MessageBox(_T("Failed to get handle to output file/disk"), _T("Error"), MB_OK | MB_ICONERROR);
 		return -2;
 	}
 
