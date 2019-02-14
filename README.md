@@ -43,7 +43,7 @@ Splitted dump (such as SX (emu)NAND dump) will be added very soon
 ### Dump specific partition to file
 
 - Dump SYSTEM partition from physical drive :  
-```.\NxNandManager.exe -i \\.\PhysicalDrive3 -o "C:\Users\Public\NAND dump\PRODINFOF.bin" -part=SYSTEM```
+```.\NxNandManager.exe -i \\.\PhysicalDrive3 -o "C:\Users\Public\NAND dump\SYSTEM.bin" -part=SYSTEM```
 
 - Extract PRODINFOF partition from existing dump file :  
 ```.\NxNandManager.exe -i "C:\Users\Public\NAND dump\rawnand.bin" -o D:\PRODINFOF.bin -part=PRODINFOF```
