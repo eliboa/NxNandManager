@@ -5,5 +5,5 @@
   >> Verified, OK.
 * PRODINFO doesn't restaure properly, error of size writen at the end of the process.  
   -> Should be fixed.
-  >> No: (ERROR : 4176896 bytes to read but 4194304 bytes written) with a Hekate dump, not tested with NNM dump.
+  >> Verified, OK.
 * backup GPT lookup always fails (rawanand drive / file)
