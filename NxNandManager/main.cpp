@@ -222,6 +222,8 @@ int main(int argc, char* argv[])
 	// COPY TO OUTPUT
 	if (NULL != output)
 	{
+
+
 		// COPY TO FILE
 		if (!nxdataOut.isDrive)
 		{
@@ -250,6 +252,9 @@ int main(int argc, char* argv[])
 		// RESTORE TO PHYSICAL DRIVE
 		if (nxdataOut.isDrive)
 		{
+			// Restoring to physical drive, BYPASS_MD5SUM set to TRUE (default)
+			BYPASS_MD5SUM = TRUE;
+
 			// Output must RAWNAND type
 			if (nxdataOut.type != RAWNAND)
 			{
@@ -443,7 +448,7 @@ int main(int argc, char* argv[])
 
 			// Compute then compare output checksums
 			nxdataOut.InitStorage(); // We need to update output obj first (mandatory!)
-			if (md5hash == nxdataOut.GetMD5Hash())
+			if (md5hash == nxdataOut.GetMD5Hash(partition))
 			{
 				printf("Verified (checksums are IDENTICAL)\n");
 			} else {

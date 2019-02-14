@@ -120,7 +120,7 @@ class NxStorage {
 		BOOL dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmount, u64* writeAmount, u64 bytesToWrite, HCRYPTHASH* hHash = NULL);
 		const char* GetNxStorageTypeAsString();		
 		void InitStorage();		
-		std::string GetMD5Hash();	
+		std::string GetMD5Hash(const char* partition = NULL);	
 		BOOL IsValidPartition(const char * part_name, u64 part_size = NULL);
 
 	private:
