@@ -47,10 +47,10 @@ int main(int argc, char* argv[])
 		printf("Params are:\n\n");
 		printf("--gui : Start the program in graphical mode, doesn't need other params.\n");
 		printf("--list : List compatible device for dump/restaure, doesn't need other params.\n");
-		printf("--info: Display infos for the input device/file witch is passed for input param, must be used with -i param only.");
-		printf("-i \"input_path\" : Input device/file.");
-		printf("-o \"output_path\" : Output device/file.");
-		printf("-part : Dump/restaure for a specific partition of the rawnand, value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\", \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\", \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\".");
+		printf("--info: Display infos for the input device/file witch is passed for input param, must be used with -i param only.\n");
+		printf("-i \"input_path\" : Input device/file.\n");
+		printf("-o \"output_path\" : Output device/file.\n");
+		printf("-part : Dump/restaure for a specific partition of the rawnand, value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\", \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\", \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n.");
 		printf("lFlags could be:\n");
 		printf("BYPASS_MD5SUM: Doesn't check the MD5 during the copy, take less time but very less secure.\n");
 		printf("DEBUG_MODE: Enable the debug mode.\n");
