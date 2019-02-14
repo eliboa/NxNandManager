@@ -59,6 +59,7 @@ void NxStorage::InitStorage()
 	// Get available free space
 	if (!isDrive)
 	{
+		if (NULL == path) return;
 		std::string path_str = std::string(path);
 		std::size_t pos = path_str.find(base_name(path_str));
 		std::string dir = path_str.substr(0, pos);
@@ -67,7 +68,7 @@ void NxStorage::InitStorage()
 			dir = ExePath();
 		}
 		DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
-
+		
 #if defined(__MINGW32__) || defined(__MINGW64__)
 		const char * wpath = dir.c_str();
 #else

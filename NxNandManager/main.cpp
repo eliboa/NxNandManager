@@ -1,5 +1,5 @@
 // NxNandManager
-#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
+//#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
 
 #if defined(ENABLE_GUI)
 	#include "stdafx.h"
@@ -195,7 +195,8 @@ int main(int argc, char* argv[])
 			NxStorage* curNxdata = i == 2 ? &nxdataOut : &nxdata;
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
-			printf("NAND type : %s %s\n", curNxdata->GetNxStorageTypeAsString(), curNxdata->partitionName);
+			printf("NAND type : %s%s%s\n", curNxdata->GetNxStorageTypeAsString(), 
+				NULL != curNxdata->partitionName ? " " : "", curNxdata->partitionName);
 			if (curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
 			printf("Size      : %s\n", GetReadableSize(curNxdata->size).c_str());
 			if (NULL != curNxdata->firstPartion)
