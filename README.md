@@ -65,4 +65,4 @@ or
 ```.\NxNandManager.exe -i "C:\Users\Public\NAND dump\rawnand.bin" -o "C:\Users\Public\NAND dump\rawnand2.bin" -part=BCPKG2-1-Normal-Main```  
 
 - Copy specific partition from partition file :  
-```.\NxNandManager.exe -i "C:\Users\Public\NAND dump\PRODINFO" -o "C:\Users\Public\NAND dump\rawnand2.bin" -part=BCPKG2-1-Normal-Main```  
+```.\NxNandManager.exe -i "C:\Users\Public\NAND dump\BCPKG2-1-Normal-Main" -o "C:\Users\Public\NAND dump\rawnand2.bin" -part=BCPKG2-1-Normal-Main```  
