@@ -26,7 +26,7 @@ DEBUG_MODE | Program will display some infos that could be usful for debugging.
 
 ## Compatibility
 
-Hekate's rawnand/paritions dump are supported.
+Hekate's rawnand/partitions dump are supported.
 Splitted dump (such as SX (emu)NAND dump) will be added very soon
 
 ## Examples
