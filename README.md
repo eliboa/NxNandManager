@@ -26,8 +26,8 @@ DEBUG_MODE | Program will display some infos that could be usful for debugging.
 
 ## Compatibility
 
-Hekate's rawnand/partitions dump are supported.
-Splitted dump (such as SX (emu)NAND dump) will be added very soon
+All dumps made with Hekate are compatible with NxNandManager (and vice versa).  
+Support for splitted dumps (such as SX (emu)NAND backups) will be added soon.
 
 ## Examples
 
@@ -66,3 +66,20 @@ or
 
 - Copy specific partition from partition file :  
 ```.\NxNandManager.exe -i "C:\Users\Public\NAND dump\BCPKG2-1-Normal-Main" -o "C:\Users\Public\NAND dump\rawnand2.bin" -part=BCPKG2-1-Normal-Main```  
+
+
+## Build
+
+### MinGW (CLI only)
+
+```
+git clone https://github.com/eliboa/NxNandManager   
+cd NxNandManager
+make
+```
+
+**Note :** First line of main.cpp ```#define ENABLE_GUI``` has to be commented
+
+### Visual Studio (CLI + GUI MFC)
+
+Use ```NxNandManager.sln``` solution file
