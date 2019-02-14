@@ -366,6 +366,12 @@ int main(int argc, char* argv[])
 			throwException(ERR_OUTPUT_HANDLE, "Failed to get handle to output file/disk\n");
 		}
 
+		// If output is a file, check free space on output disk
+		if(!nxdataOut.isDrive && bytesToRead > nxdataOut.fileDiskFreeBytes)
+		{
+			throwException(ERR_NO_SPACE_LEFT, "Output disk : not enough space.\n");
+		}
+
 		HCRYPTPROV hProv = 0;
 		HCRYPTHASH hHash = 0;
 		CHAR rgbDigits[] = "0123456789abcdef";

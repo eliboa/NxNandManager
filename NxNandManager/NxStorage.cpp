@@ -7,7 +7,7 @@ NxStorage::NxStorage(const char* storage)
 	path = storage;
 	pathLPWSTR = convertCharArrayToLPWSTR(storage);
 	type = UNKNOWN;
-	size = 0;
+	size = 0, fileDiskTotalBytes = 0, fileDiskFreeBytes = 0;
 	isDrive = FALSE, backupGPTfound = FALSE, autoRcm = FALSE;
 	pdg = { 0 };
 	partCount = 0;
@@ -67,6 +67,29 @@ void NxStorage::InitStorage()
 		} else {
 			size = Lsize.QuadPart;
 			if (DEBUG_MODE) printf("NxStorage::InitStorage - File size = %I64d bytes\n", size);
+		}
+	}
+
+	// Get available free space
+	if (!isDrive)
+	{
+		std::string path_str = std::string(path);
+		std::size_t pos = path_str.find(base_name(path_str));     
+		std::string dir = path_str.substr(0, pos); 
+		
+		DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
+
+		BOOL fResult = GetDiskFreeSpace(dir.c_str(), &dwSectPerClust, &dwBytesPerSect, &dwFreeClusters, &dwTotalClusters);
+		if (fResult)
+        {
+			fileDiskTotalBytes = (u64)dwTotalClusters * dwSectPerClust * dwBytesPerSect;
+			fileDiskFreeBytes = (u64)dwFreeClusters * dwSectPerClust * dwBytesPerSect;               
+
+			if(DEBUG_MODE)
+			{
+				wprintf(L"Free space  = %I64d GB\n", fileDiskFreeBytes / (1024*1024*1024));
+				wprintf(L"Total space = %I64d GB\n", fileDiskTotalBytes / (1024*1024*1024));
+			}
 		}
 	}
 

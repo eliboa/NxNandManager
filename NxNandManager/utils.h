@@ -24,7 +24,8 @@
 #define ERR_INPUT_HANDLE		-1006
 #define ERR_OUTPUT_HANDLE		-1007
 #define ERR_CRYPTO_MD5			-1008
-#define ERR_NO_LIST_DISK			-1009
+#define ERR_NO_LIST_DISK		-1009
+#define ERR_NO_SPACE_LEFT		-1010
 
 
 

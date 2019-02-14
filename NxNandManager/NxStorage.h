@@ -132,6 +132,8 @@ class NxStorage {
 		LPWSTR pathLPWSTR;
 		int type;
 		u64 size;
+		u64 fileDiskTotalBytes;
+		u64 fileDiskFreeBytes;
 		BOOL isDrive;
 		BOOL backupGPTfound;
 		DISK_GEOMETRY pdg;
