@@ -121,7 +121,7 @@ class NxStorage {
 		const char* GetNxStorageTypeAsString();		
 		void InitStorage();		
 		std::string GetMD5Hash(const char* partition = NULL);	
-		BOOL IsValidPartition(const char * part_name, u64 part_size = NULL);
+		u64 IsValidPartition(const char * part_name, u64 part_size = NULL);
 
 	private:
 		BOOL ParseGpt(unsigned char* gptHeader);

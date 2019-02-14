@@ -1,5 +1,5 @@
 // NxNandManager
-//#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
+#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
 
 #if defined(ENABLE_GUI)
 	#include "stdafx.h"
@@ -279,10 +279,15 @@ int main(int argc, char* argv[])
 			// If partition argument is specified
 			if (NULL != partition)
 			{
+				u64 part_size = -1;
 				// Partition MUST exists in input stream (if RAWNAND)
-				if (nxdata.type == RAWNAND && !nxdata.IsValidPartition(partition))
-				{
-					throwException(ERR_INVALID_PART, "Partition not found in input stream (-i)");
+				if (nxdata.type == RAWNAND)
+				{					
+					part_size = nxdata.IsValidPartition(partition);
+					if (part_size<0)
+					{
+						throwException(ERR_INVALID_PART, "Partition not found in input stream (-i)");
+					}
 				}
 				// Input partition -part arg (if PARTITION)
 				if (nxdata.type == PARTITION)
@@ -294,7 +299,7 @@ int main(int argc, char* argv[])
 					}
 				}
 				// Partition must exists on output drive & size must match input size 
-				if (!nxdataOut.IsValidPartition(partition, nxdata.size))
+				if (!nxdataOut.IsValidPartition(partition, part_size ? part_size : nxdata.size))
 				{
 					printf("Input partition (%s, %I64d bytes) not found in output stream (or size does not match)\n", partition, nxdata.size);
 					throwException(ERR_IO_MISMATCH);

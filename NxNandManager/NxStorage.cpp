@@ -478,7 +478,7 @@ const char* NxStorage::GetNxStorageTypeAsString()
 	}
 }
 
-BOOL NxStorage::IsValidPartition(const char * part_name, u64 part_size)
+u64 NxStorage::IsValidPartition(const char * part_name, u64 part_size)
 {
 	// Iterate GPT entry
 	GptPartition *cur = firstPartion;
@@ -486,15 +486,11 @@ BOOL NxStorage::IsValidPartition(const char * part_name, u64 part_size)
 	{
 		if (strncmp(cur->name, part_name, strlen(part_name)) == 0)
 		{
-			if (part_size == NULL)
-			{
-				return TRUE;
-			} else {
-				u64 cur_size = (cur->lba_end - cur->lba_start + 1) * NX_EMMC_BLOCKSIZE;
-				if (cur_size == part_size) return TRUE;
-			}
+			u64 cur_size = (cur->lba_end - cur->lba_start + 1) * NX_EMMC_BLOCKSIZE;
+			if (part_size == NULL) return cur_size;
+			else if (cur_size == part_size) return cur_size;			
 		}
 		cur = cur->next;
 	}
-	return FALSE;
+	return -1;
 }

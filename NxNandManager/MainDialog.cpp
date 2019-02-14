@@ -464,6 +464,7 @@ void MainDialog::OnBnClickedOk()
 		int num_check = 0;
 		u64 bytesWritten = 0, writeAmount = 0;
 
+		auto start = std::chrono::system_clock::now();
 		// User selected partitions
 		if (!isDumpAll && NULL != nxInput.firstPartion)
 		{
@@ -520,10 +521,13 @@ void MainDialog::OnBnClickedOk()
 		// When every operation is over & success, format message
 		if (bSuccess)
 		{
+			auto end = std::chrono::system_clock::now();
+			std::chrono::duration<double> elapsed_seconds = end - start;
+			CString elapsed(GetReadableElapsedTime(elapsed_seconds).c_str());
 			CString message, buf;
 			if (num_check > 0) buf.Format(_T("%d partition%s dumped."), num_check, num_check > 1 ? _T("s") : _T(""));
 			CString size(GetReadableSize(writeAmount).c_str());
-			message.Format(_T("Finished. %s\n%s written."), num_check > 0 ? buf : _T(""), size);
+			message.Format(_T("Finished. %s\n%s written.\nElapsed time : %s"), num_check > 0 ? buf : _T(""), size, elapsed);
 			MessageBox(message, _T("Information"), MB_OK | MB_ICONINFORMATION);
 		}
 	}
