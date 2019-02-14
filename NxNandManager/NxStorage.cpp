@@ -228,7 +228,7 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 		part->next = firstPartion;
 		firstPartion = part;
 
-		if (DEBUG_MODE) printf("NxStorage::ParseGpt - Partition %s found\n", part->name);
+		if (DEBUG_MODE) printf("NxStorage::ParseGpt - %s found\n", part->name);
 	}
 
 	return hdr->num_part_ents > 0 ? TRUE : FALSE;
@@ -275,9 +275,11 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWr
 			if (strncmp(cur->name, partition, strlen(partition)) == 0)
 			{
 				// Try to set pointers
-				if (SetFilePointer(*hHandle, cur->lba_start * NX_EMMC_BLOCKSIZE, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER)
+				LARGE_INTEGER liDistanceToMove;
+				liDistanceToMove.QuadPart = (u64)cur->lba_start * NX_EMMC_BLOCKSIZE;
+				if (SetFilePointerEx(*hHandle, liDistanceToMove, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER)
 				{					
-					*bytesToRead = (cur->lba_end - cur->lba_start + 1) * NX_EMMC_BLOCKSIZE;
+					*bytesToRead = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
 					if (DEBUG_MODE) printf("NxStorage::GetIOHandle - Pointer set to specific partition %s in %s\n", partition, path);
 					return 0;					
 				} else {
