@@ -274,6 +274,8 @@ int main(int argc, char* argv[])
 					partition = nxdata.partitionName;
 				}
 			}
+			printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
+				"            BE VERY CAUTIOUS !!!\n\n");
 			// If partition argument is specified
 			if (NULL != partition)
 			{
@@ -304,13 +306,6 @@ int main(int argc, char* argv[])
 					printf("Input data type (%s) doesn't match output data type (%s)\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
 					throwException(ERR_IO_MISMATCH, "For security reason, you can't continue");
 				}
-				if (!FORCE)
-				{
-					if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
-					{
-						throwException("Operation cancelled.\n");
-					}
-				}
 
 				if (nxdata.size != nxdataOut.size && NULL == partition)
 				{
@@ -328,9 +323,6 @@ int main(int argc, char* argv[])
 			}
 			if (!FORCE)
 			{
-				printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
-					"            BE VERY CAUTIOUS !!!\n\n");
-
 				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
 				{
 					throwException("Operation cancelled.\n");

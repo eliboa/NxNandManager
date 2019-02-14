@@ -356,6 +356,7 @@ void MainDialog::OnBnClickedDumpAll()
 			}
 			CMFCEditBrowseCtrl* pEditBrowse = (CMFCEditBrowseCtrl*)GetDlgItem(IDC_OUTPUT);
 			pEditBrowse->EnableFileBrowseButton();
+
 			GetDlgItem(IDC_OUTPUT)->SetWindowTextW(TEXT(""));
 		}
 		isDirOutput = FALSE;
@@ -431,6 +432,9 @@ void MainDialog::OnBnClickedOk()
 			MessageBox(_T("You have to specify both input and output."), _T("Error"), MB_OK | MB_ICONERROR);
 			return;
 		}
+		
+		CButton *m_ctlCheck = (CButton*)GetDlgItem(IDC_DUMP_ALL);
+		BOOL isDumpAll = (m_ctlCheck->GetCheck() == 1) ? true : false;
 
 		CT2A inputStr(in);
 		char buff[64];
@@ -441,25 +445,27 @@ void MainDialog::OnBnClickedOk()
 		}
 		CT2A outputStr(out);
 		NxStorage nxOutput(outputStr);
+		// TODO : Add controls for output (& intput ?)
+		/*
 		if (nxOutput.type == INVALID)
 		{
 			sprintf_s(buff, 64, "Error while trying to open output stream\n");
 		}
+		
 		CString message(buff);
 		if (nxInput.size <= 0 || nxOutput.type == INVALID)
 		{
 			MessageBox(message, _T("Error"), MB_OK | MB_ICONERROR);
 			return;
 		}
+		*/
 
-		CButton *m_ctlCheck = (CButton*)GetDlgItem(IDC_DUMP_ALL);
-		BOOL IsCheckChecked = (m_ctlCheck->GetCheck() == 1) ? true : false;
 		CWnd* pListBox = GetDlgItem(IDC_PARTLIST);
 		int num_check = 0;
 		u64 bytesWritten = 0, writeAmount = 0;
 
 		// User selected partitions
-		if (!IsCheckChecked && NULL != nxInput.firstPartion)
+		if (!isDumpAll && NULL != nxInput.firstPartion)
 		{
 			CListBox* pListBox = (CListBox*)GetDlgItem(IDC_PARTLIST);
 			for (int i = 0; i <= (int)pListBox->GetCount() - 1; i++)
@@ -502,7 +508,7 @@ void MainDialog::OnBnClickedOk()
 		} 
 
 		// User selected raw dump
-		if(IsCheckChecked || num_check == 0)
+		if(isDumpAll || num_check == 0)
 		{
 			if (dumpStorage(&nxInput, &nxOutput, &bytesWritten) >= 0) 
 			{

@@ -54,8 +54,40 @@ void NxStorage::InitStorage()
 		CloseHandle(hStorage);
 		type = INVALID;
 		if (DEBUG_MODE) printf("NxStorage::InitStorage - No such file or drive (INVALID_HANDLE) - %s\n", path);
-		return;
 	}
+
+	// Get available free space
+	if (!isDrive)
+	{
+		std::string path_str = std::string(path);
+		std::size_t pos = path_str.find(base_name(path_str));
+		std::string dir = path_str.substr(0, pos);
+		if (dir.length() == 0)
+		{
+			dir = ExePath();
+		}
+		DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
+
+#if defined(__MINGW32__) || defined(__MINGW64__)
+		const char * wpath = dir.c_str();
+#else
+		LPWSTR wpath = convertCharArrayToLPWSTR(dir.c_str());
+#endif
+		BOOL fResult = GetDiskFreeSpace(wpath, &dwSectPerClust, &dwBytesPerSect, &dwFreeClusters, &dwTotalClusters);
+		if (fResult)
+		{
+			fileDiskTotalBytes = (u64)dwTotalClusters * dwSectPerClust * dwBytesPerSect;
+			fileDiskFreeBytes = (u64)dwFreeClusters * dwSectPerClust * dwBytesPerSect;
+
+			if (DEBUG_MODE)
+			{
+				wprintf(L"Free space  = %I64d GB\n", fileDiskFreeBytes / (1024 * 1024 * 1024));
+				wprintf(L"Total space = %I64d GB\n", fileDiskTotalBytes / (1024 * 1024 * 1024));
+			}
+		}
+	}
+
+	if (type == INVALID) return;
 
 	// Get size
 	LARGE_INTEGER Lsize;
@@ -67,37 +99,6 @@ void NxStorage::InitStorage()
 		} else {
 			size = Lsize.QuadPart;
 			if (DEBUG_MODE) printf("NxStorage::InitStorage - File size = %I64d bytes\n", size);
-		}
-	}
-
-	// Get available free space
-	if (!isDrive)
-	{
-		std::string path_str = std::string(path);
-		std::size_t pos = path_str.find(base_name(path_str));     
-		std::string dir = path_str.substr(0, pos); 
-		if (dir.length() == 0)
-		{
-			dir = ExePath();
-		}
-		DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
-
-		#if defined(__MINGW32__) || defined(__MINGW64__)
-			const char * wpath = dir.c_str();
-		#else
-		LPWSTR wpath = convertCharArrayToLPWSTR(dir.c_str());
-		#endif
-		BOOL fResult = GetDiskFreeSpace(wpath, &dwSectPerClust, &dwBytesPerSect, &dwFreeClusters, &dwTotalClusters);
-		if (fResult)
-        {
-			fileDiskTotalBytes = (u64)dwTotalClusters * dwSectPerClust * dwBytesPerSect;
-			fileDiskFreeBytes = (u64)dwFreeClusters * dwSectPerClust * dwBytesPerSect;               
-
-			if(DEBUG_MODE)
-			{
-				wprintf(L"Free space  = %I64d GB\n", fileDiskFreeBytes / (1024*1024*1024));
-				wprintf(L"Total space = %I64d GB\n", fileDiskTotalBytes / (1024*1024*1024));
-			}
 		}
 	}
 
@@ -252,7 +253,7 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWr
 
 		// Get handle for writing
 		int open_mode = OPEN_EXISTING;
-		if(NULL == partition && !isDrive) open_mode = CREATE_ALWAYS;
+		if((type == INVALID || NULL == partition) && !isDrive) open_mode = CREATE_ALWAYS;
 		if (DEBUG_MODE) printf("NxStorage::GetIOHandle - Opening mode = %s\n", open_mode == OPEN_EXISTING ? "OPEN_EXISTING" : "CREATE_ALWAYS" );
 		*hHandle = CreateFileW(pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
 			open_mode, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
