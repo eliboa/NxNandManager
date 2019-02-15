@@ -60,6 +60,7 @@ int main(int argc, char* argv[])
 			   "              \"DEBUG_MODE\" to display debug information\n");
 
 		throwException(ERR_WRONG_USE);
+		return -1;
 	};
 
 	if (argc == 1)

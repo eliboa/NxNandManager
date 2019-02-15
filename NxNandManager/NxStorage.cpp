@@ -170,22 +170,27 @@ void NxStorage::InitStorage()
 			if (0 != bytesRead)
 			{
 				type = UNKNOWN; // Reset type, we'll look for real Nx partitions when parsing GPT
-				this->ParseGpt(buffGpt);
+				this->ParseGpt(buffGpt);							
+			}
+		}
+	}
 
-				// Look for backup GPT
-				if(type == RAWNAND) {
+	// Look for backup GPT
+	if (type == RAWNAND) {
 
-					LARGE_INTEGER liDistanceToMove;
-					liDistanceToMove.QuadPart = 0x747BFFE00;
-					dwPtr = SetFilePointerEx(hStorage, liDistanceToMove, NULL, FILE_BEGIN);
-					if (dwPtr != INVALID_SET_FILE_POINTER)
-					{
-						ReadFile(hStorage, buffGpt, 0x4200, &bytesRead, NULL);
-						if (0 != bytesRead) {
-							GptHeader *hdr = (GptHeader *)buffGpt;
-							if(hdr->num_part_ents > 0) backupGPTfound == TRUE;
-						}
-					}
+		LARGE_INTEGER liDistanceToMove;
+		liDistanceToMove.QuadPart = size - NX_EMMC_BLOCKSIZE;
+		DWORD dwPtr2 = SetFilePointerEx(hStorage, liDistanceToMove, NULL, FILE_BEGIN);
+		if (dwPtr2 != INVALID_SET_FILE_POINTER)
+		{
+			BYTE buffGpt[NX_EMMC_BLOCKSIZE];
+			ReadFile(hStorage, buffGpt, NX_EMMC_BLOCKSIZE, &bytesRead, NULL);
+			if (0 != bytesRead)
+			{
+				GptHeader *hdr = (GptHeader *)buffGpt;
+				if (hdr->num_part_ents > 0)
+				{
+					backupGPTfound = TRUE;
 				}
 			}
 		}
