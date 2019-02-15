@@ -94,7 +94,7 @@ void NxStorage::InitStorage()
 	{
 		if (!GetFileSizeEx(hStorage, &Lsize))
 		{
-			printf("NxStorage::InitStorage GetFileSizeEx failed.\n");
+			if (DEBUG_MODE) printf("NxStorage::InitStorage GetFileSizeEx failed.\n");
 		} else {
 			size = Lsize.QuadPart;
 			if (DEBUG_MODE) printf("NxStorage::InitStorage - File size = %I64d bytes\n", size);

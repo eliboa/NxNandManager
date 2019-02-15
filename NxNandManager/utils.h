@@ -28,6 +28,7 @@
 #define ERR_NO_SPACE_LEFT		-1010
 #define ERR_COPY_SIZE			-1011
 #define ERR_MD5_COMPARE			-1012
+#define ERR_INIT_GUI			-1013
 
 
 

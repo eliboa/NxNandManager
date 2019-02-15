@@ -34,7 +34,7 @@ BOOL LIST = FALSE;
 
 int main(int argc, char* argv[])
 {	
-	//printf("NxNandManager by eliboa \n");
+	printf("[ NxNandManager v1.0-beta ]\n\n");
 	const char* output = NULL;
 	const char* input = NULL;
 	BOOL info = FALSE, gui = FALSE;
@@ -43,20 +43,23 @@ int main(int argc, char* argv[])
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
-		printf("Usage: NxNandManager.exe [--gui] [--list] [--info] -i inputFilename|\\\\.\\PhysicalDiskX -o outputFilename|\\\\.\\PhysicalDiskX [-part=nxPartitionName] [lFlags] \n\n");
-		printf("Params are:\n\n");
-		printf("--gui : Start the program in graphical mode, doesn't need other params.\n");
-		printf("--list : List compatible device for dump/restaure, doesn't need other params.\n");
-		printf("--info: Display infos for the input device/file witch is passed for input param, must be used with -i param only.\n");
-		printf("-i \"input_path\" : Input device/file.\n");
-		printf("-o \"output_path\" : Output device/file.\n");
-		printf("-part : Dump/restaure for a specific partition of the rawnand, value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\", \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\", \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n.");
-		printf("lFlags could be:\n");
-		printf("BYPASS_MD5SUM: Doesn't check the MD5 during the copy, take less time but very less secure.\n");
-		printf("DEBUG_MODE: Enable the debug mode.\n");
-		printf("FORCE : Doesn't ask any questions during the program.\n");
-		throwException();
-		return -1;
+		printf("usage: NxNandManager [--gui] [--list] [--info] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
+			   "                     -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
+			   "  --gui       Start the program in graphical mode, doesn't need other argument\n"
+			   "  --list      List compatible NX physical disks\n"
+			   "  --info      Display information about input/output file or device\n"
+			   "  -i          Path to input file or device\n"
+			   "  -o          Path to output file or device\n"
+			   "  -part       Partition to copy (apply to both input & output if possible)\n"
+			   "              Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n" 
+			   "              \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
+			   "              \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
+
+		printf("  lFlags:     \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
+			   "  -------     \"FORCE\" to disable prompt for user input (no question asked)\n"
+			   "              \"DEBUG_MODE\" to display debug information\n");
+
+		throwException(ERR_WRONG_USE);
 	};
 
 	if (argc == 1)
@@ -115,8 +118,8 @@ int main(int argc, char* argv[])
 		{
 			FORCE = TRUE;
 		} else {
-			printf("Argument (%s) is not allowed.\n", currArg);
-			return PrintUsage();
+			printf("Argument (%s) is not allowed.\n\n", currArg);
+			PrintUsage();
 		}
 	}
 
@@ -128,30 +131,27 @@ int main(int argc, char* argv[])
 		{
 			if (!AfxWinInit(hModule, nullptr, ::GetCommandLine(), 0))
 			{
-				wprintf(L"Fatal Error: MFC initialization failed\n");
-				return 1;
+				throwException(ERR_INIT_GUI, "Fatal Error: GUI MFC initialization failed");
 			}
 		} else {
-			wprintf(L"Fatal Error: GetModuleHandle failed\n");
-			return -1;
+			throwException(ERR_INIT_GUI, "Fatal Error: GetModuleHandle failed");
 		}
 
 		MainDialog dlg(input, output);
 		dlg.DoModal();
-		return 0;
+		exit(EXIT_SUCCESS);
 	}
 	#endif
 
 	if (LIST && !gui)
 	{
 		printf("%s", ListPhysicalDrives().c_str());
-		return 0;
+		exit(EXIT_SUCCESS);
 	}
 
 	if (NULL == input || (NULL == output && !info))
 	{
 		PrintUsage();
-		return -1;
 	}
 	if (NULL != output && NULL != input) io_num = 2;
 
@@ -176,11 +176,11 @@ int main(int argc, char* argv[])
 	{
 		if (nxdata.isDrive)
 		{
-			printf("Could not open physical drive. Make sure to run this program as an administrator.\n");
+			printf("Could not open input physical drive. Make sure to run this program as an administrator.\n");
 		} else {
-			printf("Error while opening %s \n", input);
+			printf("Error while opening input file : %s \n", input);
 		}
-		throwException();
+		throwException(ERR_INVALID_INPUT);
 	}
 
 
@@ -460,6 +460,6 @@ int main(int argc, char* argv[])
 		std::chrono::duration<double> elapsed_seconds = end - start;
 		printf("Elapsed time : %s.\n", GetReadableElapsedTime(elapsed_seconds).c_str());
 	}
-	return 0;
+	exit(EXIT_SUCCESS);
 }
 
