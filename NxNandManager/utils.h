@@ -26,6 +26,9 @@
 #define ERR_CRYPTO_MD5			-1008
 #define ERR_NO_LIST_DISK		-1009
 #define ERR_NO_SPACE_LEFT		-1010
+#define ERR_COPY_SIZE			-1011
+#define ERR_MD5_COMPARE			-1012
+
 
 
 

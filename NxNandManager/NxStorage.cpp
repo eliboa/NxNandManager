@@ -88,8 +88,6 @@ void NxStorage::InitStorage()
 		}
 	}
 
-	if (type == INVALID) return;
-
 	// Get size
 	LARGE_INTEGER Lsize;
 	if (!isDrive)
@@ -102,6 +100,8 @@ void NxStorage::InitStorage()
 			if (DEBUG_MODE) printf("NxStorage::InitStorage - File size = %I64d bytes\n", size);
 		}
 	}
+
+	if (type == INVALID) return;
 
 	DWORD bytesRead = 0;
 	BYTE buff[0x200];
@@ -244,6 +244,7 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWr
 		// Get handle for reading
 		*hHandle = CreateFileW(pathLPWSTR, GENERIC_READ, FILE_SHARE_READ, NULL,
 			OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+
 	} else {
 
 		// Check space available on output disk for WRITE handle (only if partition is not specified)
@@ -263,15 +264,13 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWr
 		*hHandle = CreateFileW(pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
 			open_mode, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 	}
-
 	if (*hHandle == INVALID_HANDLE_VALUE)
 	{
 		if (DEBUG_MODE) printf("NxStorage::GetIOHandle - Failed to get handle for read/write to %s\n", path);
 		return -3;
 	}
-
 	if (NULL != partition && NULL != bytesToRead && type == RAWNAND)
-	{
+	{		
 		// Iterate GPT entry
 		GptPartition *cur = firstPartion;
 		while (NULL != cur)
@@ -373,6 +372,8 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 		return "";
 	} 
 
+	printf("MD5 DEBUG bytesToRead = %I64d \n ", bytesToRead);
+
 	BOOL bSuccess;
 	DWORD buffSize = BUFSIZE, bytesRead = 0, cbHash = 0, bytesHash = 0;
 	BYTE buffRead[BUFSIZE], rgbHash[MD5LEN], hbuffer[BUFSIZE];
@@ -399,14 +400,15 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 	}
 
 	if(DEBUG_MODE) printf("GetMD5Hash, CryptoHash created\n");
-	// Read stream
+	// Read stream	
 	while (bSuccess = ReadFile(hDisk, buffRead, buffSize, &bytesRead, NULL))
 	{
+		
 		if (0 == bytesRead)
 		{
 			break;
 		}
-		readAmount += bytesRead;
+		readAmount += (u64) bytesRead;
 
 		if (readAmount > bytesToRead)
 		{
@@ -422,7 +424,6 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 			memcpy(hbuffer, &buffRead[0], buffSize);
 			bytesHash = bytesRead;
 		}	
-
 		// Hash every read buffer
 		if (!CryptHashData(hHash, hbuffer, bytesHash, 0))
 		{
@@ -432,6 +433,7 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 			CloseHandle(hDisk);
 			return NULL;
 		}
+
 		printf("Computing MD5 checksum... (%d%%) \r", (int)(readAmount * 100 / bytesToRead));
 
 		if(readAmount >= bytesToRead) break;

@@ -416,7 +416,7 @@ int main(int argc, char* argv[])
 		if (writeAmount != bytesToRead)
 		{
 			printf("ERROR : %I64d bytes to read but %I64d bytes written\n", bytesToRead, writeAmount);
-			throwException();
+			throwException(ERR_COPY_SIZE);
 		}
 
 		// Check dump integrity
@@ -451,7 +451,7 @@ int main(int argc, char* argv[])
 			{
 				printf("Verified (checksums are IDENTICAL)\n");
 			} else {
-				printf("ERROR : checksums are DIFFERENT \n");
+				throwException(ERR_MD5_COMPARE, "ERROR : checksums are DIFFERENT");
 			}
 		}
 
