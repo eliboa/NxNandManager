@@ -254,7 +254,11 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWr
 
 		// Get handle for writing
 		int open_mode = OPEN_EXISTING;
-		if((type == INVALID || NULL == partition) && !isDrive) open_mode = CREATE_ALWAYS;
+		//if((type == INVALID || NULL == partition) && !isDrive) open_mode = CREATE_ALWAYS;
+		if(!isDrive && (type == INVALID || (type == RAWNAND && NULL == partition && IsValidPartition(partition))))
+		{
+			open_mode = CREATE_ALWAYS;
+		}
 		if (DEBUG_MODE) printf("NxStorage::GetIOHandle - Opening mode = %s\n", open_mode == OPEN_EXISTING ? "OPEN_EXISTING" : "CREATE_ALWAYS" );
 		*hHandle = CreateFileW(pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
 			open_mode, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
