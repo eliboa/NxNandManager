@@ -174,7 +174,10 @@ void NxStorage::InitStorage()
 
 				// Look for backup GPT
 				if(type == RAWNAND) {
-					dwPtr = SetFilePointer(hStorage, size - NX_EMMC_BLOCKSIZE, NULL, FILE_BEGIN);
+
+					LARGE_INTEGER liDistanceToMove;
+					liDistanceToMove.QuadPart = 0x747BFFE00;
+					dwPtr = SetFilePointerEx(hStorage, liDistanceToMove, NULL, FILE_BEGIN);
 					if (dwPtr != INVALID_SET_FILE_POINTER)
 					{
 						ReadFile(hStorage, buffGpt, 0x4200, &bytesRead, NULL);
@@ -255,7 +258,6 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWr
 
 		// Get handle for writing
 		int open_mode = OPEN_EXISTING;
-		//if((type == INVALID || NULL == partition) && !isDrive) open_mode = CREATE_ALWAYS;
 		if(!isDrive && (type == INVALID || (type == RAWNAND && NULL == partition && IsValidPartition(partition))))
 		{
 			open_mode = CREATE_ALWAYS;

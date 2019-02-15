@@ -212,3 +212,9 @@ _Pvt_Extensions/
 ModelManifest.xml
 NxNandManager/main.cpp.bak
 NxNandManager/main.exe
+NxNandManager/NxNandManager.exe
+NxNandManager/NxStorage.o
+NxNandManager/debug.bat
+NxNandManager/debug.bat.bak
+NxNandManager/main.o
+NxNandManager/utils.o
