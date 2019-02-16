@@ -33,17 +33,22 @@ protected:
 	CString	m_szMessage;
 	int	m_nDownCounter;
 	BOOL isDirOutput;
+	std::string drives;
+
+	NxStorage nxInput;
+	NxStorage nxOutput;
+
 	DECLARE_MESSAGE_MAP()
 public:
 	char* input;
 	char* output;
 
 	afx_msg void OnBnClickedDumpAll();
-	afx_msg void OnEnChangeOutput();
+	afx_msg void OnEnChangeOUTPUT();
 	afx_msg void OnBnClickedOk();
 	afx_msg void OnLbnSelchangePartlist();
 	afx_msg void OnChangeINPUT();
-	afx_msg void InitInputCombo();
-	CString GetCurrentInput();
-	void AddInputComboString(CString inStr);
+	afx_msg void InitInputCombo(int combo);
+	CString GetCurrentInput(int combo);
+	void AddInputComboString(int combo, CString inStr);
 };

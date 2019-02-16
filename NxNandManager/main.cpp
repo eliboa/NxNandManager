@@ -211,7 +211,14 @@ int main(int argc, char* argv[])
 					cur = cur->next;
 				}
 			}
-			if (curNxdata->type == RAWNAND) printf("Backup GPT: %s\n", curNxdata->backupGPTfound ? "FOUND" : "MISSING !!!");
+			if (curNxdata->type == RAWNAND) {
+				if (curNxdata->backupGPTfound) 
+				{					
+					printf("Backup GPT: FOUND (offset 0x%s)\n", n2hexstr((u64)curNxdata->size - NX_EMMC_BLOCKSIZE, 8).c_str());
+				} else {
+					printf("Backup GPT: /!\\ Missing or invalid !!!\n");
+				}
+			}
 			// If there's nothing left to do, exit (we don't want to pursue with i/o operations)
 			if (i == io_num)
 			{
@@ -221,10 +228,11 @@ int main(int argc, char* argv[])
 		exit(EXIT_SUCCESS);
 	}
 
+
+
 	// COPY TO OUTPUT
 	if (NULL != output)
 	{
-
 
 		// COPY TO FILE
 		if (!nxdataOut.isDrive)

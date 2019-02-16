@@ -115,7 +115,7 @@ static NxPartition partInfoArr[] =
 
 class NxStorage {
 	public: 
-		NxStorage(const char* storage);
+		NxStorage(const char* storage=NULL);
 		int GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWrite, const char* partition = NULL, u64 *bytesToRead = NULL);
 		BOOL dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmount, u64* writeAmount, u64 bytesToWrite, HCRYPTHASH* hHash = NULL);
 		const char* GetNxStorageTypeAsString();		

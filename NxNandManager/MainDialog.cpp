@@ -23,22 +23,26 @@ MainDialog::~MainDialog()
 BOOL MainDialog::OnInitDialog()
 {
 	CDialog::OnInitDialog();
-	InitInputCombo();
+	//std::string drives = ListPhysicalDrives(TRUE);
+	InitInputCombo(IDC_INPUT_COMBO);
+	InitInputCombo(IDC_OUTPUT_COMBO);
 
 	isDirOutput = FALSE;
 	if (NULL != input)
 	{
 		CString Filename(input);
 		CComboBox *pComboBox = (CComboBox*)GetDlgItem(IDC_INPUT_COMBO);
-		AddInputComboString(Filename);
+		AddInputComboString(IDC_INPUT_COMBO, Filename);
 		pComboBox->SetCurSel(pComboBox->GetCount()-1);
-		//GetDlgItem(IDC_INPUT_COMBO)->SetWindowTextW(Filename);
 		OnChangeINPUT();
 	}
 	if (NULL != output)
 	{
 		CString Filename(output);
-		GetDlgItem(IDC_OUTPUT)->SetWindowTextW(Filename);
+		CComboBox *pComboBox = (CComboBox*)GetDlgItem(IDC_OUTPUT_COMBO);
+		AddInputComboString(IDC_OUTPUT_COMBO, Filename);
+		pComboBox->SetCurSel(pComboBox->GetCount() - 1);
+		//GetDlgItem(IDC_OUTPUT)->SetWindowTextW(Filename);
 	}
 
 	return TRUE;
@@ -135,9 +139,9 @@ BOOL MainDialog::isDirectory(const char* dirName) {
 	return (attribs & FILE_ATTRIBUTE_DIRECTORY);
 }
 
-void MainDialog::InitInputCombo()
+void MainDialog::InitInputCombo(int combo)
 {
-	CComboBox *pComboBox = (CComboBox*)GetDlgItem(IDC_INPUT_COMBO);
+	CComboBox *pComboBox = (CComboBox*)GetDlgItem(combo);
 	int j = 0;
 	pComboBox->ResetContent();
 
@@ -145,7 +149,7 @@ void MainDialog::InitInputCombo()
 	pComboBox->InsertString(0, _T("-> Select file..."));
 
 	// Add all drives
-	std::string drives = ListPhysicalDrives();
+	std::string drives = ListPhysicalDrives(TRUE);
 	CString csDrives(drives.c_str()), driveName;
 	for (int i = 0; i < csDrives.GetLength(); ++i)
 	{
@@ -160,9 +164,9 @@ void MainDialog::InitInputCombo()
 	}
 }
 
-CString MainDialog::GetCurrentInput()
+CString MainDialog::GetCurrentInput(int combo)
 {
-	CComboBox *pComboBox = (CComboBox*)GetDlgItem(IDC_INPUT_COMBO);
+	CComboBox *pComboBox = (CComboBox*)GetDlgItem(combo);
 	CString file;
 	int sel = pComboBox->GetCurSel(), n = pComboBox->GetLBTextLen(sel);
 	if (sel <= 0)
@@ -175,9 +179,10 @@ CString MainDialog::GetCurrentInput()
 	return file;
 }
 
-void MainDialog::AddInputComboString(CString inStr)
+
+void MainDialog::AddInputComboString(int combo, CString inStr)
 {
-	CComboBox *pComboBox = (CComboBox*)GetDlgItem(IDC_INPUT_COMBO);
+	CComboBox *pComboBox = (CComboBox*)GetDlgItem(combo);
 	int count = pComboBox->GetCount();
 	for (int i = 0; i < count; i++)
 	{
@@ -210,26 +215,27 @@ void MainDialog::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(MainDialog, CDialog)
 	ON_BN_CLICKED(IDC_DUMP_ALL, &MainDialog::OnBnClickedDumpAll)
-	ON_EN_CHANGE(IDC_OUTPUT, &MainDialog::OnEnChangeOutput)
 	ON_BN_CLICKED(IDOK, &MainDialog::OnBnClickedOk)
 	ON_WM_TIMER()
 	ON_MESSAGE(WM_INFORM_CLOSE, OnClosing)
 	ON_LBN_SELCHANGE(IDC_PARTLIST, &MainDialog::OnLbnSelchangePartlist)
 	ON_CBN_SELCHANGE(IDC_INPUT_COMBO, &MainDialog::OnChangeINPUT)
+	ON_CBN_SELCHANGE(IDC_OUTPUT_COMBO, &MainDialog::OnEnChangeOUTPUT)
 END_MESSAGE_MAP()
 
 
 void MainDialog::OnChangeINPUT()
 {	
 	// Get selected input string
-	CString file(GetCurrentInput());
+	CString file(GetCurrentInput(IDC_INPUT_COMBO));
 
 	CComboBox *pComboBox = (CComboBox*)GetDlgItem(IDC_INPUT_COMBO);
 	// "Select file..." is selected
 	if(pComboBox->GetCurSel() == 0)
 	{
 		GetDlgItem(IDC_INPUT_COMBO)->SetWindowTextW(_T(""));
-
+		CListBox* pListBox = (CListBox*)GetDlgItem(IDC_PARTLIST);
+		pListBox->ResetContent();
 		// Set filters for file dialog
 		CString szFilter;
 		szFilter = "NX & Bin files (*.bin;PRODINFO;BOOT...)|*.bin;PRODINFO;PRODINFOF;BCPKG2-1-Normal-Main;"
@@ -258,13 +264,13 @@ void MainDialog::OnChangeINPUT()
 			Filename = File2.GetFilePath();
 			
 			// Reset then add new file to combo
-			InitInputCombo(); 
-			AddInputComboString(Filename);
+			InitInputCombo(IDC_INPUT_COMBO);
+			AddInputComboString(IDC_INPUT_COMBO, Filename);
 
 			AfxGetMainWnd()->UpdateWindow();
 			pComboBox->SetCurSel(pComboBox->GetCount() - 1);
 			// Overwrite input file
-			file = GetCurrentInput();
+			file = GetCurrentInput(IDC_INPUT_COMBO);
 
 		} else {			
 			// No file selected, exit func
@@ -276,7 +282,7 @@ void MainDialog::OnChangeINPUT()
 	input = inputStr;
 	// New NxStorage for INPUT
 	NxStorage nxInput(inputStr);
-
+	
 	// Reset partitions list
 	CListBox*pListBox = (CListBox*)GetDlgItem(IDC_PARTLIST);
 	pListBox->ResetContent();
@@ -316,17 +322,71 @@ void MainDialog::OnChangeINPUT()
 			m_ctlCheck->SetCheck(1);
 			this->OnBnClickedDumpAll();
 		}
-		// So output is a file
-		GetDlgItem(IDC_GROUP_OUTPUT)->SetWindowTextW(TEXT("Output file : "));
 	}
 }
 
-void MainDialog::OnEnChangeOutput()
+void MainDialog::OnEnChangeOUTPUT()
 {
-	CString file;
-	GetDlgItem(IDC_OUTPUT)->GetWindowTextW(file);
-	CT2A outputStr(file);
-	output = outputStr;
+	// Get selected output string
+	CString file(GetCurrentInput(IDC_OUTPUT_COMBO));
+
+	CComboBox *pComboBox = (CComboBox*)GetDlgItem(IDC_OUTPUT_COMBO);
+	// "Select file..." is selected
+	if (pComboBox->GetCurSel() == 0)
+	{
+		GetDlgItem(IDC_OUTPUT_COMBO)->SetWindowTextW(_T(""));
+
+		CListBox* pListBox = (CListBox*)GetDlgItem(IDC_PARTLIST);
+		if (pListBox->GetSelCount() > 1)
+		{
+			// Select dir
+			CFolderPickerDialog folderPickerDialog(file, OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT | OFN_ENABLESIZING, this, sizeof(OPENFILENAME));
+			CString folderPath;
+			if (folderPickerDialog.DoModal() == IDOK)
+			{
+				file.Empty();
+				POSITION pos = folderPickerDialog.GetStartPosition();
+				while (pos)
+				{
+					file = folderPickerDialog.GetNextPathName(pos);
+				}
+			} else return;
+		} else {
+			// Selet file
+			// Set filters for file dialog
+			CString szFilter;
+			szFilter = "NX & Bin files (*.bin;PRODINFO;BOOT...)|*.bin;PRODINFO;PRODINFOF;BCPKG2-1-Normal-Main;"
+				"BCPKG2-2-Normal-Sub;BCPKG2-3-SafeMode-Main;BCPKG2-4-SafeMode-Sub;BOOT0;BOOT1;"
+				"BCPKG2-5-Repair-Main;BCPKG2-6-Repair-Sub;SAFE;SYSTEM;USER"
+				"|All files (*.*)|*.*||";
+
+			// Open select file dialogbox
+			CFileDialog FileOpenDialog(
+				FALSE,
+				NULL,
+				NULL,
+				OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+				szFilter,                       // filter 
+				AfxGetMainWnd());               // the parent window  
+
+												// Use current file as init dir
+			FileOpenDialog.m_ofn.lpstrInitialDir = file;
+
+			if (FileOpenDialog.DoModal() == IDOK)
+			{
+				// File selected
+				file.Empty();
+				file.Append(FileOpenDialog.GetPathName());
+			} else return;
+		}
+
+		// Reset then add new file to combo
+		InitInputCombo(IDC_OUTPUT_COMBO);
+		AddInputComboString(IDC_OUTPUT_COMBO, file);
+
+		AfxGetMainWnd()->UpdateWindow();
+		pComboBox->SetCurSel(pComboBox->GetCount() - 1);
+	}
 }
 
 void MainDialog::OnBnClickedDumpAll()
@@ -342,24 +402,7 @@ void MainDialog::OnBnClickedDumpAll()
 		{
 			pListBox->SetSel(i, FALSE);
 		}
-		GetDlgItem(IDC_GROUP_OUTPUT)->SetWindowTextW(TEXT("Output file : "));
 
-		CString out;
-		GetDlgItem(IDC_OUTPUT)->GetWindowTextW(out);
-		CT2A outbuf(out);
-		if (out.GetLength() > 0 && isDirectory(outbuf))
-		{
-			CWinAppEx* pApp = DYNAMIC_DOWNCAST(CWinAppEx, AfxGetApp());
-			if (pApp != NULL)
-			{
-				pApp->InitShellManager();
-			}
-			CMFCEditBrowseCtrl* pEditBrowse = (CMFCEditBrowseCtrl*)GetDlgItem(IDC_OUTPUT);
-			pEditBrowse->EnableFileBrowseButton();
-
-			GetDlgItem(IDC_OUTPUT)->SetWindowTextW(TEXT(""));
-		}
-		isDirOutput = FALSE;
 	} else {
 		pListBox->EnableWindow(TRUE);
 	}
@@ -367,6 +410,7 @@ void MainDialog::OnBnClickedDumpAll()
 
 void MainDialog::OnLbnSelchangePartlist()
 {
+	/*
 	GetDlgItem(IDC_GROUP_OUTPUT)->SetWindowTextW(TEXT("Output directory : "));
 	isDirOutput = TRUE;
 
@@ -384,6 +428,7 @@ void MainDialog::OnLbnSelchangePartlist()
 	if (out.GetLength() > 0 && !isDirectory(outbuf)) {
 		GetDlgItem(IDC_OUTPUT)->SetWindowTextW(TEXT(""));
 	}
+	*/
 }
 
 void MainDialog::OnTimer(UINT nIDEvent)
@@ -423,94 +468,143 @@ void MainDialog::OnBnClickedOk()
 {
 	if (m_pThread == NULL)
 	{
-		BOOL bSuccess = FALSE;
-		CString in(GetCurrentInput()), out;
-		GetDlgItem(IDC_INPUT_COMBO)->GetWindowTextW(in);
-		GetDlgItem(IDC_OUTPUT)->GetWindowTextW(out);
+		CString in(GetCurrentInput(IDC_INPUT_COMBO)), out(GetCurrentInput(IDC_OUTPUT_COMBO));
+		char errbuff[264];
+		CButton *m_ctlCheck = (CButton*)GetDlgItem(IDC_DUMP_ALL);
+		BOOL isDumpAll = (m_ctlCheck->GetCheck() == 1) ? true : false, bSuccess = FALSE;
+		CListBox* pListBox = (CListBox*)GetDlgItem(IDC_PARTLIST);
+		
 		if (in.GetLength() == 0 || out.GetLength() == 0)
 		{
 			MessageBox(_T("You have to specify both input and output."), _T("Error"), MB_OK | MB_ICONERROR);
 			return;
 		}
-		
-		CButton *m_ctlCheck = (CButton*)GetDlgItem(IDC_DUMP_ALL);
-		BOOL isDumpAll = (m_ctlCheck->GetCheck() == 1) ? true : false;
 
-		CT2A inputStr(in);
-		char buff[64];
+		CT2A inputStr(in), outputStr(out);
 		NxStorage nxInput(inputStr);
-		if (nxInput.size <= 0)
-		{
-			sprintf_s(buff, 64, "Error while trying to read input stream\n");
-		}
-		CT2A outputStr(out);
 		NxStorage nxOutput(outputStr);
-		// TODO : Add controls for output (& intput ?)
-		/*
-		if (nxOutput.type == INVALID)
+
+		if (nxInput.type != RAWNAND && BOOT0 && BOOT1 && PARTITION)
 		{
-			sprintf_s(buff, 64, "Error while trying to open output stream\n");
-		}
-		
-		CString message(buff);
-		if (nxInput.size <= 0 || nxOutput.type == INVALID)
-		{
-			MessageBox(message, _T("Error"), MB_OK | MB_ICONERROR);
+			sprintf_s(errbuff, 264, "Input %s is not a valid NX storage type (%s)", nxInput.isDrive ? "drive" : "file", nxInput.GetNxStorageTypeAsString());
+			MessageBox(convertCharArrayToLPWSTR(errbuff), _T("Error"), MB_OK | MB_ICONERROR);
 			return;
 		}
-		*/
+		if (in.MakeUpper() == out.MakeUpper())
+		{
+			const int result = MessageBox(L"Output has to be different from input", L"Error", MB_OK | MB_ICONERROR);
+			if (result != IDYES) return;
+		}
 
-		CWnd* pListBox = GetDlgItem(IDC_PARTLIST);
+		if (nxOutput.size > 0 && !nxOutput.isDrive && isDumpAll)
+		{
+			const int result = MessageBox(L"Output file already exists. Do you want to overwrite it ?", L"Warning", MB_YESNOCANCEL);
+			if (result != IDYES) return;
+		}
+
 		int num_check = 0;
 		u64 bytesWritten = 0, writeAmount = 0;
 
 		auto start = std::chrono::system_clock::now();
-		// User selected partitions
+
 		if (!isDumpAll && NULL != nxInput.firstPartion)
 		{
-			CListBox* pListBox = (CListBox*)GetDlgItem(IDC_PARTLIST);
-			for (int i = 0; i <= (int)pListBox->GetCount() - 1; i++)
-			{
-				// For every selected partition
-				if (pListBox->GetSel(i))
-				{
-					num_check++;
-					GptPartition *cur = nxInput.firstPartion;
-					int num_part = 0;
-					// Look for wanted partition in input partition list 
-					while (NULL != cur)
-					{
-						if (num_part == i)
-						{
-							// Set ouutput filename (partition_name.bin)
-							CString nout, part(cur->name);
-							nout.Format(_T("%s%s%s.bin"), out, out.GetAt((int)out.GetLength() - 1) == '\\' ? "" : "\\", part);
-							CT2A outStr(nout);
-						
-							// New NxStorage for input (nxInput not in stack at this point, why ?)
-							CString in(GetCurrentInput());
-							CT2A inStr(in);
-							NxStorage cur_nxInput(inStr);
-							
-							// New NxStorage for output
-							NxStorage cur_nxOutput(outStr);
+			int selCount = pListBox->GetSelCount();
+			if (selCount <= 0) {
+				MessageBox(_T("You have to select at least one partition"), _T("Error"), MB_OK | MB_ICONERROR);
+				return;
+			} 
+			if (nxOutput.type != RAWNAND && selCount > 1 && !isDirectory(outputStr)) {
 
-							// Dump input into output
-							if (dumpStorage(&cur_nxInput, &cur_nxOutput, &bytesWritten, cur->name) >= 0) {
-								bSuccess = TRUE;
-								writeAmount += bytesWritten;
-							}
-						}
-						num_part++;
-						cur = cur->next;
-					}		
+				MessageBox(_T("More than one partition selected, output must be a directory"), _T("Error"), MB_OK | MB_ICONERROR);
+				return;
+			}
+
+			int num_ok_part = 0;
+			BOOL toRAWNAND = FALSE;
+			// 2 iterations, one for control, second for dump
+			for (int it = 0; it <= 1; it++)
+			{
+				BOOL DUMP = it;
+				num_check = 0;
+				bSuccess = FALSE;
+
+				if (DUMP && toRAWNAND)
+				{
+					std::string outpath(nxOutput.path);
+					sprintf_s(errbuff, 264, "You are about to restore %d partition%S to Nx storage (RAWNAND) : %s.\n"
+						"Are you sure yout want to continue ?", num_ok_part, num_ok_part > 1 ? "s" : "",  base_name(outpath).c_str());
+					const int result = MessageBox(convertCharArrayToLPWSTR(errbuff), L"Warning", MB_YESNOCANCEL);
+					if (result != IDYES) return;
 				}
-			}			
+
+				for (int i = 0; i <= (int)pListBox->GetCount() - 1; i++)
+				{
+					// For every selected partition
+					if (pListBox->GetSel(i))
+					{
+						num_check++;
+						GptPartition *cur = nxInput.firstPartion;
+						int num_part = 0;
+						// Look for wanted partition in input partition list 
+						while (NULL != cur)
+						{
+							if (num_part == i)
+							{
+								CString nout;
+								if (nxOutput.type == RAWNAND || (selCount == 1 && !isDirectory(outputStr))) {
+									nout = out;
+								} else {
+									// Set output filename (partition_name.bin)
+									CString part(cur->name);
+									nout.Format(_T("%s%s%s.bin"), out, out.GetAt((int)out.GetLength() - 1) == '\\' ? "" : "\\", part);
+								}
+
+								//NxStorage cur_nxInput(inStr);
+								NxStorage *cur_nxInput = &nxInput;
+
+								// New NxStorage for output
+								CT2A outStr(nout);
+								NxStorage cur_nxOutput(outStr);
+
+								if (!DUMP) // Control
+								{
+									if (cur_nxOutput.type == RAWNAND)
+									{
+										toRAWNAND = TRUE;
+										u64 size = (cur->lba_end - cur->lba_start + 1) * NX_EMMC_BLOCKSIZE;
+										if (cur_nxOutput.IsValidPartition(cur->name, size) < 0) {
+											sprintf_s(errbuff, 264, "%s is not a valid partition in output %s", cur->name, nxInput.isDrive ? "drive" : "file");
+											MessageBox(convertCharArrayToLPWSTR(errbuff), _T("Error"), MB_OK | MB_ICONERROR);
+											return;
+										} else {
+											num_ok_part++;
+										}
+									}
+								} else {
+									// Dump input into output
+									if (dumpStorage(cur_nxInput, &cur_nxOutput, &bytesWritten, cur->name) >= 0) {
+										bSuccess = TRUE;
+										writeAmount += bytesWritten;
+									}
+								}
+							}
+							num_part++;
+							cur = cur->next;
+						}
+					}
+				}
+			}
 		} 
 
 		// User selected raw dump
 		if(isDumpAll || num_check == 0)
 		{
+			if (nxOutput.isDrive)
+			{
+				const int result = MessageBox(L"You are about to copy data to a physical drive.\nBE VERY CAUTIOUS !\nAre your sure you want to continue ?", L"Warning", MB_YESNOCANCEL);
+				if (result != IDYES) return;
+			}
 			if (dumpStorage(&nxInput, &nxOutput, &bytesWritten) >= 0) 
 			{
 				bSuccess = TRUE;

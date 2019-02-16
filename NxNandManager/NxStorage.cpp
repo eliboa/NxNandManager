@@ -5,7 +5,7 @@ NxStorage::NxStorage(const char* storage)
 {
 	if (DEBUG_MODE) printf("NxStorage::NxStorage - path = %s\n", storage);
 	path = storage;
-	pathLPWSTR = convertCharArrayToLPWSTR(storage);
+	pathLPWSTR = NULL;
 	type = UNKNOWN;
 	size = 0, fileDiskTotalBytes = 0, fileDiskFreeBytes = 0;
 	isDrive = FALSE, backupGPTfound = FALSE, autoRcm = FALSE;
@@ -14,7 +14,11 @@ NxStorage::NxStorage(const char* storage)
 	firstPartion = NULL;
 	partitionName[0] = '\0';
 
-	this->InitStorage();
+	if (NULL != storage)
+	{
+		pathLPWSTR = convertCharArrayToLPWSTR(storage);
+		this->InitStorage();
+	}
 }
 
 // Initialize and retrieve storage information
@@ -203,6 +207,15 @@ void NxStorage::InitStorage()
 BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 {
 	GptHeader *hdr = (GptHeader *)gptHeader;
+
+	// Check for valid GPT
+	std::string s(reinterpret_cast<const char *>(gptHeader));
+	if (s.find("EFI PART") == std::string::npos)
+	{
+		type = UNKNOWN;
+		return FALSE;
+	}
+
 	// Get raw disk size
 	if(hdr->alt_lba > 0)
 	{

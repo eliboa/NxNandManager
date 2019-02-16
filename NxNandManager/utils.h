@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <iostream>
 #include <chrono>
+#include <iomanip>
 
 // MinGW
 #if defined(__MINGW32__) || defined(__MINGW64__)
@@ -31,8 +32,6 @@
 #define ERR_INIT_GUI			-1013
 
 
-
-
 wchar_t *convertCharArrayToLPCWSTR(const char* charArray);
 LPWSTR convertCharArrayToLPWSTR(const char* charArray);
 u64 GetFilePointerEx (HANDLE hFile);
@@ -44,7 +43,7 @@ std::string GetReadableSize(u64 size);
 std::string GetReadableElapsedTime(std::chrono::duration<double> elapsed_seconds);
 void throwException(int rc, const char* errorStr=NULL);
 void throwException(const char* errorStr=NULL);
-std::string ListPhysicalDrives();
+std::string ListPhysicalDrives(BOOL noError=FALSE);
 char * flipAndCodeBytes(const char * str, int pos, int flip, char * buf);
 std::string ExePath();
 

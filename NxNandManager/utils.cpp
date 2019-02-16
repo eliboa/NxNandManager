@@ -161,7 +161,7 @@ void throwException(const char* errorStr)
 	exit(EXIT_FAILURE);
 }
 // Concatenate every compatible physical disk n� in a string
-std::string ListPhysicalDrives()
+std::string ListPhysicalDrives(BOOL noError)
 {
 	int num_drive = 0;
 	std::string compatibleDrives;
@@ -211,7 +211,7 @@ std::string ListPhysicalDrives()
 	//compatibleDrives[num_drive] = '\0';
 	if (num_drive == 0)
 	{
-		throwException(ERR_NO_LIST_DISK, "No compatible drive detected.");
+		if(!noError) throwException(ERR_NO_LIST_DISK, "No compatible drive detected.");
 	} else {
 		compatibleDrives = compatibleDrives + "\n";
 	}
