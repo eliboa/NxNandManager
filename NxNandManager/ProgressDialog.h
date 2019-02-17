@@ -23,6 +23,7 @@ public:
 	CString	m_szMessage;
 
 protected:
+	virtual BOOL OnInitDialog();
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 	virtual LRESULT OnUpdateString(WPARAM wpD, LPARAM lpD);
 	virtual LRESULT OnUpdatePercent(WPARAM wpD, LPARAM lpD);

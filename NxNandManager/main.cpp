@@ -33,7 +33,7 @@ BOOL FORCE = FALSE;
 BOOL LIST = FALSE;
 
 int main(int argc, char* argv[])
-{	
+{
 	printf("[ NxNandManager v1.0-beta ]\n\n");
 	const char* output = NULL;
 	const char* input = NULL;
@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
 			   "  -i          Path to input file or device\n"
 			   "  -o          Path to output file or device\n"
 			   "  -part       Partition to copy (apply to both input & output if possible)\n"
-			   "              Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n" 
+			   "              Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
 			   "              \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
 			   "              \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
 
@@ -65,6 +65,23 @@ int main(int argc, char* argv[])
 
 	if (argc == 1)
 	{
+#if defined(ENABLE_GUI)
+		// Autostart GUI if no argument specified
+
+		PROCESS_INFORMATION pi;
+		STARTUPINFO si;
+		BOOL ret = FALSE;
+		DWORD flags = CREATE_NO_WINDOW;
+		ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+		ZeroMemory(&si, sizeof(STARTUPINFO));
+		si.cb = sizeof(STARTUPINFO);
+		TCHAR szPath[_MAX_PATH];
+		VERIFY(::GetModuleFileName(AfxGetApp()->m_hInstance, szPath, _MAX_PATH));
+		CString csPathf(szPath);
+		csPathf.Append(L" --gui");
+		ret = CreateProcess(NULL, _tcsdup(csPathf), NULL, NULL, NULL, flags, NULL, NULL, &si, &pi);
+
+#endif
 		PrintUsage();
 	}
 
@@ -86,9 +103,7 @@ int main(int argc, char* argv[])
 			LIST = TRUE;
 		} else if (strncmp(currArg, GUI_ARGUMENT, array_countof(GUI_ARGUMENT) - 1) == 0)
 		{
-			#if defined(ENABLE_GUI)
-				gui = TRUE;
-			#endif
+			gui = TRUE;
 		} else if (strncmp(currArg, INPUT_ARGUMENT, array_countof(INPUT_ARGUMENT) - 1) == 0 && i < argc)
 		{
 			input = argv[++i];
@@ -124,9 +139,9 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	#if defined(ENABLE_GUI)
 	if (gui)
 	{
+#if defined(ENABLE_GUI)
 		HMODULE hModule = ::GetModuleHandle(nullptr);
 		if (hModule != nullptr)
 		{
@@ -141,8 +156,11 @@ int main(int argc, char* argv[])
 		MainDialog dlg(input, output);
 		dlg.DoModal();
 		exit(EXIT_SUCCESS);
+#else
+		throwException(ERR_INIT_GUI, "GUI unavailable. This build is CLI only");
+#endif
 	}
-	#endif
+
 
 	if (LIST && !gui)
 	{
@@ -196,7 +214,7 @@ int main(int argc, char* argv[])
 			NxStorage* curNxdata = i == 2 ? &nxdataOut : &nxdata;
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
-			printf("NAND type : %s%s%s\n", curNxdata->GetNxStorageTypeAsString(), 
+			printf("NAND type : %s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
 				NULL != curNxdata->partitionName ? " " : "", curNxdata->partitionName);
 			if (curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
 			printf("Size      : %s\n", GetReadableSize(curNxdata->size).c_str());
@@ -212,8 +230,8 @@ int main(int argc, char* argv[])
 				}
 			}
 			if (curNxdata->type == RAWNAND) {
-				if (curNxdata->backupGPTfound) 
-				{					
+				if (curNxdata->backupGPTfound)
+				{
 					printf("Backup GPT: FOUND (offset 0x%s)\n", n2hexstr((u64)curNxdata->size - NX_EMMC_BLOCKSIZE, 8).c_str());
 				} else {
 					printf("Backup GPT: /!\\ Missing or invalid !!!\n");
@@ -251,7 +269,7 @@ int main(int argc, char* argv[])
 			}
 			if (nxdataOut.size > 0 && !FORCE)
 			{
-				// Output file already exists					
+				// Output file already exists
 				if (!AskYesNoQuestion("Output file already exists. Do you want to overwrite it ?"))
 				{
 					throwException("Operation cancelled.\n");
@@ -270,7 +288,7 @@ int main(int argc, char* argv[])
 			{
 				printf("Output (physical drive) unidentified (type = %s)\n", nxdataOut.GetNxStorageTypeAsString());
 				throwException(ERR_INVALID_OUTPUT);
-			}			
+			}
 
 			// If input type is PARTITION & -part not specified, look for a match in output GPT
 			if (nxdata.type == PARTITION && NULL == partition)
@@ -292,7 +310,7 @@ int main(int argc, char* argv[])
 				u64 part_size = -1;
 				// Partition MUST exists in input stream (if RAWNAND)
 				if (nxdata.type == RAWNAND)
-				{					
+				{
 					part_size = nxdata.IsValidPartition(partition);
 					if (part_size<0)
 					{
@@ -308,14 +326,14 @@ int main(int argc, char* argv[])
 						throwException(ERR_INVALID_PART);
 					}
 				}
-				// Partition must exists on output drive & size must match input size 
+				// Partition must exists on output drive & size must match input size
 				if (!nxdataOut.IsValidPartition(partition, part_size ? part_size : nxdata.size))
 				{
 					printf("Input partition (%s, %I64d bytes) not found in output stream (or size does not match)\n", partition, nxdata.size);
 					throwException(ERR_IO_MISMATCH);
 				}
 			} else {
-				// Partition argument is not specified				
+				// Partition argument is not specified
 				if (nxdata.type != nxdataOut.type)
 				{
 					printf("Input data type (%s) doesn't match output data type (%s)\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
@@ -334,7 +352,7 @@ int main(int argc, char* argv[])
 					} else {
 						throwException(ERR_IO_MISMATCH, "For security reason, you can't continue");
 					}
-				}				
+				}
 			}
 			if (!FORCE)
 			{
@@ -345,7 +363,7 @@ int main(int argc, char* argv[])
 			}
 		}
 	}
-	
+
 	// COPY
 	if (nxdata.size > 0)
 	{
@@ -355,7 +373,7 @@ int main(int argc, char* argv[])
 		int rc;
 
 		// Get handle for input
-		if (nxdata.type == PARTITION) 
+		if (nxdata.type == PARTITION)
 		{
 			rc = nxdata.GetIOHandle(&hDisk, GENERIC_READ, NULL);
 		} else {

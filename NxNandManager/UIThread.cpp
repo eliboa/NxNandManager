@@ -50,7 +50,7 @@ void CUIThread::Kill()
 {
 	//	Kill the interface thread by posting a message to 
 	//	the dialog box object.
-	if(m_bKill) return;
+	if(m_bKill || NULL == m_Dlg) return;
 
 	m_Dlg.PostMessage(WM_COMMAND, IDCANCEL);
 }
@@ -70,7 +70,6 @@ int CUIThread::Run()
 	
 	if(m_pParent)		// Post a message to the parent window to remove the UI-thread object.
 		m_pParent->PostMessage(WM_INFORM_CLOSE);
-
 	return 0;
 }
 
@@ -119,6 +118,6 @@ BOOL CUIThread::IsRunning()
 
 void CUIThread::SetParent(CWnd *pParent)
 {
-	m_pParent = pParent;
+	m_pParent = pParent;	
 }
 

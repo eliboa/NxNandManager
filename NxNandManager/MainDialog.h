@@ -5,6 +5,9 @@
 #include "UIThread.h"
 #include "afxeditbrowsectrl.h"
 #include <afxwinappex.h>
+#include <thread>
+#include "NxNandManager.h"
+
 
 // MainDialog dialog
 
@@ -37,6 +40,9 @@ protected:
 
 	NxStorage nxInput;
 	NxStorage nxOutput;
+
+	HCRYPTPROV hProv;
+	HCRYPTHASH hHash;
 
 	DECLARE_MESSAGE_MAP()
 public:

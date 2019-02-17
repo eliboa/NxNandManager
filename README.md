@@ -1,9 +1,9 @@
 # NxNandManager
 
-NxNandManager is a command line (and GUI) utility for Windows 7 & 10, 
+NxNandManager is a command line (and GUI) utility for Windows 7 & 10,
 the primary purpose of which is to copy Nintendo Switch content (full NAND or specific partition) from/to a file or physical drive.
 
-***First beta release will be out soon***
+![Png](http://splatoon.eu/switch/NxNandManager-1.0-beta.png)
 
 ## Usage
 
@@ -18,7 +18,7 @@ Arguments | Description | Example
 -o | Path to output file or physical drive | ```-o rawnand.bin```<br/>```-o \\.\PhysicalDrive3```
 -part= | Copy from/to a specific NAND partition (optional) | ```-part=PRODINFO```<br/>```-part=BCPKG2-2-Normal-Sub```
 
-lFlags | Description 
+lFlags | Description
 ------ | -----------
 BYPASS_MD5SUM | Used to by-pass all md5 verifications<br/>Dump/Restore is faster but less secure
 FORCE | Program will never prompt for user confirmation

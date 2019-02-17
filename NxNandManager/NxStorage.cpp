@@ -145,6 +145,7 @@ void NxStorage::InitStorage()
 			{
 				strcpy_s(partitionName, partInfoArr[i].name);
 				type = PARTITION;
+				break;
 			}
 		}
 	}
@@ -275,10 +276,13 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWr
 		}
 
 		// Get handle for writing
-		int open_mode = OPEN_EXISTING;
-		if(!isDrive && (type == INVALID || (type == RAWNAND && NULL == partition && IsValidPartition(partition))))
+		int open_mode;
+		if(isDrive) open_mode = OPEN_EXISTING;
+		else
 		{
 			open_mode = CREATE_ALWAYS;
+			//if (type == RAWNAND && NULL != partition && IsValidPartition(partition)) open_mode = OPEN_EXISTING;
+			if(type != INVALID) open_mode = OPEN_EXISTING;
 		}
 		if (DEBUG_MODE) printf("NxStorage::GetIOHandle - Opening mode = %s\n", open_mode == OPEN_EXISTING ? "OPEN_EXISTING" : "CREATE_ALWAYS" );
 		*hHandle = CreateFileW(pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
@@ -303,7 +307,7 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWr
 				liDistanceToMove.QuadPart = (u64)cur->lba_start * NX_EMMC_BLOCKSIZE;
 				if (SetFilePointerEx(*hHandle, liDistanceToMove, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER)
 				{					
-					*bytesToRead = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
+					*bytesToRead = ((u64)cur->lba_end - (u64)cur->lba_start + 1) * (int)NX_EMMC_BLOCKSIZE;
 					if (DEBUG_MODE) printf("NxStorage::GetIOHandle - Pointer set to specific partition %s in %s\n", partition, path);
 					return 0;					
 				} else {
@@ -322,7 +326,9 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWr
 // Dump raw data from hHandleIn to hHandleOut.  This function must be called recursively until it returns FALSE;
 BOOL NxStorage::dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmount, u64* writeAmount, u64 bytesToWrite, HCRYPTHASH* hHash)
 {
-	BYTE buffer[DEFAULT_BUFF_SIZE], wbuffer[DEFAULT_BUFF_SIZE];
+	//BYTE buffer[DEFAULT_BUFF_SIZE], wbuffer[DEFAULT_BUFF_SIZE];
+	BYTE *buffer = new BYTE[DEFAULT_BUFF_SIZE];
+
 	u64 buffSize = DEFAULT_BUFF_SIZE;
 	DWORD bytesRead = 0, bytesWritten = 0, bytesWrite = 0;
 
@@ -336,15 +342,19 @@ BOOL NxStorage::dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmou
 	if (!ReadFile(*hHandleIn, buffer, buffSize, &bytesRead, NULL))
 	{
 		if (DEBUG_MODE) printf("NxStorage::dumpStorage - failed ReadFile()\n");
+		delete[] buffer;
 		return FALSE;
 	}
 	if (0 == bytesRead)
 	{
 		if (DEBUG_MODE) printf("NxStorage::dumpStorage - 0 == bytesRead\n");
+		delete[] buffer;
 		return FALSE;
 	}
 	*readAmount += (DWORD) bytesRead;
 
+
+	BYTE *wbuffer = new BYTE[DEFAULT_BUFF_SIZE];
 	if (NULL != bytesToWrite && *readAmount > bytesToWrite)
 	{
 		// Adjust write buffer
@@ -353,6 +363,8 @@ BOOL NxStorage::dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmou
 		if (DEBUG_MODE) printf("NxStorage::dumpStorage - Adjust write buffer, new buff size is %I64d\n", bytesWrite);
 		if (bytesWrite == 0)
 		{
+			delete[] buffer;
+			delete[] wbuffer;
 			return FALSE;
 		}
 	} else {
@@ -369,10 +381,15 @@ BOOL NxStorage::dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmou
 	if(!WriteFile(*hHandleOut, wbuffer, bytesWrite, &bytesWritten, NULL))
 	{
 		printf("Error during write operation : %s \n", GetLastErrorAsString().c_str());
+		delete[] buffer;
+		delete[] wbuffer;
 		return FALSE;
 	} else {
 		*writeAmount += (DWORD) bytesWritten;
 	}
+
+	delete[] buffer;
+	delete[] wbuffer;
 	return TRUE;
 }
 

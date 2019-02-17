@@ -14,6 +14,7 @@ ProgressDialog::ProgressDialog(CWnd* pParent /*=NULL*/)
 	: CDialog(IDD_PROGRESSDIALOG, pParent)
 {
 	m_szMessage = _T("");
+	
 }
 
 ProgressDialog::~ProgressDialog()
@@ -35,6 +36,13 @@ BEGIN_MESSAGE_MAP(ProgressDialog, CDialog)
 	ON_BN_CLICKED(IDCANCEL, &ProgressDialog::OnBnClickedCancel)
 END_MESSAGE_MAP()
 
+BOOL ProgressDialog::OnInitDialog()
+{
+	CDialog::OnInitDialog();
+	GetDlgItem(IDC_PROGRESSCTL)->ShowWindow(SW_HIDE);
+
+	return TRUE;
+}
 
 LRESULT ProgressDialog::OnUpdatePercent(WPARAM wpD, LPARAM lpD)
 {
@@ -42,6 +50,8 @@ LRESULT ProgressDialog::OnUpdatePercent(WPARAM wpD, LPARAM lpD)
 	CT2A message(*pwpD);
 	int percent = atoi(message);	
 	CProgressCtrl* m_progCtrl = (CProgressCtrl*)GetDlgItem(IDC_PROGRESSCTL);
+	m_progCtrl->ShowWindow(SW_SHOW);
+	//this->UpdateWindow();
 	m_progCtrl->SetPos(percent);
 	UpdateData(FALSE);
 	return LRESULT();

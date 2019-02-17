@@ -4,8 +4,6 @@
 #include <string>
 #include "utils.h"
 
-
-
 using namespace std;
 
 #define BUFSIZE   0x40000
