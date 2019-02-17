@@ -3,7 +3,7 @@
 NxNandManager is a command line (and GUI) utility for Windows 7 & 10,
 the primary purpose of which is to copy Nintendo Switch content (full NAND or specific partition) from/to a file or physical drive.
 
-![Png](http://splatoon.eu/switch/NxNandManager-1.0-beta.png)
+![Png](http://splatoon.eu/switch/NxNandManager-1.0beta.png)
 
 ## Usage
 
