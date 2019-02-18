@@ -70,7 +70,7 @@ or
 
 ## Build
 
-### MinGW (CLI only)
+### MinGW, MSYS and MSYS2 with GCC (CLI only)
 
 ```
 git clone https://github.com/eliboa/NxNandManager   
