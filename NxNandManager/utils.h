@@ -11,7 +11,7 @@
 #include <iomanip>
 
 // MinGW
-#if defined(__MINGW32__) || defined(__MINGW64__)
+#if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
 #   define strcpy_s strcpy
 #   define sprintf_s snprintf
 #endif

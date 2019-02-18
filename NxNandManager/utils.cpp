@@ -332,7 +332,7 @@ char * flipAndCodeBytes(const char * str,  int pos, int flip, char * buf)
 std::string ExePath() 
 {	
 	char buffer[MAX_PATH];
-	#if defined(__MINGW32__) || defined(__MINGW64__)		
+	#if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
 		GetModuleFileName(NULL, buffer, MAX_PATH);
 	#else
 		TCHAR w_buffer[MAX_PATH];

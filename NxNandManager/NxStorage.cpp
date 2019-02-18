@@ -73,7 +73,7 @@ void NxStorage::InitStorage()
 		}
 		DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
 		
-#if defined(__MINGW32__) || defined(__MINGW64__)
+#if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
 		const char * wpath = dir.c_str();
 #else
 		LPWSTR wpath = convertCharArrayToLPWSTR(dir.c_str());
