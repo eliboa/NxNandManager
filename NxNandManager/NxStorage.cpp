@@ -409,7 +409,7 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 		return "";
 	} 
 
-	printf("MD5 DEBUG bytesToRead = %I64d \n ", bytesToRead);
+	//printf("MD5 DEBUG bytesToRead = %I64d \n ", bytesToRead);
 
 	BOOL bSuccess;
 	DWORD buffSize = BUFSIZE, bytesRead = 0, cbHash = 0, bytesHash = 0;
