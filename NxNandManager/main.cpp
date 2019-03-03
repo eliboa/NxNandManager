@@ -1,39 +1,24 @@
-// NxNandManager
-#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
-
-#if defined(ENABLE_GUI)
-	#include "stdafx.h"
-	#include <afxwinappex.h>
-#endif
-#include <windows.h>
-#include <winioctl.h>
-#include <stdio.h>
-#include <string>
-#include <fstream>
-#include <iostream>
-#include <ctime>
-#include <Wincrypt.h>
-#include <sys/types.h>
-#include "types.h"
-#include "utils.h"
-#include "NxStorage.h"
 #include "NxNandManager.h"
 
-#if defined(ENABLE_GUI)
-	#include "MainDialog.h"
-	CWinAppEx theApp;
-#endif
-
-using namespace std;
-
-BOOL BYPASS_MD5SUM = FALSE;
-bool DEBUG_MODE = false;
-//BOOL DEBUG_MODE = FALSE;
-BOOL FORCE = FALSE;
-BOOL LIST = FALSE;
-
-int main(int argc, char* argv[])
+int startGUI(int argc, char *argv[])
 {
+#if defined(ENABLE_GUI)
+	QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+
+	QApplication a(argc, argv);
+	MainWindow w;
+	w.show();
+	return a.exec();
+#else
+	throwException(ERR_INIT_GUI, "GUI unavailable. This build is CLI only");
+	return -1;
+#endif
+}
+
+
+int main(int argc, char *argv[])
+{
+    std::setlocale(LC_ALL, "en_US.utf8");
 	printf("[ NxNandManager v1.0-beta ]\n\n");
 	const char* output = NULL;
 	const char* input = NULL;
@@ -44,20 +29,20 @@ int main(int argc, char* argv[])
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
 		printf("usage: NxNandManager [--gui] [--list] [--info] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
-			   "                     -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
-			   "  --gui       Start the program in graphical mode, doesn't need other argument\n"
-			   "  --list      List compatible NX physical disks\n"
-			   "  --info      Display information about input/output file or device\n"
-			   "  -i          Path to input file or device\n"
-			   "  -o          Path to output file or device\n"
-			   "  -part       Partition to copy (apply to both input & output if possible)\n"
-			   "              Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
-			   "              \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
-			   "              \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
+			"                     -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
+			"  --gui       Start the program in graphical mode, doesn't need other argument\n"
+			"  --list      List compatible NX physical disks\n"
+			"  --info      Display information about input/output file or device\n"
+			"  -i          Path to input file or device\n"
+			"  -o          Path to output file or device\n"
+			"  -part       Partition to copy (apply to both input & output if possible)\n"
+			"              Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
+			"              \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
+			"              \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
 
 		printf("  lFlags:     \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
-			   "  -------     \"FORCE\" to disable prompt for user input (no question asked)\n"
-			   "              \"DEBUG_MODE\" to display debug information\n");
+			"  -------     \"FORCE\" to disable prompt for user input (no question asked)\n"
+			"              \"DEBUG_MODE\" to display debug information\n");
 
 		throwException(ERR_WRONG_USE);
 		return -1;
@@ -65,9 +50,9 @@ int main(int argc, char* argv[])
 
 	if (argc == 1)
 	{
-#if defined(ENABLE_GUI)
-		// Autostart GUI if no argument specified
 
+#if defined(ENABLE_GUI)
+		printf("No argument specified. Switching to GUI mode...\n");
 		PROCESS_INFORMATION pi;
 		STARTUPINFO si;
 		BOOL ret = FALSE;
@@ -75,16 +60,17 @@ int main(int argc, char* argv[])
 		ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
 		ZeroMemory(&si, sizeof(STARTUPINFO));
 		si.cb = sizeof(STARTUPINFO);
-		TCHAR szPath[_MAX_PATH];
-		VERIFY(::GetModuleFileName(AfxGetApp()->m_hInstance, szPath, _MAX_PATH));
-		CString csPathf(szPath);
-		csPathf.Append(L" --gui");
-		ret = CreateProcess(NULL, _tcsdup(csPathf), NULL, NULL, NULL, flags, NULL, NULL, &si, &pi);
-
-#endif
+		wchar_t buffer[_MAX_PATH];
+		GetModuleFileName(GetCurrentModule(), buffer, _MAX_PATH);
+		wstring module_path(buffer);
+		module_path.append(L" --gui");
+		ret = CreateProcess(NULL, &module_path[0], NULL, NULL, NULL, flags, NULL, NULL, &si, &pi);
+		exit(EXIT_SUCCESS);
+#else
 		PrintUsage();
+#endif
 	}
-
+	
 	const char GUI_ARGUMENT[] = "--gui";
 	const char INPUT_ARGUMENT[] = "-i";
 	const char OUTPUT_ARGUMENT[] = "-o";
@@ -112,12 +98,11 @@ int main(int argc, char* argv[])
 			output = argv[++i];
 		} else if (strncmp(currArg, PARTITION_ARGUMENT, array_countof(PARTITION_ARGUMENT) - 1) == 0)
 		{
-			u32 len= array_countof(PARTITION_ARGUMENT) - 1;
+			u32 len = array_countof(PARTITION_ARGUMENT) - 1;
 			if (currArg[len] == '=')
 			{
 				partition = &currArg[len + 1];
-			}
-			else if (currArg[len] == 0)
+			} else if (currArg[len] == 0)
 			{
 				if (i == argc - 1) return PrintUsage();
 			}
@@ -141,26 +126,9 @@ int main(int argc, char* argv[])
 
 	if (gui)
 	{
-#if defined(ENABLE_GUI)
-		HMODULE hModule = ::GetModuleHandle(nullptr);
-		if (hModule != nullptr)
-		{
-			if (!AfxWinInit(hModule, nullptr, ::GetCommandLine(), 0))
-			{
-				throwException(ERR_INIT_GUI, "Fatal Error: GUI MFC initialization failed");
-			}
-		} else {
-			throwException(ERR_INIT_GUI, "Fatal Error: GetModuleHandle failed");
-		}
-
-		MainDialog dlg(input, output);
-		dlg.DoModal();
-		exit(EXIT_SUCCESS);
-#else
-		throwException(ERR_INIT_GUI, "GUI unavailable. This build is CLI only");
-#endif
+		startGUI(argc, argv);
+		return 0;
 	}
-
 
 	if (LIST && !gui)
 	{
@@ -388,7 +356,7 @@ int main(int argc, char* argv[])
 		rc = nxdataOut.GetIOHandle(&hDiskOut, GENERIC_WRITE, bytesToRead, partition, NULL != partition ? &bytesToRead : NULL);
 		if (rc < 0)
 		{
-			if(rc == ERR_NO_SPACE_LEFT) throwException(ERR_NO_SPACE_LEFT, "Output disk : not enough space !");
+			if (rc == ERR_NO_SPACE_LEFT) throwException(ERR_NO_SPACE_LEFT, "Output disk : not enough space !");
 			else throwException(ERR_OUTPUT_HANDLE, "Failed to get handle to output file/disk\n");
 		}
 
@@ -489,4 +457,3 @@ int main(int argc, char* argv[])
 	}
 	exit(EXIT_SUCCESS);
 }
-

@@ -1,8 +1,8 @@
 #include "NxStorage.h"
-#include "NxNandManager.h"
 
 NxStorage::NxStorage(const char* storage)
 {
+    DEBUG_MODE = false;
 	if (DEBUG_MODE) printf("NxStorage::NxStorage - path = %s\n", storage);
 	path = storage;
 	pathLPWSTR = NULL;
@@ -12,7 +12,10 @@ NxStorage::NxStorage(const char* storage)
 	pdg = { 0 };
 	partCount = 0;
 	firstPartion = NULL;
+	lastSplitFile = NULL;
 	partitionName[0] = '\0';
+	handle.h = NULL;
+	handle_out = NULL;
 
 	if (NULL != storage)
 	{
@@ -72,13 +75,10 @@ void NxStorage::InitStorage()
 			dir = ExePath();
 		}
 		DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
-		
-#if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
-		const char * wpath = dir.c_str();
-#else
+
 		LPWSTR wpath = convertCharArrayToLPWSTR(dir.c_str());
-#endif
-		BOOL fResult = GetDiskFreeSpace(wpath, &dwSectPerClust, &dwBytesPerSect, &dwFreeClusters, &dwTotalClusters);
+
+        BOOL fResult = GetDiskFreeSpace(&wpath[0], &dwSectPerClust, &dwBytesPerSect, &dwFreeClusters, &dwTotalClusters);
 		if (fResult)
 		{
 			fileDiskTotalBytes = (u64)dwTotalClusters * dwSectPerClust * dwBytesPerSect;
@@ -160,6 +160,7 @@ void NxStorage::InitStorage()
 			if (0 != bytesRead)
 			{
 				if(buff[0x10] != 0xF7) autoRcm = TRUE;
+                else autoRcm = FALSE;
 			}
 		}
 	}
@@ -199,6 +200,66 @@ void NxStorage::InitStorage()
 				}
 			}
 		}
+	}
+
+	// Look for split dump
+	if (type == RAWNAND && !backupGPTfound && !isDrive) {
+		wstring Lfilename(this->pathLPWSTR);
+		wstring extension(get_extension(Lfilename));
+		wstring basename = remove_extension(Lfilename);
+		wstring last_char = basename.substr(wcslen(basename.c_str()) - 1, wcslen(basename.c_str()));
+		if (last_char == L"0" || last_char == L"1")
+		{
+			int i = std::stoi(last_char);
+			LARGE_INTEGER Lsize;
+			HANDLE hFile;
+			u64 s_size = 0;	
+			wstring path = Lfilename;			
+			while (true)
+			{								
+				hFile = CreateFileW(&path[0], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+				if (!GetFileSizeEx(hFile, &Lsize))
+					break;
+
+				if (s_size != 0) isSplitted = TRUE;
+					
+                NxSplitFile *splitfile = reinterpret_cast<NxSplitFile *>(malloc(sizeof(NxSplitFile)));
+				wcscpy(splitfile->file_path, path.c_str());
+				splitfile->offset = s_size;
+                splitfile->size = static_cast<u64>(Lsize.QuadPart);
+
+				splitfile->next = lastSplitFile;
+				lastSplitFile = splitfile;
+
+                s_size += static_cast<u64>(Lsize.QuadPart);
+
+				path = basename.substr(0, wcslen(basename.c_str()) - 1) + std::to_wstring(++i) + extension;
+				if (!is_file_exist(path.c_str()))
+					break;
+			}
+
+			if (isSplitted)
+			{
+				size = s_size;
+				// Look for backup GPT in last split file
+				LARGE_INTEGER liDistanceToMove;
+				liDistanceToMove.QuadPart = lastSplitFile->size - NX_EMMC_BLOCKSIZE;
+				DWORD dwPtr = SetFilePointerEx(hFile, liDistanceToMove, NULL, FILE_BEGIN);
+				if (dwPtr != INVALID_SET_FILE_POINTER)
+				{
+					BYTE buffGpt[NX_EMMC_BLOCKSIZE];
+					ReadFile(hFile, buffGpt, NX_EMMC_BLOCKSIZE, &bytesRead, NULL);
+					if (0 != bytesRead)
+					{
+						GptHeader *hdr = (GptHeader *)buffGpt;
+						if (hdr->num_part_ents > 0)
+						{
+							backupGPTfound = TRUE;
+						}
+					}
+				}
+			}
+		}			
 	}
 
 	CloseHandle(hStorage);
@@ -257,6 +318,409 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 	return hdr->num_part_ents > 0 ? TRUE : FALSE;
 }
 
+BOOL NxStorage::GetSplitFile(NxSplitFile* pFile, const char* partition)
+{
+	if (type != RAWNAND || !isSplitted || NULL == firstPartion) return NULL;
+
+	GptPartition *part = firstPartion;
+	while (NULL != part)
+	{
+		if (strncmp(part->name, partition, strlen(partition)) == 0)
+		{
+			u64 seek_off = (u64)part->lba_start * NX_EMMC_BLOCKSIZE;		
+			NxSplitFile *file = lastSplitFile;
+			while (NULL != file)
+			{
+				if (seek_off >= file->offset && seek_off < file->offset + file->size)
+				{
+					*pFile = *file;
+					return TRUE;
+				}
+				file = file->next;
+			}
+		}
+		part = part->next;
+	}
+	return FALSE;
+}
+
+BOOL NxStorage::GetSplitFile(NxSplitFile* pFile, u64 offset)
+{
+	if (type != RAWNAND || !isSplitted) return NULL;
+	NxSplitFile *file = lastSplitFile;
+	while (NULL != file)
+	{
+		if (offset >= file->offset && offset < file->offset + file->size)
+		{
+			*pFile = *file;
+			return TRUE;
+		}
+		file = file->next;
+	}
+	return FALSE;
+}
+
+void NxStorage::ClearHandles()
+{
+	CloseHandle(handle.h);
+	CloseHandle(handle_out);
+	//handle.path.empty();
+	handle.off_end = 0;
+	handle.off_start = 0;
+	handle.readAmount = 0;
+	handle.off_max = 0;
+	bytesToRead = 0;
+}
+
+int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite)
+{
+    // First iteration
+    if (handle.readAmount == 0)
+    {
+        u64 out_off_start = 0;
+        *bytesToWrite = size;
+        // Restore to splitted dump not supported yet
+        if (isSplitted)
+            return ERR_RESTORE_TO_SPLIT;
+
+        // Default path is input object path
+        wcscpy(handle.path, in->pathLPWSTR);
+        // If partition specified
+        if (NULL != partition && strlen(partition) > 0)
+        {
+            // Iterate GPT entry for output
+            GptPartition *part = firstPartion;
+            while (NULL != part)
+            {
+                if (strncmp(part->name, partition, strlen(partition)) == 0)
+                {
+                    out_off_start = (u64)part->lba_start * NX_EMMC_BLOCKSIZE;
+                    *bytesToWrite = ((u64)part->lba_end - (u64)part->lba_start + 1) * (int)NX_EMMC_BLOCKSIZE;
+                    break;
+                }
+                part = part->next;
+            }
+
+            // No partition found
+            if(out_off_start <= 0)
+                return ERR_INVALID_PART;
+
+            bytesToRead = in->size;
+            if(in->type == RAWNAND)
+            {
+                // Iterate GPT entry for input
+                GptPartition *part = in->firstPartion;
+                while (NULL != part)
+                {
+                    if (strncmp(part->name, partition, strlen(partition)) == 0)
+                    {
+                        handle.off_start = (u64)part->lba_start * NX_EMMC_BLOCKSIZE;
+                        handle.off_end = (u64)part->lba_end * NX_EMMC_BLOCKSIZE;
+                        handle.off_max = handle.off_end;
+                        bytesToRead = ((u64)part->lba_end - (u64)part->lba_start + 1) * (int)NX_EMMC_BLOCKSIZE;
+                        break;
+                    }
+                    part = part->next;
+                }
+
+                // No partition found
+                if(handle.off_end <= 0)
+                    return ERR_INVALID_PART;
+
+                //Overwrite some values for splitted dump
+                if (in->isSplitted)
+                {
+                    NxSplitFile splitFile;
+                    if (!in->GetSplitFile(&splitFile, partition))
+                        return ERR_INVALID_PART;
+                    wcscpy(handle.path, splitFile.file_path);
+                    handle.off_max = handle.off_start + (splitFile.size - handle.off_start);
+                }
+            }
+        }
+        // No partition specified
+        else
+        {
+            handle.off_start = 0;
+            handle.off_end = in->size;
+            handle.off_max = in->size;
+            if (in->isSplitted) {
+                NxSplitFile *file = in->lastSplitFile, *first;
+                while (NULL != file)
+                {
+                    first = file;
+                    file = file->next;
+                }
+                handle.off_max = first->offset + first->size;
+            }
+            bytesToRead = in->size;
+        }
+
+        if(*bytesToWrite == 0)
+                return ERR_INVALID_OUTPUT;
+
+        if(bytesToRead == 0)
+                return ERR_INVALID_INPUT;
+
+        if(*bytesToWrite != bytesToRead)
+            return ERR_IO_MISMATCH;
+
+        // Get handle for output
+        handle_out = CreateFileW(pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+        if (handle_out == INVALID_HANDLE_VALUE)
+            return ERR_OUTPUT_HANDLE;
+
+        // Set pointer if needed
+        if(out_off_start > 0)
+        {
+            LARGE_INTEGER liDistanceToMove;
+            liDistanceToMove.QuadPart = out_off_start;
+            if (SetFilePointerEx(handle_out, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+                return ERR_OUTPUT_HANDLE;
+        }
+
+        // Get handle for input
+        handle.h = CreateFileW(&handle.path[0], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+        if (handle.h == INVALID_HANDLE_VALUE)
+            return ERR_INPUT_HANDLE;
+
+        // Set pointer if needed
+        if (handle.off_start > 0)
+        {
+            LARGE_INTEGER liDistanceToMove;
+            liDistanceToMove.QuadPart = handle.off_start;
+            if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+                return ERR_INPUT_HANDLE;
+        }
+    }
+    // Switch to next splitted file
+    else if(in->isSplitted && handle.off_start + handle.readAmount >= handle.off_max && *writeAmount < *bytesToWrite)
+    {
+        NxSplitFile splitFile;
+        if (!in->GetSplitFile(&splitFile, handle.off_start + handle.readAmount))
+            return ERR_INPUT_HANDLE;
+        wcscpy(handle.path, splitFile.file_path);
+        handle.off_max += splitFile.size;
+
+        CloseHandle(handle.h);
+        // Get handle for input
+        handle.h = CreateFileW(&handle.path[0], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+        if (handle.h == INVALID_HANDLE_VALUE)
+            return ERR_INPUT_HANDLE;
+    }
+
+    if (*writeAmount >= *bytesToWrite)
+        return NO_MORE_BYTES_TO_COPY;
+
+
+    // Read
+    BYTE *buffer = new BYTE[DEFAULT_BUFF_SIZE];
+    DWORD bytesRead = 0, bytesWrite = 0, bytesWritten = 0;
+    if (!ReadFile(handle.h, buffer, DEFAULT_BUFF_SIZE, &bytesRead, NULL))
+    {
+        delete[] buffer;
+        return ERR_WHILE_COPY;
+    }
+
+    if (bytesRead == 0)
+        return NO_MORE_BYTES_TO_COPY;
+
+    *readAmount += bytesRead;
+    handle.readAmount += bytesRead;
+
+    // Write
+    BYTE *wbuffer = new BYTE[DEFAULT_BUFF_SIZE];
+    if (*readAmount > *bytesToWrite)
+    {
+        // Adjust write buffer
+        memcpy(wbuffer, &buffer[0], DEFAULT_BUFF_SIZE - (*readAmount - *bytesToWrite));
+        bytesWrite = DEFAULT_BUFF_SIZE - (*readAmount - *bytesToWrite);
+        if (bytesWrite == 0)
+        {
+            delete[] buffer;
+            delete[] wbuffer;
+            return ERR_WHILE_COPY;
+        }
+    } else {
+        // Copy read to write buffer
+        memcpy(wbuffer, &buffer[0], DEFAULT_BUFF_SIZE);
+        bytesWrite = bytesRead;
+    }
+
+    if (!WriteFile(handle_out, wbuffer, bytesWrite, &bytesWritten, NULL))
+    {
+        delete[] buffer;
+        delete[] wbuffer;
+        return ERR_WHILE_COPY;
+    }
+
+    *writeAmount += (DWORD)bytesWritten;
+
+    delete[] buffer;
+    delete[] wbuffer;
+
+    return 1;
+}
+
+int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite, HCRYPTHASH* hHash)
+{
+	// First iteration
+	if (handle.readAmount == 0)
+	{
+		// Default input is self object path
+		wcscpy(handle.path, pathLPWSTR);
+		//handle.path = this->pathLPWSTR;
+		
+		// If partition specified
+		if (NULL != partition && strlen(partition) > 0)
+		{            
+			// Iterate GPT entry
+			GptPartition *part = firstPartion;
+			while (NULL != part)
+			{
+				if (strncmp(part->name, partition, strlen(partition)) == 0)
+				{
+					handle.off_start = (u64)part->lba_start * NX_EMMC_BLOCKSIZE;
+					handle.off_end = (u64)part->lba_end * NX_EMMC_BLOCKSIZE;
+					handle.off_max = handle.off_end;
+					bytesToRead = ((u64)part->lba_end - (u64)part->lba_start + 1) * (int)NX_EMMC_BLOCKSIZE;
+					break;
+				}
+				part = part->next;
+			}
+			
+			// No partition found
+            if(handle.off_end <= 0) return ERR_INVALID_PART;
+			
+			//Overwrite some values for splitted dump
+			if (isSplitted)
+			{
+				NxSplitFile splitFile;
+				if (!GetSplitFile(&splitFile, partition)) return ERR_INVALID_PART;
+				//handle.path = splitFile.file_path;
+				wcscpy(handle.path, splitFile.file_path);
+				handle.off_max = handle.off_start + (splitFile.size - handle.off_start);
+			} 
+		}
+		// No partition specified
+		else
+		{
+			handle.off_start = 0;
+			handle.off_end = this->size;
+			handle.off_max = this->size;
+			if (isSplitted) {
+				NxSplitFile *file = lastSplitFile, *first;
+				while (NULL != file)
+				{
+					first = file;
+					file = file->next;
+				}
+				handle.off_max = first->offset + first->size;
+			}
+			bytesToRead = this->size;
+		}
+
+		// Check available space for output disk
+		if (!out->isDrive && bytesToRead - out->size > out->fileDiskFreeBytes)
+		{
+			return ERR_NO_SPACE_LEFT;
+		}
+
+		// Get handle for input
+		handle.h = CreateFileW(&handle.path[0], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+		if (handle.h == INVALID_HANDLE_VALUE) 
+			return ERR_INPUT_HANDLE;
+
+		// Set pointer if needed
+		if (handle.off_start > 0)
+		{
+			LARGE_INTEGER liDistanceToMove;
+			liDistanceToMove.QuadPart = handle.off_start;
+			if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) 
+				return ERR_INPUT_HANDLE;
+		}		
+
+		// Get handle for output
+		handle_out = CreateFileW(out->pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+		if (handle_out == INVALID_HANDLE_VALUE)
+			return ERR_OUTPUT_HANDLE;
+	}
+
+	// Switch to next splitted file
+	else if(isSplitted && handle.off_start + handle.readAmount >= handle.off_max && *writeAmount < *bytesToWrite)
+	{		
+		NxSplitFile splitFile;
+		if (!GetSplitFile(&splitFile, handle.off_start + handle.readAmount)) 
+			return ERR_INPUT_HANDLE;
+		//handle.path = splitFile.file_path;
+		wcscpy(handle.path, splitFile.file_path);
+		handle.off_max += splitFile.size;
+
+		CloseHandle(handle.h);
+		// Get handle for input
+		handle.h = CreateFileW(&handle.path[0], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+		if (handle.h == INVALID_HANDLE_VALUE) return ERR_INPUT_HANDLE;
+	}
+
+	*bytesToWrite = bytesToRead;
+
+	if (*writeAmount >= *bytesToWrite)
+        return NO_MORE_BYTES_TO_COPY;
+
+    // Read
+	BYTE *buffer = new BYTE[DEFAULT_BUFF_SIZE];
+	DWORD bytesRead = 0, bytesWrite = 0, bytesWritten = 0;
+	if (!ReadFile(handle.h, buffer, DEFAULT_BUFF_SIZE, &bytesRead, NULL))
+	{
+		delete[] buffer;
+		return ERR_WHILE_COPY;
+	}
+
+	if (bytesRead == 0)
+		return NO_MORE_BYTES_TO_COPY;
+
+	*readAmount += bytesRead;
+	handle.readAmount += bytesRead;
+
+    // Write
+	BYTE *wbuffer = new BYTE[DEFAULT_BUFF_SIZE];
+	if (*readAmount > *bytesToWrite)
+	{
+		// Adjust write buffer
+		memcpy(wbuffer, &buffer[0], DEFAULT_BUFF_SIZE - (*readAmount - *bytesToWrite));
+		bytesWrite = DEFAULT_BUFF_SIZE - (*readAmount - *bytesToWrite);
+		if (bytesWrite == 0)
+		{
+			delete[] buffer;
+			delete[] wbuffer;
+			return ERR_WHILE_COPY;
+		}
+	} else {
+		// Copy read to write buffer
+		memcpy(wbuffer, &buffer[0], DEFAULT_BUFF_SIZE);
+		bytesWrite = bytesRead;
+	}
+
+	if (NULL != hHash)
+	{
+		CryptHashData(*hHash, wbuffer, bytesWrite, 0);
+	}
+
+	if (!WriteFile(handle_out, wbuffer, bytesWrite, &bytesWritten, NULL))
+	{
+		delete[] buffer;
+		delete[] wbuffer;
+		return ERR_WHILE_COPY;
+	}
+	
+	*writeAmount += (DWORD)bytesWritten;
+	
+	delete[] buffer;
+	delete[] wbuffer;
+	
+	return 1;
+}
+
 // Get handle to drive/file for read/write operation
 // & set pointers to a specific partition if specified
 int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWrite, const char* partition, u64 *bytesToRead)
@@ -281,8 +745,11 @@ int NxStorage::GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWr
 		else
 		{
 			open_mode = CREATE_ALWAYS;
-			//if (type == RAWNAND && NULL != partition && IsValidPartition(partition)) open_mode = OPEN_EXISTING;
-			if(type != INVALID) open_mode = OPEN_EXISTING;
+            if (type == RAWNAND && NULL != partition && IsValidPartition(partition))
+            {
+                open_mode = OPEN_EXISTING;
+            }
+            //if(type != INVALID) open_mode = OPEN_EXISTING;
 		}
 		if (DEBUG_MODE) printf("NxStorage::GetIOHandle - Opening mode = %s\n", open_mode == OPEN_EXISTING ? "OPEN_EXISTING" : "CREATE_ALWAYS" );
 		*hHandle = CreateFileW(pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
@@ -393,19 +860,147 @@ BOOL NxStorage::dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmou
 	return TRUE;
 }
 
+int NxStorage::GetMD5Hash(HCRYPTHASH *hHash, u64* readAmount)
+{
+
+	auto releaseContext = [this]() -> void {		
+		CryptReleaseContext(this->h_Prov, 0);
+		CloseHandle(this->handle_out);
+		return;
+	};
+
+	
+	if (0 == *readAmount)
+	{		
+		bytesToRead = 0;
+		bytesAmount = 0;
+		if (readAmount != NULL) *readAmount = 0;
+
+		// Get handle to the crypto provider
+		if (!CryptAcquireContext(&h_Prov, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
+		{
+			CryptReleaseContext(h_Prov, 0);
+			return ERR_CRYPTO_MD5;
+		}
+
+		// Get handle to file
+		handle_out = CreateFileW(pathLPWSTR, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+		if (handle_out == INVALID_HANDLE_VALUE)
+		{
+			return ERR_INPUT_HANDLE;
+		}
+		// Create new hash
+		if (!CryptCreateHash(h_Prov, CALG_MD5, 0, 0, hHash))
+		{
+			CloseHandle(handle_out);
+			return ERR_CRYPTO_MD5;
+		}
+		bytesToRead = size;
+	}
+
+	if (bytesAmount >= bytesToRead)
+	{
+		CloseHandle(handle_out);
+		return NO_MORE_BYTES_TO_COPY;
+	}
+
+	BYTE *buffRead = new BYTE[BUFSIZE];
+	BYTE rgbHash[MD5LEN];
+	BYTE *hbuffer = new BYTE[BUFSIZE];
+
+	DWORD bytesRead = 0, bytesHash = 0;;
+
+	// Read buffer
+	if(!ReadFile(handle_out, buffRead, BUFSIZE, &bytesRead, NULL))
+	{
+		CloseHandle(handle_out);
+		delete[] buffRead;
+		delete[] hbuffer;
+		return ERR_CRYPTO_MD5;
+	}
+
+	if (0 == bytesRead)
+	{
+		CloseHandle(handle_out);
+		delete[] buffRead;
+		delete[] hbuffer;
+		return NO_MORE_BYTES_TO_COPY;
+	}
+
+	bytesAmount += bytesRead;
+	if(readAmount != NULL) *readAmount += bytesRead;
+
+	if(bytesAmount > bytesToRead)
+	{
+		// Adjust buffer
+		memcpy(hbuffer, &buffRead[0], BUFSIZE - (bytesAmount - bytesToRead));
+		bytesHash = BUFSIZE - (bytesAmount - bytesToRead);
+		if (bytesHash == 0)
+		{
+			CloseHandle(handle_out);
+			delete[] buffRead;
+			delete[] hbuffer;
+			return ERR_CRYPTO_MD5;
+		}
+	} else {
+		// Copy buffer
+		memcpy(hbuffer, &buffRead[0], BUFSIZE);
+		bytesHash = bytesRead;
+	}
+	// Hash buffer
+	if (!CryptHashData(*hHash, hbuffer, bytesHash, 0))
+	{
+		CloseHandle(handle_out);
+		delete[] buffRead;
+		delete[] hbuffer;
+		return ERR_CRYPTO_MD5;
+	}
+
+	delete[] buffRead;
+	delete[] hbuffer;
+
+	int percent = (u64)bytesAmount * 100 / (u64)bytesToRead;
+	return percent;
+}
+
+std::string BuildChecksum(HCRYPTHASH hHash)
+{
+	std::string md5hash;
+	DWORD cbHash = MD5LEN;
+	BYTE rgbHash[MD5LEN];
+	CHAR rgbDigits[] = "0123456789abcdef";
+	if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
+	{
+		char* buf;
+		size_t sz;
+		for (DWORD i = 0; i < cbHash; i++)
+		{
+			sz = snprintf(NULL, 0, "%c%c", rgbDigits[rgbHash[i] >> 4], rgbDigits[rgbHash[i] & 0xf]);
+			buf = (char*)malloc(sz + 1);
+			snprintf(buf, sz + 1, "%c%c", rgbDigits[rgbHash[i] >> 4], rgbDigits[rgbHash[i] & 0xf]);
+			md5hash.append(buf);
+		}
+		CryptDestroyHash(hHash);
+		return md5hash;
+	}
+	CryptDestroyHash(hHash);
+	return "";
+}
+
 std::string NxStorage::GetMD5Hash(const char* partition)
 {
 	if(DEBUG_MODE) printf("GetMD5Hash begin for %s\n", path);
 	std::string md5hash;
 
 	// Get handle to the file or I/O device
-	HANDLE hDisk;
+	//HANDLE hDisk;
 	u64 bytesToRead = size;
-	//if(GetIOHandle(&hDisk, GENERIC_READ) < 0)
-	if(GetIOHandle(&hDisk, GENERIC_READ, NULL, partition, &bytesToRead) < 0)
+	handle_out = CreateFileW(pathLPWSTR, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	if (handle_out == INVALID_HANDLE_VALUE)
+	//if(GetIOHandle(&hDisk, GENERIC_READ, NULL, partition, &bytesToRead) < 0)
 	{
 		printf("Could not open %s\n", path);
-		CloseHandle(hDisk);
+		CloseHandle(handle_out);
 		return "";
 	} 
 
@@ -424,7 +1019,7 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 	if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
 	{
 		printf("CryptAcquireContext failed");
-		CloseHandle(hDisk);
+		CloseHandle(handle_out);
 		return NULL;
 	}
 
@@ -432,13 +1027,13 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 	if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
 	{
 		printf("CryptCreateHash failed");
-		CloseHandle(hDisk);
+		CloseHandle(handle_out);
 		return NULL;
 	}
 
 	if(DEBUG_MODE) printf("GetMD5Hash, CryptoHash created\n");
 	// Read stream	
-	while (bSuccess = ReadFile(hDisk, buffRead, buffSize, &bytesRead, NULL))
+	while (bSuccess = ReadFile(handle_out, buffRead, buffSize, &bytesRead, NULL))
 	{
 		
 		if (0 == bytesRead)
@@ -467,7 +1062,7 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 			printf("CryptHashData failed: \n");
 			CryptReleaseContext(hProv, 0);
 			CryptDestroyHash(hHash);
-			CloseHandle(hDisk);
+			CloseHandle(handle_out);
 			return NULL;
 		}
 
@@ -476,7 +1071,7 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 		if(readAmount >= bytesToRead) break;
 	}
 	printf("\n");
-	CloseHandle(hDisk);
+	CloseHandle(handle_out);
 
 	// Build checksum
 	if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
@@ -539,4 +1134,58 @@ u64 NxStorage::IsValidPartition(const char * part_name, u64 part_size)
 		cur = cur->next;
 	}
 	return -1;
+}
+
+bool NxStorage::setAutoRCM(bool enable)
+{
+    if (type != BOOT0)
+        return false;
+
+    HANDLE hStorage;
+    hStorage = CreateFileW(pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+
+    if (hStorage == INVALID_HANDLE_VALUE)
+        return false;
+
+    DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
+    if (dwPtr != INVALID_SET_FILE_POINTER)
+    {
+        DWORD bytesRead = 0;
+        BYTE buff[0x200];
+        ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
+        if (0 == bytesRead)
+        {
+            CloseHandle(hStorage);
+            return false;
+        }
+        u8 randomXor = 0;
+        if(enable) {
+            do
+            {
+                randomXor = (unsigned)time(NULL) & 0xFF; // Bricmii style of bricking.
+            } while (!randomXor); // Avoid the lottery.
+            buff[0x10] ^= randomXor;
+        }
+        else {
+            buff[0x10] = 0xF7;
+        }
+
+
+        dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
+        if (dwPtr == INVALID_SET_FILE_POINTER)
+        {
+            CloseHandle(hStorage);
+            return false;
+        }
+        WriteFile(hStorage, buff, 0x200, &bytesRead, NULL);
+        if (0 == bytesRead)
+        {
+            CloseHandle(hStorage);
+            return false;
+        }
+
+        CloseHandle(hStorage);
+        return true;
+    }
+
 }

@@ -212,9 +212,7 @@ std::string ListPhysicalDrives(BOOL noError)
 	if (num_drive == 0)
 	{
 		if(!noError) throwException(ERR_NO_LIST_DISK, "No compatible drive detected.");
-	} else {
-		compatibleDrives = compatibleDrives + "\n";
-	}
+    }
 	return compatibleDrives;
 }
 
@@ -331,15 +329,34 @@ char * flipAndCodeBytes(const char * str,  int pos, int flip, char * buf)
 
 std::string ExePath() 
 {	
-	char buffer[MAX_PATH];
-	#if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
-		GetModuleFileName(NULL, buffer, MAX_PATH);
-	#else
-		TCHAR w_buffer[MAX_PATH];
-		size_t *junk = 0;
-		GetModuleFileName(NULL, w_buffer, MAX_PATH);
-		wcstombs_s(junk, buffer, w_buffer, MAX_PATH);
-	#endif
-	string::size_type pos = string(buffer).find_last_of("\\/");
-	return string(buffer).substr(0, pos);
+    char buffer[MAX_PATH];
+    TCHAR w_buffer[MAX_PATH];
+    size_t *junk = 0;
+    GetModuleFileName(NULL, w_buffer, MAX_PATH);
+    //wcstombs_s(junk, buffer, w_buffer, MAX_PATH);
+    string::size_type pos = string(buffer).find_last_of("\\/");
+    return string(buffer).substr(0, pos);
+}
+
+HMODULE GetCurrentModule()
+{ 
+	HMODULE hModule = NULL;
+	GetModuleHandleEx(
+		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+		(LPCTSTR)GetCurrentModule,
+		&hModule);
+
+	return hModule;
+}
+
+bool is_file_exist(const wchar_t * fileName)
+{
+#if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
+    char buffer[_MAX_PATH];
+    std::wcstombs(buffer, fileName, _MAX_PATH);
+    std::ifstream infile(buffer);
+#else
+    std::ifstream infile(fileName);
+#endif
+	return infile.good();
 }

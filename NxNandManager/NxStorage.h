@@ -1,6 +1,8 @@
 #pragma once
 #include <windows.h>
 #include <Wincrypt.h>
+#include <iostream>
+#include "Shlwapi.h"
 #include <string>
 #include "utils.h"
 
@@ -19,6 +21,8 @@ using namespace std;
 #define NX_EMMC_BLOCKSIZE 512
 #define GPT_PART_NAME_LEN 36
 #define DEFAULT_BUFF_SIZE 0x40000
+
+
 
 typedef unsigned char u8;
 typedef unsigned short u16;
@@ -80,6 +84,24 @@ struct NxPartition {
 	u64 size;
 };
 
+typedef struct NxSplitFile NxSplitFile;
+struct NxSplitFile {
+	u64 offset;
+	u64 size;
+	wchar_t file_path[_MAX_PATH];
+	NxSplitFile *next = NULL;
+};
+
+typedef struct NxHandle NxHandle;
+struct NxHandle {
+	HANDLE h;
+	wchar_t path[_MAX_PATH];
+	u64 off_start = 0;
+	u64 off_end = 0;
+	u64 off_max = 0;
+	u64 readAmount = 0;
+};
+
 static MagicOffsets mgkOffArr[] =
 {	
 	// { offset, magic, size, type, firwmare }
@@ -115,16 +137,24 @@ static NxPartition partInfoArr[] =
 class NxStorage {
 	public: 
 		NxStorage(const char* storage=NULL);
+
+		void ClearHandles();
+		BOOL GetSplitFile(NxSplitFile* pFile, const char* partition);
+		BOOL GetSplitFile(NxSplitFile* pFile, u64 offset);
 		int GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWrite, const char* partition = NULL, u64 *bytesToRead = NULL);
 		BOOL dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmount, u64* writeAmount, u64 bytesToWrite, HCRYPTHASH* hHash = NULL);
-		const char* GetNxStorageTypeAsString();		
+        int DumpToStorage(NxStorage *out, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite, HCRYPTHASH* hHash = NULL);
+        int RestoreFromStorage(NxStorage *in, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite);
+        const char* GetNxStorageTypeAsString();
 		void InitStorage();		
+		int GetMD5Hash(HCRYPTHASH *hHash, u64* readAmount = NULL);
 		std::string GetMD5Hash(const char* partition = NULL);	
 		u64 IsValidPartition(const char * part_name, u64 part_size = NULL);
+        bool setAutoRCM(bool enable);
+        bool DEBUG_MODE;
 
 	private:
 		BOOL ParseGpt(unsigned char* gptHeader);
-
 
 	public:
 		const char* path;
@@ -140,5 +170,15 @@ class NxStorage {
 		int partCount;
 		BOOL autoRcm;
 		s8 partitionName[37];
+		BOOL isSplitted = FALSE;
+		NxSplitFile *lastSplitFile;
+		HCRYPTPROV h_Prov = 0;
+		HCRYPTHASH h_Hash = 0;
+		NxHandle handle;
+		HANDLE handle_out;
+		u64 bytesToRead;
+		u64 bytesAmount;
 };
+
+std::string BuildChecksum(HCRYPTHASH hHash);
 

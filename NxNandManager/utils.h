@@ -9,11 +9,16 @@
 #include <iostream>
 #include <chrono>
 #include <iomanip>
+#include <fstream>
+#include <wchar.h>
+
+typedef std::chrono::duration< double > double_prec_seconds;
+typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds > timepoint_t;
 
 // MinGW
 #if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
-#   define strcpy_s strcpy
-#   define sprintf_s snprintf
+    #define strcpy_s strcpy
+    #define sprintf_s snprintf
 #endif
 
 // ERRORS
@@ -30,6 +35,29 @@
 #define ERR_COPY_SIZE			-1011
 #define ERR_MD5_COMPARE			-1012
 #define ERR_INIT_GUI			-1013
+#define ERR_WORK_RUNNING        -1014
+#define ERR_WHILE_COPY			-1015
+#define NO_MORE_BYTES_TO_COPY   -1016
+#define ERR_RESTORE_TO_SPLIT    -1017
+
+typedef struct ErrorLabel ErrorLabel;
+struct ErrorLabel {
+    int error;
+    const char* label;
+};
+
+static ErrorLabel ErrorLabelArr[] =
+{
+    { ERR_WORK_RUNNING, "Work already in process" },
+    { ERR_INPUT_HANDLE, "Failed to get handle to input file/disk" },
+    { ERR_OUTPUT_HANDLE, "Failed to get handle to output file/disk" },
+    { ERR_NO_SPACE_LEFT, "Output disk : not enough space !" },
+    { ERR_CRYPTO_MD5, "Crypto provider error"},
+    { ERR_MD5_COMPARE, "Data integrity error : checksums are differents.\nAn error must have occurred during the copy"},
+    { ERR_RESTORE_TO_SPLIT, "Restore to splitted dump is not supported"},
+    { ERR_WHILE_COPY, "An error occured during copy"},
+    { ERR_IO_MISMATCH, "Input type/size doesn't match output size/type"}
+};
 
 
 wchar_t *convertCharArrayToLPCWSTR(const char* charArray);
@@ -46,6 +74,8 @@ void throwException(const char* errorStr=NULL);
 std::string ListPhysicalDrives(BOOL noError=FALSE);
 char * flipAndCodeBytes(const char * str, int pos, int flip, char * buf);
 std::string ExePath();
+HMODULE GetCurrentModule();
+bool is_file_exist(const wchar_t *fileName);
 
 template<class T>
 T base_name(T const & path, T const & delims = "/\\")
@@ -57,4 +87,10 @@ T remove_extension(T const & filename)
 {
 	typename T::size_type const p(filename.find_last_of('.'));
 	return p > 0 && p != T::npos ? filename.substr(0, p) : filename;
+}
+template<class T>
+T get_extension(T const & filename)
+{
+	typename T::size_type const p(filename.find_last_of('.'));
+	return p > 0 && p != T::npos ? filename.substr(p, T::npos) : filename;
 }
