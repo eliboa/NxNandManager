@@ -56,7 +56,9 @@ static ErrorLabel ErrorLabelArr[] =
     { ERR_MD5_COMPARE, "Data integrity error : checksums are differents.\nAn error must have occurred during the copy"},
     { ERR_RESTORE_TO_SPLIT, "Restore to splitted dump is not supported"},
     { ERR_WHILE_COPY, "An error occured during copy"},
-    { ERR_IO_MISMATCH, "Input type/size doesn't match output size/type"}
+    { ERR_IO_MISMATCH, "Input type/size doesn't match output size/type"},
+    { ERR_INVALID_INPUT, "Input is not a valid NX storage"}
+
 };
 
 

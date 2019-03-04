@@ -52,6 +52,34 @@ void NxStorage::InitStorage()
 	}
 	CloseHandle(hDevice);
 
+    // Get available free space
+    if (!isDrive)
+    {
+        if (NULL == path) return;
+        std::string path_str = std::string(path);
+        std::size_t pos = path_str.find(base_name(path_str));
+        std::string dir = path_str.substr(0, pos);
+        if (dir.length() == 0)
+        {
+            dir = ExePath();
+        }
+        DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
+        LPWSTR wpath = convertCharArrayToLPWSTR(dir.c_str());
+
+        BOOL fResult = GetDiskFreeSpace(wpath, &dwSectPerClust, &dwBytesPerSect, &dwFreeClusters, &dwTotalClusters);
+        if (fResult)
+        {
+            fileDiskTotalBytes = (u64)dwTotalClusters * dwSectPerClust * dwBytesPerSect;
+            fileDiskFreeBytes = (u64)dwFreeClusters * dwSectPerClust * dwBytesPerSect;
+
+            if (DEBUG_MODE)
+            {
+                wprintf(L"Free space  = %I64d GB\n", fileDiskFreeBytes / (1024 * 1024 * 1024));
+                wprintf(L"Total space = %I64d GB\n", fileDiskTotalBytes / (1024 * 1024 * 1024));
+            }
+        }
+    }
+
 	// Open new handle for read
 	HANDLE hStorage;
 	hStorage = CreateFileW(pathLPWSTR, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
@@ -63,34 +91,6 @@ void NxStorage::InitStorage()
 		if (DEBUG_MODE) printf("NxStorage::InitStorage - No such file or drive (INVALID_HANDLE) - %s\n", path);
 	}
 
-	// Get available free space
-	if (!isDrive)
-	{
-		if (NULL == path) return;
-		std::string path_str = std::string(path);
-		std::size_t pos = path_str.find(base_name(path_str));
-		std::string dir = path_str.substr(0, pos);
-		if (dir.length() == 0)
-		{
-			dir = ExePath();
-		}
-		DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
-
-		LPWSTR wpath = convertCharArrayToLPWSTR(dir.c_str());
-
-        BOOL fResult = GetDiskFreeSpace(&wpath[0], &dwSectPerClust, &dwBytesPerSect, &dwFreeClusters, &dwTotalClusters);
-		if (fResult)
-		{
-			fileDiskTotalBytes = (u64)dwTotalClusters * dwSectPerClust * dwBytesPerSect;
-			fileDiskFreeBytes = (u64)dwFreeClusters * dwSectPerClust * dwBytesPerSect;
-
-			if (DEBUG_MODE)
-			{
-				wprintf(L"Free space  = %I64d GB\n", fileDiskFreeBytes / (1024 * 1024 * 1024));
-				wprintf(L"Total space = %I64d GB\n", fileDiskTotalBytes / (1024 * 1024 * 1024));
-			}
-		}
-	}
 
 	// Get size
 	LARGE_INTEGER Lsize;
@@ -621,7 +621,7 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		}
 
 		// Check available space for output disk
-		if (!out->isDrive && bytesToRead - out->size > out->fileDiskFreeBytes)
+        if (!out->isDrive && out->fileDiskFreeBytes > 0 && bytesToRead - out->size > out->fileDiskFreeBytes)
 		{
 			return ERR_NO_SPACE_LEFT;
 		}

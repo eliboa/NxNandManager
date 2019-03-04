@@ -74,9 +74,6 @@ void MainWindow::open()
          // Open new thread to init storage (callback => inputSet(NxStorage))
          workThread = new Worker(this, fileName);
          workThread->start();
-
-         //std::string Sbasename = base_name(std::string(fileName.toUtf8().constData()));
-         //ui->inputLabel->setText(QString(Sbasename.c_str()));
      }
 }
 
@@ -89,7 +86,6 @@ void MainWindow::openDrive()
     }
 
     openDriveDialog = new OpenDrive(this);
-    //openDriveDialog->resize(320, 240);
     openDriveDialog->setWindowTitle("Logical drives");
     openDriveDialog->show();
     openDriveDialog->exec();

@@ -151,13 +151,22 @@ std::string GetReadableElapsedTime(std::chrono::duration<double> elapsed_seconds
 	return std::string(buf);
 }
 void throwException(int rc, const char* errorStr)
-{
+{       
 	if (NULL != errorStr) printf("%s\n", errorStr);
+    else {
+        for (int i=0; i < (int)array_countof(ErrorLabelArr); i++)
+        {
+            if(ErrorLabelArr[i].error == rc)
+            {
+                printf("ERROR: %s", ErrorLabelArr[i].label);
+            }
+        }
+    }
 	exit(rc);
 }
 void throwException(const char* errorStr)
 {
-	if(NULL != errorStr) printf("%s\n", errorStr);
+	if(NULL != errorStr) printf("%s\n", errorStr);    
 	exit(EXIT_FAILURE);
 }
 // Concatenate every compatible physical disk n� in a string
@@ -329,13 +338,10 @@ char * flipAndCodeBytes(const char * str,  int pos, int flip, char * buf)
 
 std::string ExePath() 
 {	
-    char buffer[MAX_PATH];
-    TCHAR w_buffer[MAX_PATH];
-    size_t *junk = 0;
-    GetModuleFileName(NULL, w_buffer, MAX_PATH);
-    //wcstombs_s(junk, buffer, w_buffer, MAX_PATH);
-    string::size_type pos = string(buffer).find_last_of("\\/");
-    return string(buffer).substr(0, pos);
+    wchar_t buffer[MAX_PATH];
+    GetModuleFileName(NULL, buffer, MAX_PATH);
+    wstring ws(buffer);
+    return string(ws.begin(), ws.end());
 }
 
 HMODULE GetCurrentModule()

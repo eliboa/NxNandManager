@@ -215,245 +215,254 @@ int main(int argc, char *argv[])
 	}
 
 
+    if (NULL == output || nxdata.size == 0) // Nothing to copy to/from
+        exit(EXIT_SUCCESS);
 
-	// COPY TO OUTPUT
-	if (NULL != output)
-	{
+    // COPY TO FILE
+    if (!nxdataOut.isDrive)
+    {
+        if (NULL != partition && !nxdata.IsValidPartition(partition) && nxdata.type != PARTITION)
+        {
+            if (!FORCE)
+            {
+                if (!AskYesNoQuestion("Unable to detect partition from input. Continue anyway (full dump) ?"))
+                {
+                    throwException("Operation canceled\n");
+                }
+                partition = NULL;
+            } else {
+                throwException(ERR_INVALID_PART, "No partition detected for input, you can't continue in force mode for security reason.");
+            }
+        }
+        if (nxdataOut.size > 0 && !FORCE)
+        {
+            // Output file already exists
+            char question[256];
+            if(nxdataOut.type == RAWNAND || nxdataOut.type == BOOT0 || nxdataOut.type == BOOT1)
+                sprintf(question, "Output is an existing %s file. Do you want to restore from input ?", nxdataOut.GetNxStorageTypeAsString());
+            else
+                sprintf(question,"Output file already exists. Do you want to overwrite it ?");
 
-		// COPY TO FILE
-		if (!nxdataOut.isDrive)
-		{
-			if (NULL != partition && !nxdata.IsValidPartition(partition) && nxdata.type != PARTITION)
-			{
-				if (!FORCE)
-				{
-					if (!AskYesNoQuestion("Unable to detect partition from input. Continue anyway (dump all partitions) ?"))
-					{
-						throwException("Operation canceled\n");
-					}
-				} else {
-					throwException(ERR_INVALID_PART, "No partition detected for input, you can't continue in force mode for security reason.");
-				}
-			}
-			if (nxdataOut.size > 0 && !FORCE)
-			{
-				// Output file already exists
-				if (!AskYesNoQuestion("Output file already exists. Do you want to overwrite it ?"))
-				{
-					throwException("Operation cancelled.\n");
-				}
-			}
-		}
+            if (!AskYesNoQuestion(question))
+            {
+                throwException("Operation cancelled.\n");
+            }
+        }
+    }
 
-		// RESTORE TO PHYSICAL DRIVE
-		if (nxdataOut.isDrive)
-		{
-			// Restoring to physical drive, BYPASS_MD5SUM set to TRUE (default)
-			BYPASS_MD5SUM = TRUE;
+    // RESTORE TO PHYSICAL DRIVE
+    if (nxdataOut.isDrive)
+    {
 
-			// Output must RAWNAND type
-			if (nxdataOut.type != RAWNAND)
-			{
-				printf("Output (physical drive) unidentified (type = %s)\n", nxdataOut.GetNxStorageTypeAsString());
-				throwException(ERR_INVALID_OUTPUT);
-			}
+        // Output must RAWNAND type
+        if (nxdataOut.type != RAWNAND && nxdataOut.type != BOOT0 && nxdataOut.type != BOOT1)
+        {
+            printf("Output (physical drive) unidentified (type = %s)\n", nxdataOut.GetNxStorageTypeAsString());
+            throwException(ERR_INVALID_OUTPUT);
+        }
 
-			// If input type is PARTITION & -part not specified, look for a match in output GPT
-			if (nxdata.type == PARTITION && NULL == partition)
-			{
-				if (!nxdataOut.IsValidPartition(nxdata.partitionName, nxdata.size))
-				{
-					printf("Input partition (%s, %I64d bytes) not found in output stream (or size does not match)\n", nxdata.partitionName, nxdata.size);
-					throwException(ERR_IO_MISMATCH);
-				} else {
-					// -part arg set as input file partition
-					partition = nxdata.partitionName;
-				}
-			}
-			printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
-				"            BE VERY CAUTIOUS !!!\n\n");
-			// If partition argument is specified
-			if (NULL != partition)
-			{
-				u64 part_size = -1;
-				// Partition MUST exists in input stream (if RAWNAND)
-				if (nxdata.type == RAWNAND)
-				{
-					part_size = nxdata.IsValidPartition(partition);
-					if (part_size<0)
-					{
-						throwException(ERR_INVALID_PART, "Partition not found in input stream (-i)");
-					}
-				}
-				// Input partition -part arg (if PARTITION)
-				if (nxdata.type == PARTITION)
-				{
-					if (strncmp(partition, nxdata.partitionName, strlen(nxdata.partitionName)) != 0)
-					{
-						printf("Input partition file (%s) mismatch -part argument (%s)\n", nxdata.partitionName, partition);
-						throwException(ERR_INVALID_PART);
-					}
-				}
-				// Partition must exists on output drive & size must match input size
-				if (!nxdataOut.IsValidPartition(partition, part_size ? part_size : nxdata.size))
-				{
-					printf("Input partition (%s, %I64d bytes) not found in output stream (or size does not match)\n", partition, nxdata.size);
-					throwException(ERR_IO_MISMATCH);
-				}
-			} else {
-				// Partition argument is not specified
-				if (nxdata.type != nxdataOut.type)
-				{
-					printf("Input data type (%s) doesn't match output data type (%s)\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
-					throwException(ERR_IO_MISMATCH, "For security reason, you can't continue");
-				}
+        // If input type is PARTITION & -part not specified, look for a match in output GPT
+        if (nxdata.type == PARTITION && NULL == partition)
+        {
+            if (!nxdataOut.IsValidPartition(nxdata.partitionName, nxdata.size))
+            {
+                printf("Input partition (%s, %I64d bytes) not found in output stream (or size does not match)\n", nxdata.partitionName, nxdata.size);
+                throwException(ERR_IO_MISMATCH);
+            } else {
+                // -part arg set as input file partition
+                partition = nxdata.partitionName;
+            }
+        }
+        printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
+            "            BE VERY CAUTIOUS !!!\n\n");
+        // If partition argument is specified
+        if (NULL != partition)
+        {
+            u64 part_size = -1;
+            // Partition MUST exists in input stream (if RAWNAND)
+            if (nxdata.type == RAWNAND)
+            {
+                part_size = nxdata.IsValidPartition(partition);
+                if (part_size<0)
+                {
+                    throwException(ERR_INVALID_PART, "Partition not found in input stream (-i)");
+                }
+            }
+            // Input partition -part arg (if PARTITION)
+            if (nxdata.type == PARTITION)
+            {
+                if (strncmp(partition, nxdata.partitionName, strlen(nxdata.partitionName)) != 0)
+                {
+                    printf("Input partition file (%s) mismatch -part argument (%s)\n", nxdata.partitionName, partition);
+                    throwException(ERR_INVALID_PART);
+                }
+            }
+            // Partition must exists on output drive & size must match input size
+            if (!nxdataOut.IsValidPartition(partition, part_size ? part_size : nxdata.size))
+            {
+                printf("Input partition (%s, %I64d bytes) not found in output stream (or size does not match)\n", partition, nxdata.size);
+                throwException(ERR_IO_MISMATCH);
+            }
+        } else {
+            // Partition argument is not specified
+            if (nxdata.type != nxdataOut.type)
+            {
+                printf("Input data type (%s) doesn't match output data type (%s)\n", nxdata.GetNxStorageTypeAsString(), nxdataOut.GetNxStorageTypeAsString());
+                throwException(ERR_IO_MISMATCH, "For security reason, you can't continue");
+            }
 
-				if (nxdata.size != nxdataOut.size && NULL == partition)
-				{
-					printf("Input data size (%I64d bytes) doesn't match output data size (%I64d bytes)\n", nxdata.size, nxdataOut.size);
-					if (!FORCE)
-					{
-						if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
-						{
-							throwException("Operation cancelled.\n");
-						}
-					} else {
-						throwException(ERR_IO_MISMATCH, "For security reason, you can't continue");
-					}
-				}
-			}
-			if (!FORCE)
-			{
-				if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
-				{
-					throwException("Operation cancelled.\n");
-				}
-			}
-		}
-	}
+            if (nxdata.size != nxdataOut.size && NULL == partition)
+            {
+                printf("Input data size (%I64d bytes) doesn't match output data size (%I64d bytes)\n", nxdata.size, nxdataOut.size);
+                if (!FORCE)
+                {
+                    if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+                    {
+                        throwException("Operation cancelled.\n");
+                    }
+                } else {
+                    throwException(ERR_IO_MISMATCH, "For security reason, you can't continue");
+                }
+            }
+        }
+        if (!FORCE)
+        {
+            if (!AskYesNoQuestion("Are you REALLY sure you want to continue ?"))
+            {
+                throwException("Operation cancelled.\n");
+            }
+        }
+    }
 
-	// COPY
-	if (nxdata.size > 0)
-	{
-		HANDLE hDisk, hDiskOut;
-		u64 bytesToRead = nxdata.size, readAmount = 0, writeAmount = 0;
-		BOOL bSuccess;
-		int rc;
+    // Let's copy
+    u64 bytesToRead = nxdata.size, readAmount = 0, writeAmount = 0;
+    int rc, percent;
 
-		// Get handle for input
-		if (nxdata.type == PARTITION)
-		{
-			rc = nxdata.GetIOHandle(&hDisk, GENERIC_READ, NULL);
-		} else {
-			rc = nxdata.GetIOHandle(&hDisk, GENERIC_READ, NULL, partition, NULL != partition ? &bytesToRead : NULL);
-		}
-		if (rc < 0)
-		{
-			throwException(ERR_INPUT_HANDLE, "Failed to get handle to input file/disk\n");
-		}
+    // Restore to valid Nx Storage type
+    if(nxdataOut.type == RAWNAND || nxdataOut.type == BOOT0 || nxdataOut.type == BOOT1)
+    {
+        if(!BYPASS_MD5SUM) printf("Restoring to existing storage => MD5 verification is bypassed");
 
-		// Get handle for output
-		rc = nxdataOut.GetIOHandle(&hDiskOut, GENERIC_WRITE, bytesToRead, partition, NULL != partition ? &bytesToRead : NULL);
-		if (rc < 0)
-		{
-			if (rc == ERR_NO_SPACE_LEFT) throwException(ERR_NO_SPACE_LEFT, "Output disk : not enough space !");
-			else throwException(ERR_OUTPUT_HANDLE, "Failed to get handle to output file/disk\n");
-		}
+        while (rc = nxdataOut.RestoreFromStorage(&nxdata, partition, &readAmount, &writeAmount, &bytesToRead))
+        {
+            if (rc < 0)
+                break;
 
-		HCRYPTPROV hProv = 0;
-		HCRYPTHASH hHash = 0;
-		CHAR rgbDigits[] = "0123456789abcdef";
-		std::string md5hash;
-		DWORD cbHash = MD5LEN;
-		BYTE rgbHash[MD5LEN];
+            int percent2 = (u64)writeAmount * 100 / (u64)bytesToRead;
+            if (percent2 > percent)
+            {
+                percent = percent2;
+                printf("Copying from input %s (type: %s%s%s) to output %s (type: %s%s%s)... (%d%%) \r",
+                    nxdata.isDrive ? "drive" : "file",
+                    nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
+                    nxdata.size != bytesToRead && NULL != partition ? partition : "",
+                    nxdataOut.isDrive ? "drive" : "file",
+                    nxdataOut.GetNxStorageTypeAsString(), nxdataOut.size != bytesToRead && NULL != partition ? ", partition: " : "",
+                    nxdataOut.size != bytesToRead && NULL != partition ? partition : "",
+                    percent);
+            }
+        }
+        printf("\n");
+        if (rc != NO_MORE_BYTES_TO_COPY)
+        {
+            throwException(rc);
+        }
+        else if (writeAmount != bytesToRead)
+        {
+            printf("ERROR : %I64d bytes to read but %I64d bytes written", bytesToRead, writeAmount);
+            throwException();
+        }
+        else
+        {
+            printf("Done! %s restored to %s", GetReadableSize(writeAmount).c_str(), nxdataOut.GetNxStorageTypeAsString());
+        }
+        nxdataOut.ClearHandles();
 
-		if (!BYPASS_MD5SUM)
-		{
-			// Get handle to the crypto provider
-			if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
-			{
-				DWORD dwStatus = GetLastError();
-				printf("CryptAcquireContext failed: %d\n", dwStatus);
-				CloseHandle(hDisk);
-				throwException(ERR_CRYPTO_MD5);
-			}
+    }
+    // Dump to file
+    else
+    {       
+        // Crypto
+        HCRYPTPROV hProv = 0;
+        HCRYPTHASH hHash = 0, hHash_out = 0;
+        CHAR rgbDigits[] = "0123456789abcdef";
+        std::string md5hash, md5hashOut;
+        DWORD cbHash = MD5LEN;
+        BYTE rgbHash[MD5LEN];
 
-			// Create the hash
-			if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
-			{
-				CloseHandle(hDisk);
-				throwException(ERR_CRYPTO_MD5, "CryptCreateHash failed\n");
-			}
-		} else {
-			printf("MD5 Checksum validation bypassed\n");
-		}
+        if (!BYPASS_MD5SUM)
+        {
+            // Get handle to the crypto provider
+            if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
+                throwException(ERR_CRYPTO_MD5);
 
-		// Read stream
-		int percent = -1;
-		auto start = std::chrono::system_clock::now();
-		while (bSuccess = nxdata.dumpStorage(&hDisk, &hDiskOut, &readAmount, &writeAmount, bytesToRead, !BYPASS_MD5SUM ? &hHash : NULL))
-		{
-			int new_percent = (u64)writeAmount * 100 / (u64)bytesToRead;
-			if (new_percent > percent) {
-				percent = new_percent;
-				printf("Copying from input %s (type: %s%s%s) to output %s... (%d%%) \r",
-					nxdata.isDrive ? "drive" : "file",
-					nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
-					nxdata.size != bytesToRead && NULL != partition ? partition : "",
-					nxdataOut.isDrive ? "drive" : "file",
-					percent);
-			}
-		}
-		printf("\nFinished. %s dumped\n", GetReadableSize(writeAmount).c_str());
-		CloseHandle(hDisk);
-		CloseHandle(hDiskOut);
+            // Create the hash
+            if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
+                throwException(ERR_CRYPTO_MD5);
+        } else {
+            printf("MD5 Checksum validation bypassed\n");
+        }
 
-		if (writeAmount != bytesToRead)
-		{
-			printf("ERROR : %I64d bytes to read but %I64d bytes written\n", bytesToRead, writeAmount);
-			throwException(ERR_COPY_SIZE);
-		}
+        // Copy
+        while (rc = nxdata.DumpToStorage(&nxdataOut, partition, &readAmount, &writeAmount, &bytesToRead, !BYPASS_MD5SUM ? &hHash : NULL))
+        {
+            if (rc < 0)
+                break;
 
-		// Check dump integrity
-		if (!BYPASS_MD5SUM)
-		{
-			// Build checksum for input file/drive
-			if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
-			{
-				char* buf;
-				size_t sz;
-				for (DWORD i = 0; i < cbHash; i++)
-				{
-					sz = snprintf(NULL, 0, "%c%c", rgbDigits[rgbHash[i] >> 4], rgbDigits[rgbHash[i] & 0xf]);
-					buf = (char*)malloc(sz + 1);
-					snprintf(buf, sz + 1, "%c%c", rgbDigits[rgbHash[i] >> 4], rgbDigits[rgbHash[i] & 0xf]);
-					md5hash.append(buf);
-				}
-			} else {
-				throwException(ERR_CRYPTO_MD5, "\nFailed to get hash value.");
-			}
-			CryptDestroyHash(hHash);
-			CryptReleaseContext(hProv, 0);
+            int percent2 = (u64)writeAmount * 100 / (u64)bytesToRead;
+            if (percent2 > percent)
+            {
+                percent = percent2;
+                printf("Copying from input %s (type: %s%s%s) to output %s... (%d%%) \r",
+                    nxdata.isDrive ? "drive" : "file",
+                    nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
+                    nxdata.size != bytesToRead && NULL != partition ? partition : "",
+                    nxdataOut.isDrive ? "drive" : "file",
+                    percent);
+            }
+        }
+        printf("\n");
+        if (rc != NO_MORE_BYTES_TO_COPY) {
+            throwException(rc);
+        }
+        else if (writeAmount != bytesToRead)
+        {
+            printf("ERROR : %I64d bytes to read but %I64d bytes written", bytesToRead, writeAmount);
+            throwException();
+        }
+        nxdata.ClearHandles();
 
-			if (DEBUG_MODE)
-			{
-				printf("MD5 sum for INPUT is %s\n", md5hash.c_str());
-			}
+        // Check dump integrity
+        if (!BYPASS_MD5SUM)
+        {
+            md5hash = BuildChecksum(hHash);
+            // Compute then compare output checksums
+            nxdataOut.InitStorage();
+            int p_percent = 0;
+            u64 readAmout = 0;
+            while (true)
+            {
+                int percent = nxdataOut.GetMD5Hash(&hHash_out, &readAmout);
+                if (percent < 0)
+                    break;
 
-			// Compute then compare output checksums
-			nxdataOut.InitStorage(); // We need to update output obj first (mandatory!)
-			if (md5hash == nxdataOut.GetMD5Hash(partition))
-			{
-				printf("Verified (checksums are IDENTICAL)\n");
-			} else {
-				throwException(ERR_MD5_COMPARE, "ERROR : checksums are DIFFERENT");
-			}
-		}
+                if (percent > p_percent)
+                {
+                    printf("Computing MD5 checksum... (%d%%) \r", percent);
+                    p_percent = percent;
+                }
 
-		// Compute elapsed time
-		auto end = std::chrono::system_clock::now();
-		std::chrono::duration<double> elapsed_seconds = end - start;
-		printf("Elapsed time : %s.\n", GetReadableElapsedTime(elapsed_seconds).c_str());
-	}
+            }
+            printf("\n");
+            md5hashOut = BuildChecksum(hHash_out);
+            if (md5hash != md5hashOut)
+            {
+                throwException(ERR_MD5_COMPARE);
+            } else {
+                printf("Done & verified (checksums are IDENTICAL)\n");
+            }
+        }
+    }
+
 	exit(EXIT_SUCCESS);
 }
