@@ -70,7 +70,7 @@ or
 
 ## Build
 
-### MinGW, MSYS and MSYS2 with GCC (CLI only)
+### MinGW (recomanded if not using Visual Studio), MSYS and MSYS2 with GCC (CLI only)
 
 ```
 git clone https://github.com/eliboa/NxNandManager   
@@ -78,7 +78,7 @@ cd NxNandManager
 make
 ```
 
-**Note :** First line of main.cpp ```#define ENABLE_GUI``` has to be commented
+**Note :** Line ```#define ENABLE_GUI``` of "NxNandManager.h" file has to be commented
 
 ### Visual Studio (CLI + GUI MFC)
 
