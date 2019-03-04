@@ -41,8 +41,7 @@ int main(int argc, char *argv[])
 			"              \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
 
 		printf("  lFlags:     \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
-			"  -------     \"FORCE\" to disable prompt for user input (no question asked)\n"
-			"              \"DEBUG_MODE\" to display debug information\n");
+            "  -------     \"FORCE\" to disable prompt for user input (no question asked)\n");
 
 		throwException(ERR_WRONG_USE);
 		return -1;
@@ -182,9 +181,10 @@ int main(int argc, char *argv[])
 			NxStorage* curNxdata = i == 2 ? &nxdataOut : &nxdata;
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
-			printf("NAND type : %s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
-				NULL != curNxdata->partitionName ? " " : "", curNxdata->partitionName);
-			if (curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
+            printf("NAND type : %s%s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
+                NULL != curNxdata->partitionName ? " " : "", curNxdata->partitionName,
+                curNxdata->isSplitted ? " (splitted dump)" : "");
+            if (curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
 			printf("Size      : %s\n", GetReadableSize(curNxdata->size).c_str());
 			if (NULL != curNxdata->firstPartion)
 			{
@@ -341,7 +341,7 @@ int main(int argc, char *argv[])
     // Restore to valid Nx Storage type
     if(nxdataOut.type == RAWNAND || nxdataOut.type == BOOT0 || nxdataOut.type == BOOT1)
     {
-        if(!BYPASS_MD5SUM) printf("Restoring to existing storage => MD5 verification is bypassed");
+        if(!BYPASS_MD5SUM) printf("Restoring to existing storage => MD5 verification is bypassed\n");
 
         while (rc = nxdataOut.RestoreFromStorage(&nxdata, partition, &readAmount, &writeAmount, &bytesToRead))
         {
@@ -352,7 +352,7 @@ int main(int argc, char *argv[])
             if (percent2 > percent)
             {
                 percent = percent2;
-                printf("Copying from input %s (type: %s%s%s) to output %s (type: %s%s%s)... (%d%%) \r",
+                printf("Restoring from input %s (type: %s%s%s) to output %s (type: %s%s%s)... (%d%%) \r",
                     nxdata.isDrive ? "drive" : "file",
                     nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
                     nxdata.size != bytesToRead && NULL != partition ? partition : "",

@@ -141,8 +141,6 @@ class NxStorage {
 		void ClearHandles();
 		BOOL GetSplitFile(NxSplitFile* pFile, const char* partition);
 		BOOL GetSplitFile(NxSplitFile* pFile, u64 offset);
-		int GetIOHandle(HANDLE* hHandle, DWORD dwDesiredAccess, u64 bytesToWrite, const char* partition = NULL, u64 *bytesToRead = NULL);
-		BOOL dumpStorage(HANDLE* hHandleIn, HANDLE* hHandleOut, u64* readAmount, u64* writeAmount, u64 bytesToWrite, HCRYPTHASH* hHash = NULL);
         int DumpToStorage(NxStorage *out, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite, HCRYPTHASH* hHash = NULL);
         int RestoreFromStorage(NxStorage *in, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite);
         const char* GetNxStorageTypeAsString();
