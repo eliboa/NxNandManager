@@ -26,7 +26,7 @@
    <string>NxNandManager</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="mainwindow.qrc">
+   <iconset resource="application.qrc">
     <normaloff>:/images/logo.png</normaloff>:/images/logo.png</iconset>
   </property>
   <property name="locale">
@@ -551,11 +551,23 @@
       <height>22</height>
      </rect>
     </property>
+    <property name="toolTip">
+     <string>Saves as file...</string>
+    </property>
     <property name="statusTip">
      <string>Save as file...</string>
     </property>
+    <property name="accessibleName">
+     <string>full dump</string>
+    </property>
+    <property name="accessibleDescription">
+     <string>Full dump</string>
+    </property>
     <property name="text">
      <string>FULL DUMP</string>
+    </property>
+    <property name="shortcut">
+     <string>Backspace, Return</string>
     </property>
    </widget>
    <widget class="QPushButton" name="fullrestore_button">
@@ -570,11 +582,20 @@
       <height>22</height>
      </rect>
     </property>
+    <property name="toolTip">
+     <string>Restore from file...</string>
+    </property>
     <property name="statusTip">
      <string>Restore from file...</string>
     </property>
+    <property name="accessibleName">
+     <string>full restore</string>
+    </property>
     <property name="text">
      <string>FULL RESTORE</string>
+    </property>
+    <property name="shortcut">
+     <string>Backspace, Return</string>
     </property>
    </widget>
    <widget class="QPushButton" name="stop_button">
@@ -602,7 +623,7 @@
      <string/>
     </property>
     <property name="icon">
-     <iconset resource="mainwindow.qrc">
+     <iconset resource="application.qrc">
       <normaloff>:/images/stop-32.ico</normaloff>:/images/stop-32.ico</iconset>
     </property>
     <property name="flat">
@@ -625,6 +646,14 @@
      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
     </property>
    </widget>
+   <zorder>partition_table</zorder>
+   <zorder>progressBar</zorder>
+   <zorder>elapsed_time_label</zorder>
+   <zorder>remaining_time_label</zorder>
+   <zorder>stop_button</zorder>
+   <zorder>inputLabel</zorder>
+   <zorder>fullrestore_button</zorder>
+   <zorder>rawdump_button</zorder>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
@@ -640,7 +669,7 @@
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources>
-  <include location="mainwindow.qrc"/>
+  <include location="application.qrc"/>
  </resources>
  <connections/>
 </ui>

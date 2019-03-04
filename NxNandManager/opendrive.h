@@ -20,15 +20,22 @@ class OpenDrive : public QDialog
 public:
     explicit OpenDrive(QWidget *parent = nullptr);
     ~OpenDrive();
+        Ui::Dialog *ui;
 
 private slots:
     void on_listWidget_itemDoubleClicked(QListWidgetItem *item);
 
 private:
-    Ui::Dialog *ui;
+
 
 signals:
     void finished(QString);
 };
 
+class keyEnterReceiver : public QObject
+{
+    Q_OBJECT
+protected:
+    bool eventFilter(QObject* obj, QEvent* event);
+};
 #endif // OPENDRIVE_H

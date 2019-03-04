@@ -22,6 +22,9 @@
      <height>101</height>
     </rect>
    </property>
+   <property name="editTriggers">
+    <set>QAbstractItemView::AnyKeyPressed|QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed</set>
+   </property>
   </widget>
  </widget>
  <resources/>

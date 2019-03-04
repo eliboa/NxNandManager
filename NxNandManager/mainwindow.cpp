@@ -103,8 +103,8 @@ void MainWindow::on_rawdump_button_clicked()
 
     // Create new file dialog
     QFileDialog fd(this);
-    fd.setAcceptMode(QFileDialog::AcceptSave); // Ask overwrite
-    QString fileName = fd.getSaveFileName(this, "Save as", "rawnand.bin");
+    fd.setAcceptMode(QFileDialog::AcceptSave); // Ask overwrite    
+    QString fileName = fd.getSaveFileName(this, "Save as", QString(input->GetNxStorageTypeAsString()) + ".bin");
     if (!fileName.isEmpty())
     {
         //New output storage
@@ -261,6 +261,18 @@ void MainWindow::inputSet(NxStorage *storage)
 
         ui->rawdump_button->setEnabled(true);
         ui->fullrestore_button->setEnabled(true);
+
+        QMenu *fileMenu = menuBar()->addMenu(tr("&Tools"));
+        QAction *fdumpAction = new QAction("Full dump", this);
+        fdumpAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_D));
+        fdumpAction->setStatusTip(tr("Dump as file..."));
+        connect(fdumpAction, &QAction::triggered, this, &MainWindow::on_rawdump_button_clicked);
+        fileMenu->addAction(fdumpAction);
+        QAction *frestoreAction = new QAction("Full restore", this);
+        frestoreAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_R));
+        frestoreAction->setStatusTip(tr("Restore from file..."));
+        connect(frestoreAction, &QAction::triggered, this, &MainWindow::on_fullrestore_button_clicked);
+        fileMenu->addAction(frestoreAction);
     }
 
     if(input->type == BOOT0 || input->type == BOOT1 || input->type == PARTITION)
@@ -272,18 +284,34 @@ void MainWindow::inputSet(NxStorage *storage)
             std::string basename = base_name(string(ws.begin(), ws.end()));
             ui->partition_table->setItem(0, 0, new QTableWidgetItem(basename.c_str()));
         } else {
-            ui->partition_table->setItem(0, 0, new QTableWidgetItem(input->GetNxStorageTypeAsString()));
+            char name[128];
+            if(input->type == BOOT0)
+                sprintf(name, "BOOT0 (autoRCM : %s)", input->autoRcm ? "on" : "off");
+            else
+                sprintf(name, "%s", input->GetNxStorageTypeAsString());
+            ui->partition_table->setItem(0, 0, new QTableWidgetItem(name));
         }
         ui->partition_table->setItem(0, 1, new QTableWidgetItem(GetReadableSize(input->size).c_str()));
 
+        QMenu *fileMenu = menuBar()->addMenu(tr("&Tools"));
         if(input->type == BOOT0)
         {
-            QMenu *fileMenu = menuBar()->addMenu(tr("&Tools"));
+
             QAction *autoRcmAction = new QAction(input->autoRcm ? tr("&Disable autoRCM") : tr("&Enable autoRCM"), this);
-            autoRcmAction->setStatusTip(tr("Open an existing file"));
+            autoRcmAction->setStatusTip(tr("Toggle autoRCM"));
             connect(autoRcmAction, &QAction::triggered, this, &MainWindow::toggleAutoRCM);
             fileMenu->addAction(autoRcmAction);
         }
+        QAction *fdumpAction = new QAction("Full dump", this);
+        fdumpAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_D));
+        fdumpAction->setStatusTip(tr("Dump as file..."));
+        connect(fdumpAction, &QAction::triggered, this, &MainWindow::on_rawdump_button_clicked);
+        fileMenu->addAction(fdumpAction);
+        QAction *frestoreAction = new QAction("Full restore", this);
+        frestoreAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_R));
+        frestoreAction->setStatusTip(tr("Restore from file..."));
+        connect(frestoreAction, &QAction::triggered, this, &MainWindow::on_fullrestore_button_clicked);
+        fileMenu->addAction(frestoreAction);
     }
 
     if(input->type == PARTITION) ui->fullrestore_button->setEnabled(false);
