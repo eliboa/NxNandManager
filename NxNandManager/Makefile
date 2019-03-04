@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-std=c++11 -Wall
+CFLAGS=-std=c++11 -Wall -fexceptions -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API -Os
 EXEC_NAME=NxNandManager.exe
 INCLUDES=
 LIBS=

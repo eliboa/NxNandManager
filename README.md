@@ -70,7 +70,7 @@ or
 
 ## Build
 
-### MinGW (recomanded if not using Visual Studio), MSYS and MSYS2 with GCC (CLI only)
+### CLI : MinGW (recommended if not using Visual Studio), MSYS and MSYS2 with GCC
 
 ```
 git clone https://github.com/eliboa/NxNandManager   
@@ -80,6 +80,10 @@ make
 
 **Note :** Line ```#define ENABLE_GUI``` of "NxNandManager.h" file has to be commented
 
-### Visual Studio (CLI + GUI MFC)
+### CLI + GUI (Qt) : MinGW64, MSVC
 
-Use ```NxNandManager.sln``` solution file
+**Dependency :** [Qt](https://www.qt.io/download)
+
+Visual Studio ([Qt Visual Studio Tools](https://marketplace.visualstudio.com/items?itemName=TheQtCompany.QtVisualStudioTools-19123) needed) :  Use ```NxNandManager.sln``` solution file
+
+QtCreator : Use ```NxNandManager/NxNandManager.pro``` project file
