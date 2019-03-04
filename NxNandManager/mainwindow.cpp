@@ -184,7 +184,7 @@ void MainWindow::restorePartition()
             if(selected_io->type != PARTITION ) warnings.append(QString("- Input file type (%1) doesn't match output type (PARTITION)\n").arg(QString(selected_io->GetNxStorageTypeAsString())));
 
             //QString type = input->isDrive ? "drive" : "file";
-            message.append(QString("You are about to restore partition to an existing rawnand %1\n").arg(input->isDrive ? "drive" : "file"));
+            message.append(QString("You are about to restore partition an existing rawnand %1\n").arg(input->isDrive ? "drive" : "file"));
 
             if(warnings.count()>0)
             {
@@ -482,6 +482,13 @@ void MainWindow::on_fullrestore_button_clicked()
     QString fileName = QFileDialog::getOpenFileName(this);
     if (!fileName.isEmpty())
     {
+        QString message;
+        message.append("You are about to restore an existing " + QString(input->isDrive ? "drive" : "file") + "\nAre you sure you want to continue ?");
+        if(QMessageBox::question(this, "Warning", message, QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+        {
+            return;
+        }
+
         //New output storage
         selected_io = new NxStorage(fileName.toUtf8().constData());
 
