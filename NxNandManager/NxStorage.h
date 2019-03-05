@@ -159,6 +159,7 @@ class NxStorage {
 		LPWSTR pathLPWSTR;
 		int type;
 		u64 size;
+		u64 raw_size;
 		u64 fileDiskTotalBytes;
 		u64 fileDiskFreeBytes;
 		BOOL isDrive;
@@ -170,6 +171,7 @@ class NxStorage {
 		s8 partitionName[37];
 		BOOL isSplitted = FALSE;
 		NxSplitFile *lastSplitFile;
+		int splitFileCount = 0;
 		HCRYPTPROV h_Prov = 0;
 		HCRYPTHASH h_Hash = 0;
 		NxHandle handle;

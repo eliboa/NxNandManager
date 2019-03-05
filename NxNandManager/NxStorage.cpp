@@ -204,13 +204,16 @@ void NxStorage::InitStorage()
 
 	// Look for split dump
 	if (type == RAWNAND && !backupGPTfound && !isDrive) {
+
+		// Overwrite object type
+		type = UNKNOWN;
 		wstring Lfilename(this->pathLPWSTR);
 		wstring extension(get_extension(Lfilename));
 		wstring basename = remove_extension(Lfilename);
 		wstring last_char = basename.substr(wcslen(basename.c_str()) - 1, wcslen(basename.c_str()));
 		if (last_char == L"0" || last_char == L"1")
 		{
-			int i = std::stoi(last_char);
+			int i = std::stoi(last_char), splitFileCount = 0;
 			LARGE_INTEGER Lsize;
 			HANDLE hFile;
 			u64 s_size = 0;	
@@ -221,7 +224,7 @@ void NxStorage::InitStorage()
 				if (!GetFileSizeEx(hFile, &Lsize))
 					break;
 
-				if (s_size != 0) isSplitted = TRUE;
+				if (s_size != 0) ++splitFileCount;
 					
                 NxSplitFile *splitfile = reinterpret_cast<NxSplitFile *>(malloc(sizeof(NxSplitFile)));
 				wcscpy(splitfile->file_path, path.c_str());
@@ -238,7 +241,7 @@ void NxStorage::InitStorage()
 					break;
 			}
 
-			if (isSplitted)
+			if (splitFileCount > 1 && raw_size == size)
 			{
 				size = s_size;
 				// Look for backup GPT in last split file
@@ -255,6 +258,8 @@ void NxStorage::InitStorage()
 						if (hdr->num_part_ents > 0)
 						{
 							backupGPTfound = TRUE;
+							type = RAWNAND;
+							isSplitted = TRUE;
 						}
 					}
 				}
@@ -281,8 +286,9 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 	// Get raw disk size
 	if(hdr->alt_lba > 0)
 	{
-		u64 raw_size = (hdr->alt_lba + 1) * NX_EMMC_BLOCKSIZE;
-		if(raw_size > size) size = (hdr->alt_lba + 1) * NX_EMMC_BLOCKSIZE;
+		raw_size = (hdr->alt_lba + 1) * NX_EMMC_BLOCKSIZE;
+		// Overload disk size with size defined in primary GPT
+		if(raw_size > size & isDrive) size = (hdr->alt_lba + 1) * NX_EMMC_BLOCKSIZE;
 	}
 
 	// Iterate partitions backwards (from GPT header) 
