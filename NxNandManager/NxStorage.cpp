@@ -241,7 +241,7 @@ void NxStorage::InitStorage()
 					break;
 			}
 
-			if (splitFileCount > 1 && raw_size == size)
+            if (splitFileCount > 1 && raw_size == s_size)
 			{
 				size = s_size;
 				// Look for backup GPT in last split file
@@ -288,7 +288,8 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 	{
 		raw_size = (hdr->alt_lba + 1) * NX_EMMC_BLOCKSIZE;
 		// Overload disk size with size defined in primary GPT
-		if(raw_size > size & isDrive) size = (hdr->alt_lba + 1) * NX_EMMC_BLOCKSIZE;
+        if(raw_size > size && isDrive)
+            size = (hdr->alt_lba + 1) * NX_EMMC_BLOCKSIZE;
 	}
 
 	// Iterate partitions backwards (from GPT header) 
