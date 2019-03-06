@@ -4,6 +4,9 @@
 #include <QMainWindow>
 #include <QThread>
 #include <QTimer>
+#include <QtWinExtras>
+#include <QtWinExtras>
+#include <QWinTaskbarProgress>
 #include "NxStorage.h"
 #include "worker.h"
 #include "opendrive.h"
@@ -46,11 +49,16 @@ private:
     bool bypassMD5 = false;
     bool progressMD5 = false;
     int cur_operation = 0;
+    QWinTaskbarButton *TaskBarButton;
+    QWinTaskbarProgress *TaskBarProgress;
 
     void createActions();
     void startWorkThread();
     void endWorkThread();
     void setProgressBarStyle(QString color = nullptr);
+
+protected:
+    void showEvent(QShowEvent *e);
 
 private slots:
     void open();
