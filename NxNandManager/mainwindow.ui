@@ -26,7 +26,7 @@
    <enum>Qt::NoFocus</enum>
   </property>
   <property name="windowTitle">
-   <string>NxNandManager</string>
+   <string>NxNandManager v1.1</string>
   </property>
   <property name="windowIcon">
    <iconset resource="application.qrc">
@@ -57,7 +57,7 @@
      <rect>
       <x>10</x>
       <y>360</y>
-      <width>260</width>
+      <width>265</width>
       <height>21</height>
      </rect>
     </property>
@@ -610,7 +610,7 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>275</x>
+      <x>278</x>
       <y>360</y>
       <width>22</width>
       <height>22</height>

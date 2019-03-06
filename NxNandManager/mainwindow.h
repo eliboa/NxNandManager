@@ -51,6 +51,7 @@ private:
     int cur_operation = 0;
     QWinTaskbarButton *TaskBarButton;
     QWinTaskbarProgress *TaskBarProgress;
+    bool bTaskBarSet = FALSE;
 
     void createActions();
     void startWorkThread();
@@ -58,7 +59,8 @@ private:
     void setProgressBarStyle(QString color = nullptr);
 
 protected:
-    void showEvent(QShowEvent *e);
+    void showEvent(QShowEvent *e) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
     void open();

@@ -6,6 +6,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {    
+    bTaskBarSet = FALSE;
     ui->setupUi(this);
     createActions();
 
@@ -57,9 +58,26 @@ MainWindow::~MainWindow()
 
 void MainWindow::showEvent(QShowEvent *e)
 {
-    TaskBarButton->setWindow(windowHandle());
-    TaskBarProgress = TaskBarButton->progress();
+    if(!bTaskBarSet)
+    {
+        TaskBarButton->setWindow(windowHandle());
+        TaskBarProgress = TaskBarButton->progress();
+        bTaskBarSet = TRUE;
+    }
     e->accept();
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if(workInProgress)
+    {
+        if(QMessageBox::question(this, "Warning", "Work in progress, are you sure you want to quit ?", QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+        {
+            event->ignore();
+            return;
+        }
+    }
+    event->accept();
 }
 
 void MainWindow::open()
@@ -221,11 +239,19 @@ void MainWindow::inputSet(NxStorage *storage)
     ui->progressBar->setFormat("");
     ui->progressBar->setValue(0);
 
+    ui->rawdump_button->setText("FULL DUMP");
+
     createActions();
 
     if(input->type == INVALID || input->type == UNKNOWN)
     {
-        QMessageBox::critical(nullptr,"Error","Input file/drive is not a valid NX storage type");
+        QString message("Input file/drive is not a valid NX storage type"), buff;
+        if(input->isSplitted && input->raw_size == input->size)
+            message.append("\nThe application was unable to locate backup GPT in splitted dump");
+        else if(input->isSplitted)
+            message.append(QString("\nSplitted dump total size (%1) doesn't match size deduced from primary GPT (%2)").arg(GetReadableSize(input->size).c_str(), GetReadableSize(input->raw_size).c_str()));
+
+        QMessageBox::critical(nullptr,"Error",message);
         ui->rawdump_button->setEnabled(false);
         ui->fullrestore_button->setEnabled(false);
         return;
@@ -267,19 +293,23 @@ void MainWindow::inputSet(NxStorage *storage)
         ui->partition_table->setStatusTip(tr("Right-click on partition to dump/restore to/from file."));
 
         ui->rawdump_button->setEnabled(true);
-        ui->fullrestore_button->setEnabled(true);
+        if(!input->isSplitted) ui->fullrestore_button->setEnabled(true);
+        else ui->rawdump_button->setText("JOIN DUMP");
 
         QMenu *fileMenu = menuBar()->addMenu(tr("&Tools"));
-        QAction *fdumpAction = new QAction("Full dump", this);
+        QAction *fdumpAction = new QAction(input->isSplitted ? "Join dump" : "Full dump", this);
         fdumpAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_D));
         fdumpAction->setStatusTip(tr("Dump as file..."));
         connect(fdumpAction, &QAction::triggered, this, &MainWindow::on_rawdump_button_clicked);
         fileMenu->addAction(fdumpAction);
-        QAction *frestoreAction = new QAction("Full restore", this);
-        frestoreAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_R));
-        frestoreAction->setStatusTip(tr("Restore from file..."));
-        connect(frestoreAction, &QAction::triggered, this, &MainWindow::on_fullrestore_button_clicked);
-        fileMenu->addAction(frestoreAction);
+        if(!input->isSplitted)
+        {
+            QAction *frestoreAction = new QAction("Full restore", this);
+            frestoreAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_R));
+            frestoreAction->setStatusTip(tr("Restore from file..."));
+            connect(frestoreAction, &QAction::triggered, this, &MainWindow::on_fullrestore_button_clicked);
+            fileMenu->addAction(frestoreAction);
+        }
     }
 
     if(input->type == BOOT0 || input->type == BOOT1 || input->type == PARTITION)
@@ -319,10 +349,11 @@ void MainWindow::inputSet(NxStorage *storage)
         frestoreAction->setStatusTip(tr("Restore from file..."));
         connect(frestoreAction, &QAction::triggered, this, &MainWindow::on_fullrestore_button_clicked);
         fileMenu->addAction(frestoreAction);
-    }
 
-    if(input->type == PARTITION) ui->fullrestore_button->setEnabled(false);
-    else ui->fullrestore_button->setEnabled(true);
+        if(input->type == PARTITION) ui->fullrestore_button->setEnabled(false);
+        else ui->fullrestore_button->setEnabled(true);
+        ui->rawdump_button->setEnabled(true);
+    }
 
     QString path = QString::fromWCharArray(input->pathLPWSTR), input_label;
     QFileInfo fi(path);
@@ -330,9 +361,6 @@ void MainWindow::inputSet(NxStorage *storage)
     if(input->isSplitted) input_label.append("splitted dump, ");
     input_label.append(QString(GetReadableSize(input->size).c_str()) + ")");
     ui->inputLabel->setText(input_label);
-
-    ui->rawdump_button->setEnabled(true);
-    ui->rawdump_button->setFocusPolicy(Qt::StrongFocus);
 }
 
 void MainWindow::driveSet(QString drive)

@@ -2,11 +2,12 @@
 #ifndef __NxNandManager_h__
 	#define __NxNandManager_h__
 
-    //#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
+    #define ENABLE_GUI  1 // Comment this line to compile for CLI version only
 
 	#if defined(ENABLE_GUI)
 		#include "mainwindow.h"
 		#include <QApplication>
+        #include <QtCore>
 	#endif
 
 	#include <windows.h>
