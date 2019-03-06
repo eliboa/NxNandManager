@@ -202,49 +202,94 @@ void NxStorage::InitStorage()
 		}
 	}
 
-	// Look for split dump
+    // Look for splitted dump
 	if (type == RAWNAND && !backupGPTfound && !isDrive) {
 
 		// Overwrite object type
 		type = UNKNOWN;
+
+        // Explode file path as wide strings
 		wstring Lfilename(this->pathLPWSTR);
 		wstring extension(get_extension(Lfilename));
-		wstring basename = remove_extension(Lfilename);
-		wstring last_char = basename.substr(wcslen(basename.c_str()) - 1, wcslen(basename.c_str()));
-		if (last_char == L"0" || last_char == L"1")
+        wstring basename(remove_extension(Lfilename));
+
+        // Look for an integer in path extension
+        int f_number, f_digits, f_type = 0;
+        if(wcslen(extension.c_str()) > 1)
+        {
+            wstring number = extension.substr(1, wcslen(extension.c_str()));
+            if (std::string::npos != number.substr(0, 1).find_first_of(L"0123456789") && std::stoi(number) >= 0)
+            {
+                // If extension is integer
+                f_number = std::stoi(number);
+                f_digits = wcslen(number.c_str());
+                if(f_digits <= 2) f_type = 1;
+            }
+        }
+        // Look for an integer in base name (2 digits max)
+        if(f_type == 0)
+        {
+            wstring number = basename.substr(wcslen(basename.c_str()) - 2, wcslen(basename.c_str()));
+            if (std::string::npos != number.substr(0, 1).find_first_of(L"0123456789") && std::stoi(number) >= 0)
+            {
+                f_number = std::stoi(number);
+                f_digits = 2;
+                f_type = 2;
+            } else {
+                number = basename.substr(wcslen(basename.c_str()) - 1, wcslen(basename.c_str()));
+                if (std::string::npos != number.substr(0, 1).find_first_of(L"0123456789") && std::stoi(number) >= 0)
+                {
+                    f_number = std::stoi(number);
+                    f_digits = 1;
+                    f_type = 2;
+                }
+            }
+        }
+
+        // Integer found in path
+        if(f_type > 0)
 		{
-			int i = std::stoi(last_char), splitFileCount = 0;
+            int i = f_number;
+            splitFileCount = 0;
 			LARGE_INTEGER Lsize;
 			HANDLE hFile;
 			u64 s_size = 0;	
 			wstring path = Lfilename;			
-			while (true)
-			{								
+            string mask("%0" + to_string(f_digits) + "d");
+
+            // For each splitted file
+            do {
 				hFile = CreateFileW(&path[0], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 				if (!GetFileSizeEx(hFile, &Lsize))
 					break;
 
-				if (s_size != 0) ++splitFileCount;
-					
+                ++splitFileCount;
+
+                // New NxSplitFile
                 NxSplitFile *splitfile = reinterpret_cast<NxSplitFile *>(malloc(sizeof(NxSplitFile)));
 				wcscpy(splitfile->file_path, path.c_str());
 				splitfile->offset = s_size;
                 splitfile->size = static_cast<u64>(Lsize.QuadPart);
-
 				splitfile->next = lastSplitFile;
 				lastSplitFile = splitfile;
 
-                s_size += static_cast<u64>(Lsize.QuadPart);
+                s_size += splitfile->size;
 
-				path = basename.substr(0, wcslen(basename.c_str()) - 1) + std::to_wstring(++i) + extension;
-				if (!is_file_exist(path.c_str()))
-					break;
-			}
+                // Format path to next file
+                char new_number[10];
+                sprintf_s(new_number, 10, mask.c_str(), ++i);
+                wstring wn_number = convertCharArrayToLPWSTR(new_number);
+                if(f_type == 1)
+                    path = basename + L"." + wn_number;
+                else
+                    path = basename.substr(0, wcslen(basename.c_str()) - f_digits) + wn_number + extension;
+            } while (is_file_exist(path.c_str()));
 
+            // If more than one file found & total size = GPT raw size
             if (splitFileCount > 1 && raw_size == s_size)
 			{
 				size = s_size;
-				// Look for backup GPT in last split file
+                // Look for backup GPT in last split file (mandatory for splitted dump)
 				LARGE_INTEGER liDistanceToMove;
 				liDistanceToMove.QuadPart = lastSplitFile->size - NX_EMMC_BLOCKSIZE;
 				DWORD dwPtr = SetFilePointerEx(hFile, liDistanceToMove, NULL, FILE_BEGIN);
