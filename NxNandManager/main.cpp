@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 {
 	std::setlocale(LC_ALL, "en_US.utf8");
 	printf("[ NxNandManager v1.1 ]\n\n");
-	const char* input = NULL, output = NULL, partition = NULL;
+	const char *input = NULL, *output = NULL, *partition = NULL;
 	BOOL info = FALSE, gui = FALSE;
 	int io_num = 1;
 
@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 			"              \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
 
 		printf("  lFlags:     \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
-            "  -------     \"FORCE\" to disable prompt for user input (no question asked)\n");
+			   "  -------     \"FORCE\" to disable prompt for user input (no question asked)\n");
 
 		throwException(ERR_WRONG_USE);
 		return -1;
@@ -407,7 +407,7 @@ int main(int argc, char *argv[])
 			if (rc < 0)
 				break;
 
-			int percent2 = (u64)writeAmount * 100 / (u64)bytesToRead;
+            int percent2 = writeAmount * 100 / bytesToRead;
 			if (percent2 > percent)
 			{
 				percent = percent2;

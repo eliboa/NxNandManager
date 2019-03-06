@@ -17,8 +17,8 @@ typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds 
 
 // MinGW
 #if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
-    #define strcpy_s strcpy
-    #define sprintf_s snprintf
+#define strcpy_s strcpy
+#define sprintf_s snprintf
 #endif
 
 // ERRORS
@@ -42,8 +42,8 @@ typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds 
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
-    int error;
-    const char* label;
+	int error;
+	const char* label;
 };
 
 static ErrorLabel ErrorLabelArr[] =

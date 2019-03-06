@@ -103,81 +103,81 @@ struct NxHandle {
 };
 
 static MagicOffsets mgkOffArr[] =
-{	
-	// { offset, magic, size, type, firwmare }
-	// BOOT0 => Look for boot_data_version + block_size_log2 + page_size_log2
-	{ 0x0530, "010021000E00000009000000", 12, BOOT0, 0},
-	// BOOT1 => Look for PK11 magic	
-	{ 0x13B4, "504B3131", 4, BOOT1, 1},
-	{ 0x13F0, "504B3131", 4, BOOT1, 2},
-	{ 0x1424, "504B3131", 4, BOOT1, 3},	
-	{ 0x12E8, "504B3131", 4, BOOT1, 4},
-	{ 0x12D0, "504B3131", 4, BOOT1, 5},	
-	{ 0x12F0, "504B3131", 4, BOOT1, 6},
-	{ 0x40AF8,"504B3131", 4, BOOT1, 7},
-	// RAWNAND -> Look for GPT partition 
-	{ 0x200, "4546492050415254", 8, RAWNAND, 0 }	
+{
+    // { offset, magic, size, type, firwmare }
+    // BOOT0 => Look for boot_data_version + block_size_log2 + page_size_log2
+    { 0x0530, "010021000E00000009000000", 12, BOOT0, 0},
+    // BOOT1 => Look for PK11 magic
+    { 0x13B4, "504B3131", 4, BOOT1, 1},
+    { 0x13F0, "504B3131", 4, BOOT1, 2},
+    { 0x1424, "504B3131", 4, BOOT1, 3},
+    { 0x12E8, "504B3131", 4, BOOT1, 4},
+    { 0x12D0, "504B3131", 4, BOOT1, 5},
+    { 0x12F0, "504B3131", 4, BOOT1, 6},
+    { 0x40AF8,"504B3131", 4, BOOT1, 7},
+    // RAWNAND -> Look for GPT partition
+    { 0x200, "4546492050415254", 8, RAWNAND, 0 }
 };
 
 static NxPartition partInfoArr[] =
 {
-	{ "PRODINFO",               0x003FBC00  },
-	{ "PRODINFOF",              0x00400000  },
-	{ "BCPKG2-1-Normal-Main",   0x00800000  },
-	{ "BCPKG2-2-Normal-Sub",    0x00800000  },
-	{ "BCPKG2-3-SafeMode-Main", 0x00800000  },
-	{ "BCPKG2-4-SafeMode-Sub",  0x00800000  },
-	{ "BCPKG2-5-Repair-Main",   0x00800000  },
-	{ "BCPKG2-6-Repair-Sub",    0x00800000  },
-	{ "SAFE",                   0x04000000  },
-	{ "SYSTEM",                 0xA0000000  },
-	{ "USER",                   0x680000000 }
+    { "PRODINFO",               0x003FBC00  },
+    { "PRODINFOF",              0x00400000  },
+    { "BCPKG2-1-Normal-Main",   0x00800000  },
+    { "BCPKG2-2-Normal-Sub",    0x00800000  },
+    { "BCPKG2-3-SafeMode-Main", 0x00800000  },
+    { "BCPKG2-4-SafeMode-Sub",  0x00800000  },
+    { "BCPKG2-5-Repair-Main",   0x00800000  },
+    { "BCPKG2-6-Repair-Sub",    0x00800000  },
+    { "SAFE",                   0x04000000  },
+    { "SYSTEM",                 0xA0000000  },
+    { "USER",                   0x680000000 }
 };
 
 class NxStorage {
-	public: 
-		NxStorage(const char* storage=NULL);
+public:
+	NxStorage(const char* storage=NULL);
 
-		void ClearHandles();
-		BOOL GetSplitFile(NxSplitFile* pFile, const char* partition);
-		BOOL GetSplitFile(NxSplitFile* pFile, u64 offset);
-        int DumpToStorage(NxStorage *out, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite, HCRYPTHASH* hHash = NULL);
-        int RestoreFromStorage(NxStorage *in, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite);
-        const char* GetNxStorageTypeAsString();
-		void InitStorage();		
-		int GetMD5Hash(HCRYPTHASH *hHash, u64* readAmount = NULL);
-		std::string GetMD5Hash(const char* partition = NULL);	
-		u64 IsValidPartition(const char * part_name, u64 part_size = NULL);
-        bool setAutoRCM(bool enable);
-        bool DEBUG_MODE;
+	void ClearHandles();
+	BOOL GetSplitFile(NxSplitFile* pFile, const char* partition);
+	BOOL GetSplitFile(NxSplitFile* pFile, u64 offset);
+	int DumpToStorage(NxStorage *out, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite, HCRYPTHASH* hHash = NULL);
+	int RestoreFromStorage(NxStorage *in, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite);
+	const char* GetNxStorageTypeAsString();
+	void InitStorage();
+	int GetMD5Hash(HCRYPTHASH *hHash, u64* readAmount = NULL);
+	std::string GetMD5Hash(const char* partition = NULL);
+	u64 IsValidPartition(const char * part_name, u64 part_size = NULL);
+	bool setAutoRCM(bool enable);
+	bool DEBUG_MODE;
 
-	private:
-		BOOL ParseGpt(unsigned char* gptHeader);
+private:
+	BOOL ParseGpt(unsigned char* gptHeader);
 
-	public:
-		const char* path;
-		LPWSTR pathLPWSTR;
-		int type;
-		u64 size;
-		u64 raw_size;
-		u64 fileDiskTotalBytes;
-		u64 fileDiskFreeBytes;
-		BOOL isDrive;
-		BOOL backupGPTfound;
-		DISK_GEOMETRY pdg;
-		GptPartition *firstPartion;
-		int partCount;
-		BOOL autoRcm;
-		s8 partitionName[37];
-		BOOL isSplitted = FALSE;
-		NxSplitFile *lastSplitFile;
-		int splitFileCount = 0;
-		HCRYPTPROV h_Prov = 0;
-		HCRYPTHASH h_Hash = 0;
-		NxHandle handle;
-		HANDLE handle_out;
-		u64 bytesToRead;
-		u64 bytesAmount;       
+public:
+	const char* path;
+	LPWSTR pathLPWSTR;
+	int type;
+	u64 size;
+	u64 raw_size;
+	u64 fileDiskTotalBytes;
+	u64 fileDiskFreeBytes;
+	BOOL isDrive;
+	BOOL backupGPTfound;
+	DISK_GEOMETRY pdg;
+	GptPartition *firstPartion;
+	int partCount;
+	BOOL autoRcm;
+	s8 partitionName[37];
+	BOOL isSplitted = FALSE;
+	NxSplitFile *lastSplitFile;
+	int splitFileCount = 0;
+	HCRYPTPROV h_Prov = 0;
+	HCRYPTHASH h_Hash = 0;
+	NxHandle handle;
+	HANDLE handle_out;
+	u64 bytesToRead;
+	u64 bytesAmount;
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);

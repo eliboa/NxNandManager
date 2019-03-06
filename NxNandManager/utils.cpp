@@ -39,7 +39,7 @@ std::string GetLastErrorAsString()
 
 	LPSTR messageBuffer = NULL;
 	size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+	                             NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
 
 	std::string message(messageBuffer, size);
 
@@ -126,16 +126,16 @@ std::string GetReadableSize(u64 size)
 	{
 		sprintf_s(buf, sizeof(buf), "%.2f Kb", (double)size / 1024);
 	}
-	else 
+	else
 	{
 		sprintf_s(buf, sizeof(buf), "%I64d byte%s", size, size>1 ? "s" : "");
-	}	
+	}
 	return std::string(buf);
 }
 
 std::string GetReadableElapsedTime(std::chrono::duration<double> elapsed_seconds)
 {
-	char buf[64];	
+	char buf[64];
 	int seconds = (int)elapsed_seconds.count();
 	int minutes = seconds / 60;
 	if (minutes > 0) seconds = seconds % 60;
@@ -151,22 +151,22 @@ std::string GetReadableElapsedTime(std::chrono::duration<double> elapsed_seconds
 	return std::string(buf);
 }
 void throwException(int rc, const char* errorStr)
-{       
+{
 	if (NULL != errorStr) printf("%s\n", errorStr);
-    else {
-        for (int i=0; i < (int)array_countof(ErrorLabelArr); i++)
-        {
-            if(ErrorLabelArr[i].error == rc)
-            {
-                printf("ERROR: %s", ErrorLabelArr[i].label);
-            }
-        }
-    }
+	else {
+		for (int i=0; i < (int)array_countof(ErrorLabelArr); i++)
+		{
+			if(ErrorLabelArr[i].error == rc)
+			{
+				printf("ERROR: %s", ErrorLabelArr[i].label);
+			}
+		}
+	}
 	exit(rc);
 }
 void throwException(const char* errorStr)
 {
-	if(NULL != errorStr) printf("%s\n", errorStr);    
+	if(NULL != errorStr) printf("%s\n", errorStr);
 	exit(EXIT_FAILURE);
 }
 // Concatenate every compatible physical disk n� in a string
@@ -176,9 +176,9 @@ std::string ListPhysicalDrives(BOOL noError)
 	std::string compatibleDrives;
 
 	for (int drive = 0; drive < 26; drive++)
-	{		
+	{
 		char driveName[256];
-		sprintf_s(driveName, 256, "\\\\.\\PhysicalDrive%d", drive);		
+		sprintf_s(driveName, 256, "\\\\.\\PhysicalDrive%d", drive);
 
 		HANDLE hPhysicalDriveIOCTL = 0;
 		hPhysicalDriveIOCTL = CreateFileW(convertCharArrayToLPWSTR(driveName), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
@@ -197,16 +197,16 @@ std::string ListPhysicalDrives(BOOL noError)
 
 		memset(local_buffer, 0, sizeof(local_buffer));
 
-		if (DeviceIoControl(hPhysicalDriveIOCTL, IOCTL_STORAGE_QUERY_PROPERTY, &query, 
-			sizeof(query), &local_buffer[0], sizeof(local_buffer), &cbBytesReturned, NULL))
+		if (DeviceIoControl(hPhysicalDriveIOCTL, IOCTL_STORAGE_QUERY_PROPERTY, &query,
+		                    sizeof(query), &local_buffer[0], sizeof(local_buffer), &cbBytesReturned, NULL))
 		{
 			STORAGE_DEVICE_DESCRIPTOR * descrip = (STORAGE_DEVICE_DESCRIPTOR *)& local_buffer;
 			char productId[1000];
 			char vendorId[1000];
-			flipAndCodeBytes(local_buffer, descrip->VendorIdOffset, 0, vendorId); 
+			flipAndCodeBytes(local_buffer, descrip->VendorIdOffset, 0, vendorId);
 			flipAndCodeBytes(local_buffer, descrip->ProductIdOffset, 0, productId);
 
-			//printf("Vendor Id = %s / Product Id = %s\n", vendorId, productId);				
+			//printf("Vendor Id = %s / Product Id = %s\n", vendorId, productId);
 			char VID[] = "Linux";
 			char PID[] = "UMS disk ";
 			if (strncmp(vendorId, VID, array_countof(VID) - 1) == 0 && strncmp(productId, PID, array_countof(PID) - 1) == 0)
@@ -221,11 +221,11 @@ std::string ListPhysicalDrives(BOOL noError)
 	if (num_drive == 0)
 	{
 		if(!noError) throwException(ERR_NO_LIST_DISK, "No compatible drive detected.");
-    }
+	}
 	return compatibleDrives;
 }
 
-char * flipAndCodeBytes(const char * str,  int pos, int flip, char * buf) 
+char * flipAndCodeBytes(const char * str,  int pos, int flip, char * buf)
 {
 	int i;
 	int j = 0;
@@ -336,21 +336,21 @@ char * flipAndCodeBytes(const char * str,  int pos, int flip, char * buf)
 	return buf;
 }
 
-std::string ExePath() 
-{	
-    wchar_t buffer[MAX_PATH];
-    GetModuleFileName(NULL, buffer, MAX_PATH);
-    wstring ws(buffer);
-    return string(ws.begin(), ws.end());
+std::string ExePath()
+{
+	wchar_t buffer[MAX_PATH];
+	GetModuleFileName(NULL, buffer, MAX_PATH);
+	wstring ws(buffer);
+	return string(ws.begin(), ws.end());
 }
 
 HMODULE GetCurrentModule()
-{ 
+{
 	HMODULE hModule = NULL;
 	GetModuleHandleEx(
-		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-		(LPCTSTR)GetCurrentModule,
-		&hModule);
+	            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+	            (LPCTSTR)GetCurrentModule,
+	            &hModule);
 
 	return hModule;
 }
@@ -358,11 +358,11 @@ HMODULE GetCurrentModule()
 bool is_file_exist(const wchar_t * fileName)
 {
 #if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
-    char buffer[_MAX_PATH];
-    std::wcstombs(buffer, fileName, _MAX_PATH);
-    std::ifstream infile(buffer);
+	char buffer[_MAX_PATH];
+	std::wcstombs(buffer, fileName, _MAX_PATH);
+	std::ifstream infile(buffer);
 #else
-    std::ifstream infile(fileName);
+	std::ifstream infile(fileName);
 #endif
 	return infile.good();
 }
