@@ -177,7 +177,7 @@ class NxStorage {
 		NxHandle handle;
 		HANDLE handle_out;
 		u64 bytesToRead;
-		u64 bytesAmount;
+		u64 bytesAmount;       
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);

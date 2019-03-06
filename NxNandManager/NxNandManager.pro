@@ -55,4 +55,6 @@ RESOURCES += \
 
 DISTFILES +=
 
+QT += winextras
+
 RC_FILE = NxNandManager.rc

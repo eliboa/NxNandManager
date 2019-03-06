@@ -2,14 +2,12 @@
 #include "ui_mainwindow.h"
 #include <QtWidgets>
 
-
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {    
     ui->setupUi(this);
     createActions();
-
 
     // Init partition table
     QTableWidget *partitionTable = ui->partition_table;
@@ -34,6 +32,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->progressBar->setAlignment(Qt::AlignCenter);
     setProgressBarStyle();
 
+    TaskBarButton = new QWinTaskbarButton(this);
 
     // Init timer
     QTimer *timer = new QTimer(this);
@@ -54,6 +53,13 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::showEvent(QShowEvent *e)
+{
+    TaskBarButton->setWindow(windowHandle());
+    TaskBarProgress = TaskBarButton->progress();
+    e->accept();
 }
 
 void MainWindow::open()
@@ -103,8 +109,9 @@ void MainWindow::on_rawdump_button_clicked()
 
     // Create new file dialog
     QFileDialog fd(this);
-    fd.setAcceptMode(QFileDialog::AcceptSave); // Ask overwrite    
-    QString fileName = fd.getSaveFileName(this, "Save as", QString(input->GetNxStorageTypeAsString()) + ".bin");
+    fd.setAcceptMode(QFileDialog::AcceptSave); // Ask overwrite
+    QString save_filename(input->type == PARTITION ? input->partitionName : input->GetNxStorageTypeAsString());
+    QString fileName = fd.getSaveFileName(this, "Save as", save_filename + ".bin");
     if (!fileName.isEmpty())
     {
         //New output storage
@@ -325,6 +332,7 @@ void MainWindow::inputSet(NxStorage *storage)
     ui->inputLabel->setText(input_label);
 
     ui->rawdump_button->setEnabled(true);
+    ui->rawdump_button->setFocusPolicy(Qt::StrongFocus);
 }
 
 void MainWindow::driveSet(QString drive)
@@ -340,13 +348,16 @@ void MainWindow::driveSet(QString drive)
 
 void MainWindow::error(int err, QString label)
 {
-    endWorkThread();
-    ui->progressBar->setFormat("");
-    ui->progressBar->setValue(0);
-    if(label != nullptr)
+    if(err != ERR_WORK_RUNNING)
     {
-        QMessageBox::critical(nullptr,"Error", label);
-        return;
+        endWorkThread();
+        ui->progressBar->setFormat("");
+        ui->progressBar->setValue(0);
+        if(label != nullptr)
+        {
+            QMessageBox::critical(nullptr,"Error", label);
+            return;
+        }
     }
 
     for (int i=0; i < (int)array_countof(ErrorLabelArr); i++)
@@ -374,6 +385,9 @@ void MainWindow::startWorkThread()
     ui->rawdump_button->setEnabled(false);
     ui->fullrestore_button->setEnabled(false);
     ui->stop_button->setEnabled(true);
+
+    TaskBarProgress->setVisible(true);
+    TaskBarProgress->setValue(0);
 }
 
 void MainWindow::endWorkThread()
@@ -389,6 +403,9 @@ void MainWindow::endWorkThread()
         ui->fullrestore_button->setEnabled(true);
     }
     ui->stop_button->setEnabled(false);
+
+    TaskBarProgress->setVisible(false);
+    TaskBarProgress->setValue(0);
 }
 
 void MainWindow::updateProgress(int percent, u64 *bytesAmount)
@@ -396,6 +413,7 @@ void MainWindow::updateProgress(int percent, u64 *bytesAmount)
     QString stepLabel("Copying...");
     if(progressMD5) stepLabel = QString("Verifying integrity...");
     ui->progressBar->setValue(percent);
+    TaskBarProgress->setValue(percent);
     if(percent == 100)
     {
         if(progressMD5) ui->progressBar->setFormat("Done and verified ! ");
@@ -521,8 +539,15 @@ void MainWindow::on_fullrestore_button_clicked()
         startWorkThread();
     }
 }
+
 void MainWindow::toggleAutoRCM()
 {
+    if(workInProgress)
+    {
+        error(ERR_WORK_RUNNING);
+        return;
+    }
+
     bool pre_autoRcm = input->autoRcm;
     if(!input->setAutoRCM(input->autoRcm ? false : true))
         QMessageBox::critical(nullptr,"Error", "Error while toggling autoRCM");
