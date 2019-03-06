@@ -302,12 +302,12 @@ void MainWindow::inputSet(NxStorage *storage)
             connect(autoRcmAction, &QAction::triggered, this, &MainWindow::toggleAutoRCM);
             fileMenu->addAction(autoRcmAction);
         }
-        QAction *fdumpAction = new QAction("Full dump", this);
+        QAction *fdumpAction = new QAction("Dump", this);
         fdumpAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_D));
         fdumpAction->setStatusTip(tr("Dump as file..."));
         connect(fdumpAction, &QAction::triggered, this, &MainWindow::on_rawdump_button_clicked);
         fileMenu->addAction(fdumpAction);
-        QAction *frestoreAction = new QAction("Full restore", this);
+        QAction *frestoreAction = new QAction("Restore", this);
         frestoreAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_R));
         frestoreAction->setStatusTip(tr("Restore from file..."));
         connect(frestoreAction, &QAction::triggered, this, &MainWindow::on_fullrestore_button_clicked);
