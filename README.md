@@ -7,13 +7,15 @@ the primary purpose of which is to copy Nintendo Switch content (full NAND or sp
 
 ## Usage
 
-```NxNandManager.exe [--list] [--info] -i inputFilename|\\.\PhysicalDriveX [-o outputFilename|\\.\PhysicalDriveX] [-part=nxPartitionName] [lFlags]```
+```NxNandManager.exe [--list] [--info] [--enable_autoRCM] [--disable_autoRCM] -i inputFilename|\\.\PhysicalDriveX [-o outputFilename|\\.\PhysicalDriveX] [-part=nxPartitionName] [lFlags]```
 
 Arguments | Description | Example
 --------- | ----------- | -------
---gui | Launch graphical user interface (optional)  | ```--gui```
+--gui | Launch graphical user interface (optional) | ```--gui```
 --info | Display detailed information about input (-i) & output (-o) streams | ```--info -i rawnand.bin```
---list | List compatible physical drives  | ```--list```
+--list | List compatible physical drives | ```--list```
+--enable_autoRCM | Enable auto-RCM for BOOT0 partition indicated with -i param (couldn't be used with (--disable_autoRCM) at the same time)| ```--enable_autoRCM -i BOOT0```<br/>```--enable_autoRCM -i "C:\some dir\BOOT0"```<br/>```--enable_autoRCM -i \\.\PhysicalDrive3```
+--disable_autoRCM | Disable auto-RCM for BOOT0 partition indicated with -i param (couldn't be used with (--enable_autoRCM) at the same time)| ```--Disable_autoRCM -i BOOT0```<br/>```--Disable_autoRCM -i "C:\some dir\BOOT0"```<br/>```--Disable_autoRCM -i \\.\PhysicalDrive3```
 -i | Path to input file or physical drive | ```-i rawnand.bin```<br/>```-i "C:\some dir\rawnand.bin"```<br/>```-i \\.\PhysicalDrive3```
 -o | Path to output file or physical drive | ```-o rawnand.bin```<br/>```-o \\.\PhysicalDrive3```
 -part= | Copy from/to a specific NAND partition (optional) | ```-part=PRODINFO```<br/>```-part=BCPKG2-2-Normal-Sub```
