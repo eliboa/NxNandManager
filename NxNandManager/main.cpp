@@ -83,7 +83,11 @@ int main(int argc, char *argv[])
 	for (int i = 1; i < argc; i++)
 	{
 		char* currArg = argv[i];
-
+		if ((strncmp(currArg, AUTORCMON_ARGUMENT, array_countof(AUTORCMON_ARGUMENT) - 1) == 0 && setAutoRCM == true) || (strncmp(currArg, AUTORCMOFF_ARGUMENT, array_countof(AUTORCMOFF_ARGUMENT) - 1) == 0 && setAutoRCM  == true))
+		{
+			printf("Arguments (--enable_autoRCM) and (--disable_autoRCM) couldn't be used at the same time.\n\n");
+			PrintUsage();
+		}
 		if (strncmp(currArg, LIST_ARGUMENT, array_countof(LIST_ARGUMENT) - 1) == 0)
 		{
 			LIST = TRUE;
