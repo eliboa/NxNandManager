@@ -6,6 +6,7 @@ int startGUI(int argc, char *argv[])
 	QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 	QApplication a(argc, argv);
 	MainWindow w;
+	a.setStyleSheet("QMessageBox {messagebox-text-interaction-flags: 12;}");
 	w.show();
 	return a.exec();
 #else
@@ -24,26 +25,26 @@ int main(int argc, char *argv[])
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
-		printf("usage: NxNandManager [--gui] [--list] [--info] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
-			"                    -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
-			"  --gui              Start the program in graphical mode, doesn't need other argument\n"
-			"  --list             List compatible NX physical disks\n"
-			"  --info             Display information about input/output file or device\n"
-			"  --enable_autoRCM   Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-			"  --disable_autoRCM  Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-			"  -i                 Path to input file or device\n"
-			"  -o                 Path to output file or device\n"
-			"  -part              Partition to copy (apply to both input & output if possible)\n"
-			"                     Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
-			"                     \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
-			"                     \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
+	    printf("usage: NxNandManager [--gui] [--list] [--info] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
+	        "                    -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
+	        "  --gui              Start the program in graphical mode, doesn't need other argument\n"
+	        "  --list             List compatible NX physical disks\n"
+	        "  --info             Display information about input/output file or device\n"
+	        "  --enable_autoRCM   Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
+	        "  --disable_autoRCM  Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
+	        "  -i                 Path to input file or device\n"
+	        "  -o                 Path to output file or device\n"
+	        "  -part              Partition to copy (apply to both input & output if possible)\n"
+	        "                     Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
+	        "                     \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
+	        "                     \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
 
-		printf("  lFlags:            \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
-			   "  -------            \"FORCE\" to disable prompt for user input (no question asked)\n");
+	    printf("  lFlags:            \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
+	           "  -------            \"FORCE\" to disable prompt for user input (no question asked)\n");
 
-		throwException(ERR_WRONG_USE);
-		return -1;
-	};
+	    throwException(ERR_WRONG_USE);
+	    return -1;
+    };
 
 	if (argc == 1)
 	{
@@ -66,7 +67,7 @@ int main(int argc, char *argv[])
 		PrintUsage();
 #endif
 	}
-	
+
 	const char GUI_ARGUMENT[] = "--gui";
 	const char INPUT_ARGUMENT[] = "-i";
 	const char OUTPUT_ARGUMENT[] = "-o";
@@ -82,7 +83,7 @@ int main(int argc, char *argv[])
 	for (int i = 1; i < argc; i++)
 	{
 		char* currArg = argv[i];
-		
+
 		if (strncmp(currArg, LIST_ARGUMENT, array_countof(LIST_ARGUMENT) - 1) == 0)
 		{
 			LIST = TRUE;
@@ -111,7 +112,7 @@ int main(int argc, char *argv[])
 		} else if (strncmp(currArg, AUTORCMON_ARGUMENT, array_countof(AUTORCMON_ARGUMENT) - 1) == 0)
 		{
 			setAutoRCM = TRUE;
-			autoRCM = TRUE;			
+			autoRCM = TRUE;
 		} else if (strncmp(currArg, AUTORCMOFF_ARGUMENT, array_countof(AUTORCMOFF_ARGUMENT) - 1) == 0)
 		{
 			setAutoRCM = TRUE;
@@ -163,7 +164,7 @@ int main(int argc, char *argv[])
 	}
 
 
-	NxStorage nxdata(input);	
+	NxStorage nxdata(input);
 	NxStorage nxdataOut(output);
 
 	if (nxdata.type == INVALID)
@@ -179,16 +180,16 @@ int main(int argc, char *argv[])
 
 	if(setAutoRCM)
 	{
-		if(NULL != output)	
+		if(NULL != output)
 		{
 			printf("Output is forbidden when %s argument is provided", autoRCM ? "--enable_autoRCM" : "--disable_autoRCM");
 			throwException(ERR_WRONG_USE);
 		}
 		if(nxdata.type != BOOT0)
 			throwException("Input must be a valid BOOT0 file/drive");
-			
+
 		if(!nxdata.setAutoRCM(autoRCM))
-		{	
+		{
 			printf("Failed to %s autoRCM", autoRCM ? "enable" : "disable");
 			throwException();
 		}
@@ -196,7 +197,7 @@ int main(int argc, char *argv[])
 		{
 			printf("Done. autoRCM is %s. \nSwitching to --info mode\n\n", autoRCM ? "enabled" : "disabled");
 			info = TRUE;
-			nxdata.InitStorage();			
+			nxdata.InitStorage();
 		}
 	}
 
@@ -212,8 +213,8 @@ int main(int argc, char *argv[])
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
 			printf("NAND type : %s%s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
-				curNxdata->type == PARTITION ? " " : "", curNxdata->type == PARTITION ? curNxdata->partitionName : "",
-				curNxdata->isSplitted ? " (splitted dump)" : "");
+			    curNxdata->type == PARTITION ? " " : "", curNxdata->type == PARTITION ? curNxdata->partitionName : "",
+			    curNxdata->isSplitted ? " (splitted dump)" : "");
 			if (curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
 			printf("Size      : %s\n", GetReadableSize(curNxdata->size).c_str());
 			if (NULL != curNxdata->firstPartion)
@@ -257,7 +258,7 @@ int main(int argc, char *argv[])
 					throwException("Operation canceled\n");
 				}
 				partition = NULL;
-			} else 
+			} else
 			{
 				throwException(ERR_INVALID_PART, "No partition detected for input, you can't continue in force mode for security reason.");
 			}
@@ -302,7 +303,7 @@ int main(int argc, char *argv[])
 			}
 		}
 		printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
-			   "            BE VERY CAUTIOUS !!!\n\n");
+		       "            BE VERY CAUTIOUS !!!\n\n");
 		// If partition argument is specified
 		if (NULL != partition)
 		{
@@ -386,13 +387,13 @@ int main(int argc, char *argv[])
 			{
 				percent = percent2;
 				printf("Restoring from input %s (type: %s%s%s) to output %s (type: %s%s%s)... (%d%%) \r",
-					   nxdata.isDrive ? "drive" : "file",
-					   nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
-					   nxdata.size != bytesToRead && NULL != partition ? partition : "",
-					   nxdataOut.isDrive ? "drive" : "file",
-					   nxdataOut.GetNxStorageTypeAsString(), nxdataOut.size != bytesToRead && NULL != partition ? ", partition: " : "",
-					   nxdataOut.size != bytesToRead && NULL != partition ? partition : "",
-					   percent);
+				       nxdata.isDrive ? "drive" : "file",
+				       nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
+				       nxdata.size != bytesToRead && NULL != partition ? partition : "",
+				       nxdataOut.isDrive ? "drive" : "file",
+				       nxdataOut.GetNxStorageTypeAsString(), nxdataOut.size != bytesToRead && NULL != partition ? ", partition: " : "",
+				       nxdataOut.size != bytesToRead && NULL != partition ? partition : "",
+				       percent);
 			}
 		}
 		printf("\n");
@@ -443,16 +444,16 @@ int main(int argc, char *argv[])
 			if (rc < 0)
 				break;
 
-            int percent2 = writeAmount * 100 / bytesToRead;
+			int percent2 = writeAmount * 100 / bytesToRead;
 			if (percent2 > percent)
 			{
 				percent = percent2;
 				printf("Copying from input %s (type: %s%s%s) to output %s... (%d%%) \r",
-					   nxdata.isDrive ? "drive" : "file",
-					   nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
-					   nxdata.size != bytesToRead && NULL != partition ? partition : "",
-					   nxdataOut.isDrive ? "drive" : "file",
-					   percent);
+				       nxdata.isDrive ? "drive" : "file",
+				       nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
+				       nxdata.size != bytesToRead && NULL != partition ? partition : "",
+				       nxdataOut.isDrive ? "drive" : "file",
+				       percent);
 			}
 		}
 		printf("\n");

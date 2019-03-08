@@ -205,7 +205,7 @@ void MainWindow::restorePartition()
 			if(selected_io->type != PARTITION ) warnings.append(QString("- Input file type (%1) doesn't match output type (PARTITION)\n").arg(QString(selected_io->GetNxStorageTypeAsString())));
 
 			//QString type = input->isDrive ? "drive" : "file";
-			message.append(QString("You are about to restore partition an existing rawnand %1\n").arg(input->isDrive ? "drive" : "file"));
+			message.append(QString("You are about to restore partition to existing rawnand %1\n").arg(input->isDrive ? "drive" : "file"));
 
 			if(warnings.count()>0)
 			{
@@ -259,24 +259,6 @@ void MainWindow::inputSet(NxStorage *storage)
 
 	if(input->type == RAWNAND && nullptr != input->firstPartion)
 	{
-		// Partition table context menu
-		foreach (QAction *action, ui->partition_table->actions()) {
-			ui->partition_table->removeAction(action);
-		}
-		ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
-		const QIcon dumpIcon = QIcon::fromTheme("document-open", QIcon(":/images/save.png"));
-		const QIcon restoreIcon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
-		QAction* dumpAction = new QAction(dumpIcon, "Dump to file...");
-		QAction* restoreAction = new QAction(restoreIcon, "Restore from file...");
-		//dumpAction->setShortcuts(QKeySequence::Open);
-		//restoreAction->setShortcuts(QKeySequence::SaveAs);
-		dumpAction->setStatusTip(tr("Save as new file"));
-		restoreAction->setStatusTip(tr("Open an existing file"));
-		ui->partition_table->connect(dumpAction, SIGNAL(triggered()), this, SLOT(dumpPartition()));
-		ui->partition_table->connect(restoreAction, SIGNAL(triggered()), this, SLOT(restorePartition()));
-		ui->partition_table->addAction(dumpAction);
-		ui->partition_table->addAction(restoreAction);
-
 		int i = 0;
 		GptPartition *cur = input->firstPartion;
 		while (nullptr != cur)
@@ -314,7 +296,6 @@ void MainWindow::inputSet(NxStorage *storage)
 
 	if(input->type == BOOT0 || input->type == BOOT1 || input->type == PARTITION)
 	{
-		ui->partition_table->setContextMenuPolicy(Qt::NoContextMenu);
 		ui->partition_table->setRowCount(1);
 		if(input->type == PARTITION) {
 			wstring ws(input->pathLPWSTR);
@@ -339,6 +320,7 @@ void MainWindow::inputSet(NxStorage *storage)
 			connect(autoRcmAction, &QAction::triggered, this, &MainWindow::toggleAutoRCM);
 			fileMenu->addAction(autoRcmAction);
 		}
+
 		QAction *fdumpAction = new QAction("Dump", this);
 		fdumpAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_D));
 		fdumpAction->setStatusTip(tr("Dump as file..."));
@@ -361,6 +343,45 @@ void MainWindow::inputSet(NxStorage *storage)
 	if(input->isSplitted) input_label.append("splitted dump, ");
 	input_label.append(QString(GetReadableSize(input->size).c_str()) + ")");
 	ui->inputLabel->setText(input_label);
+}
+
+
+void MainWindow::on_partition_table_itemSelectionChanged()
+{
+
+	// Partition table context menu
+	foreach (QAction *action, ui->partition_table->actions()) {
+		ui->partition_table->removeAction(action);
+	}
+
+	if(input->type == RAWNAND && nullptr != input->firstPartion)
+	{
+		ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
+		const QIcon dumpIcon = QIcon::fromTheme("document-open", QIcon(":/images/save.png"));
+		const QIcon restoreIcon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
+		QAction* dumpAction = new QAction(dumpIcon, "Dump to file...");
+		QAction* restoreAction = new QAction(restoreIcon, "Restore from file...");
+		dumpAction->setStatusTip(tr("Save as new file"));
+		restoreAction->setStatusTip(tr("Open an existing file"));
+
+		ui->partition_table->connect(dumpAction, SIGNAL(triggered()), this, SLOT(dumpPartition()));
+		ui->partition_table->connect(restoreAction, SIGNAL(triggered()), this, SLOT(restorePartition()));
+		ui->partition_table->addAction(dumpAction);
+		ui->partition_table->addAction(restoreAction);
+	}
+	else if(input->type == BOOT1 || input->type == PARTITION)
+	{
+		ui->partition_table->setContextMenuPolicy(Qt::NoContextMenu);
+	}
+	else if(input->type == BOOT0)
+	{
+		ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
+		QAction* action = new QAction(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM");
+		action->setStatusTip(tr(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM"));
+		ui->partition_table->connect(action, SIGNAL(triggered()), this, SLOT(toggleAutoRCM()));
+		ui->partition_table->addAction(action);
+	}
+
 }
 
 void MainWindow::driveSet(QString drive)
@@ -586,3 +607,4 @@ void MainWindow::toggleAutoRCM()
 	}
 
 }
+

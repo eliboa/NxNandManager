@@ -18,8 +18,8 @@
   </property>
   <property name="maximumSize">
    <size>
-    <width>310</width>
-    <height>440</height>
+    <width>350</width>
+    <height>450</height>
    </size>
   </property>
   <property name="focusPolicy">
@@ -644,6 +644,9 @@
       <width>291</width>
       <height>20</height>
      </rect>
+    </property>
+    <property name="focusPolicy">
+     <enum>Qt::TabFocus</enum>
     </property>
     <property name="text">
      <string>No file/drive selected</string>

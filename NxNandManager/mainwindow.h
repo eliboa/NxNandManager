@@ -71,6 +71,7 @@ private slots:
 	void on_rawdump_button_clicked();
 	void on_stop_button_clicked();
 	void on_fullrestore_button_clicked();
+	void on_partition_table_itemSelectionChanged();
 
 public slots:
 	void inputSet(NxStorage *storage = nullptr);
