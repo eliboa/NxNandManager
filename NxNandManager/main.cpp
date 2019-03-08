@@ -19,25 +19,27 @@ int main(int argc, char *argv[])
 	std::setlocale(LC_ALL, "en_US.utf8");
 	printf("[ NxNandManager v1.1 ]\n\n");
 	const char *input = NULL, *output = NULL, *partition = NULL;
-	BOOL info = FALSE, gui = FALSE;
+	BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE;
 	int io_num = 1;
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
 		printf("usage: NxNandManager [--gui] [--list] [--info] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
-			"                     -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
-			"  --gui       Start the program in graphical mode, doesn't need other argument\n"
-			"  --list      List compatible NX physical disks\n"
-			"  --info      Display information about input/output file or device\n"
-			"  -i          Path to input file or device\n"
-			"  -o          Path to output file or device\n"
-			"  -part       Partition to copy (apply to both input & output if possible)\n"
-			"              Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
-			"              \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
-			"              \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
+			"                    -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
+			"  --gui              Start the program in graphical mode, doesn't need other argument\n"
+			"  --list             List compatible NX physical disks\n"
+			"  --info             Display information about input/output file or device\n"
+			"  --enable_autoRCM   Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
+			"  --disable_autoRCM  Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
+			"  -i                 Path to input file or device\n"
+			"  -o                 Path to output file or device\n"
+			"  -part              Partition to copy (apply to both input & output if possible)\n"
+			"                     Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
+			"                     \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
+			"                     \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
 
-		printf("  lFlags:     \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
-			   "  -------     \"FORCE\" to disable prompt for user input (no question asked)\n");
+		printf("  lFlags:            \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
+			   "  -------            \"FORCE\" to disable prompt for user input (no question asked)\n");
 
 		throwException(ERR_WRONG_USE);
 		return -1;
@@ -71,6 +73,8 @@ int main(int argc, char *argv[])
 	const char PARTITION_ARGUMENT[] = "-part";
 	const char INFO_ARGUMENT[] = "--info";
 	const char LIST_ARGUMENT[] = "--list";
+	const char AUTORCMON_ARGUMENT[] = "--enable_autoRCM";
+	const char AUTORCMOFF_ARGUMENT[] = "--disable_autoRCM";
 	const char BYPASS_MD5SUM_FLAG[] = "BYPASS_MD5SUM";
 	const char DEBUG_MODE_FLAG[] = "DEBUG_MODE";
 	const char FORCE_FLAG[] = "FORCE";
@@ -78,6 +82,7 @@ int main(int argc, char *argv[])
 	for (int i = 1; i < argc; i++)
 	{
 		char* currArg = argv[i];
+		
 		if (strncmp(currArg, LIST_ARGUMENT, array_countof(LIST_ARGUMENT) - 1) == 0)
 		{
 			LIST = TRUE;
@@ -103,6 +108,14 @@ int main(int argc, char *argv[])
 		} else if (strncmp(currArg, INFO_ARGUMENT, array_countof(INFO_ARGUMENT) - 1) == 0)
 		{
 			info = TRUE;
+		} else if (strncmp(currArg, AUTORCMON_ARGUMENT, array_countof(AUTORCMON_ARGUMENT) - 1) == 0)
+		{
+			setAutoRCM = TRUE;
+			autoRCM = TRUE;			
+		} else if (strncmp(currArg, AUTORCMOFF_ARGUMENT, array_countof(AUTORCMOFF_ARGUMENT) - 1) == 0)
+		{
+			setAutoRCM = TRUE;
+			autoRCM = FALSE;
 		} else if (strncmp(currArg, BYPASS_MD5SUM_FLAG, array_countof(BYPASS_MD5SUM_FLAG) - 1) == 0)
 		{
 			BYPASS_MD5SUM = TRUE;
@@ -130,7 +143,7 @@ int main(int argc, char *argv[])
 		exit(EXIT_SUCCESS);
 	}
 
-	if (NULL == input || (NULL == output && !info))
+	if (NULL == input || (NULL == output && !info && !setAutoRCM ))
 	{
 		PrintUsage();
 	}
@@ -150,7 +163,7 @@ int main(int argc, char *argv[])
 	}
 
 
-	NxStorage nxdata(input);
+	NxStorage nxdata(input);	
 	NxStorage nxdataOut(output);
 
 	if (nxdata.type == INVALID)
@@ -162,6 +175,29 @@ int main(int argc, char *argv[])
 			printf("Error while opening input file : %s \n", input);
 		}
 		throwException(ERR_INVALID_INPUT);
+	}
+
+	if(setAutoRCM)
+	{
+		if(NULL != output)	
+		{
+			printf("Output is forbidden when %s argument is provided", autoRCM ? "--enable_autoRCM" : "--disable_autoRCM");
+			throwException(ERR_WRONG_USE);
+		}
+		if(nxdata.type != BOOT0)
+			throwException("Input must be a valid BOOT0 file/drive");
+			
+		if(!nxdata.setAutoRCM(autoRCM))
+		{	
+			printf("Failed to %s autoRCM", autoRCM ? "enable" : "disable");
+			throwException();
+		}
+		else
+		{
+			printf("Done. autoRCM is %s. \nSwitching to --info mode\n\n", autoRCM ? "enabled" : "disabled");
+			info = TRUE;
+			nxdata.InitStorage();			
+		}
 	}
 
 	// --info option specified
@@ -176,7 +212,7 @@ int main(int argc, char *argv[])
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
 			printf("NAND type : %s%s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
-				NULL != curNxdata->partitionName ? " " : "", curNxdata->partitionName,
+				curNxdata->type == PARTITION ? " " : "", curNxdata->type == PARTITION ? curNxdata->partitionName : "",
 				curNxdata->isSplitted ? " (splitted dump)" : "");
 			if (curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
 			printf("Size      : %s\n", GetReadableSize(curNxdata->size).c_str());
@@ -187,7 +223,7 @@ int main(int argc, char *argv[])
 				while (NULL != cur)
 				{
 					u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
-					printf("%s%02d %s  (%s)\n", i == 0 ? "Partitions: " : "            ", ++i, cur->name, GetReadableSize(size).c_str());
+					printf("%s%02d %s  (%s)\n", i == 1 ? "Partitions: " : "            ", ++i, cur->name, GetReadableSize(size).c_str());
 					cur = cur->next;
 				}
 			}
