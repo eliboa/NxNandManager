@@ -227,6 +227,30 @@ void MainWindow::restorePartition()
 	}
 
 }
+void MainWindow::initButtons()
+{
+	ui->rawdump_button->setText("FULL DUMP");
+	if(input->type == INVALID || input->type == UNKNOWN)
+	{
+		ui->rawdump_button->setEnabled(false);
+		ui->fullrestore_button->setEnabled(false);
+	}
+	if(input->type == RAWNAND && nullptr != input->firstPartion)
+	{
+		ui->rawdump_button->setEnabled(true);
+		if(!input->isSplitted) ui->fullrestore_button->setEnabled(true);
+		else {
+			ui->fullrestore_button->setEnabled(false);
+			ui->rawdump_button->setText("JOIN DUMP");
+		}
+	}
+	if(input->type == BOOT0 || input->type == BOOT1 || input->type == PARTITION)
+	{
+		if(input->type == PARTITION) ui->fullrestore_button->setEnabled(false);
+		else ui->fullrestore_button->setEnabled(true);
+		ui->rawdump_button->setEnabled(true);
+	}
+}
 
 void MainWindow::inputSet(NxStorage *storage)
 {
@@ -239,9 +263,8 @@ void MainWindow::inputSet(NxStorage *storage)
 	ui->progressBar->setFormat("");
 	ui->progressBar->setValue(0);
 
-	ui->rawdump_button->setText("FULL DUMP");
-
 	createActions();
+	initButtons();
 
 	if(input->type == INVALID || input->type == UNKNOWN)
 	{
@@ -252,8 +275,6 @@ void MainWindow::inputSet(NxStorage *storage)
 			message.append(QString("\nSplitted dump total size (%1) doesn't match size deduced from primary GPT (%2)").arg(GetReadableSize(input->size).c_str(), GetReadableSize(input->raw_size).c_str()));
 
 		QMessageBox::critical(nullptr,"Error",message);
-		ui->rawdump_button->setEnabled(false);
-		ui->fullrestore_button->setEnabled(false);
 		return;
 	}
 
@@ -273,10 +294,6 @@ void MainWindow::inputSet(NxStorage *storage)
 		}
 
 		ui->partition_table->setStatusTip(tr("Right-click on partition to dump/restore to/from file."));
-
-		ui->rawdump_button->setEnabled(true);
-		if(!input->isSplitted) ui->fullrestore_button->setEnabled(true);
-		else ui->rawdump_button->setText("JOIN DUMP");
 
 		QMenu *fileMenu = menuBar()->addMenu(tr("&Tools"));
 		QAction *fdumpAction = new QAction(input->isSplitted ? "Join dump" : "Full dump", this);
@@ -331,10 +348,6 @@ void MainWindow::inputSet(NxStorage *storage)
 		frestoreAction->setStatusTip(tr("Restore from file..."));
 		connect(frestoreAction, &QAction::triggered, this, &MainWindow::on_fullrestore_button_clicked);
 		fileMenu->addAction(frestoreAction);
-
-		if(input->type == PARTITION) ui->fullrestore_button->setEnabled(false);
-		else ui->fullrestore_button->setEnabled(true);
-		ui->rawdump_button->setEnabled(true);
 	}
 
 	QString path = QString::fromWCharArray(input->pathLPWSTR), input_label;
@@ -358,16 +371,19 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 	{
 		ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
 		const QIcon dumpIcon = QIcon::fromTheme("document-open", QIcon(":/images/save.png"));
-		const QIcon restoreIcon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
 		QAction* dumpAction = new QAction(dumpIcon, "Dump to file...");
-		QAction* restoreAction = new QAction(restoreIcon, "Restore from file...");
 		dumpAction->setStatusTip(tr("Save as new file"));
-		restoreAction->setStatusTip(tr("Open an existing file"));
-
 		ui->partition_table->connect(dumpAction, SIGNAL(triggered()), this, SLOT(dumpPartition()));
-		ui->partition_table->connect(restoreAction, SIGNAL(triggered()), this, SLOT(restorePartition()));
 		ui->partition_table->addAction(dumpAction);
-		ui->partition_table->addAction(restoreAction);
+
+		if(!input->isSplitted)
+		{
+			const QIcon restoreIcon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
+			QAction* restoreAction = new QAction(restoreIcon, "Restore from file...");
+			restoreAction->setStatusTip(tr("Open an existing file"));
+			ui->partition_table->connect(restoreAction, SIGNAL(triggered()), this, SLOT(restorePartition()));
+			ui->partition_table->addAction(restoreAction);
+		}
 	}
 	else if(input->type == BOOT1 || input->type == PARTITION)
 	{
@@ -446,11 +462,7 @@ void MainWindow::endWorkThread()
 	ui->remaining_time_label->setText("");
 	if(nullptr != selected_io) delete(selected_io);
 
-	if(input->type != INVALID || input->type != UNKNOWN)
-	{
-		ui->rawdump_button->setEnabled(true);
-		ui->fullrestore_button->setEnabled(true);
-	}
+	initButtons();
 	ui->stop_button->setEnabled(false);
 
 	TaskBarProgress->setVisible(false);

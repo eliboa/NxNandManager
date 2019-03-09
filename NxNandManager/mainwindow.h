@@ -57,6 +57,7 @@ private:
 	void startWorkThread();
 	void endWorkThread();
 	void setProgressBarStyle(QString color = nullptr);
+	void initButtons();
 
 protected:
 	void showEvent(QShowEvent *e) override;
