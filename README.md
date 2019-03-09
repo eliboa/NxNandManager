@@ -38,7 +38,7 @@ Arguments | Description | Example
 --info | Display detailed information about input (-i) & output (-o) streams | ```--info -i rawnand.bin```
 --list | List compatible physical drives | ```--list```
 --enable_autoRCM | Enable auto-RCM for BOOT0 partition indicated with -i param | ```--enable_autoRCM -i BOOT0```<br/>```--enable_autoRCM -i "C:\some dir\BOOT0"```<br/>```--enable_autoRCM -i \\.\PhysicalDrive3```
---disable_autoRCM | Disable auto-RCM for BOOT0 partition indicated with -i param | ```--Disable_autoRCM -i BOOT0```<br/>```--Disable_autoRCM -i "C:\some dir\BOOT0"```<br/>```--Disable_autoRCM -i \\.\PhysicalDrive3```
+--disable_autoRCM | Disable auto-RCM for BOOT0 partition indicated with -i param | ```--disable_autoRCM -i BOOT0```<br/>```--disable_autoRCM -i "C:\some dir\BOOT0"```<br/>```--disable_autoRCM -i \\.\PhysicalDrive3```
 -i | Path to input file or physical drive | ```-i rawnand.bin```<br/>```-i "C:\some dir\rawnand.bin"```<br/>```-i \\.\PhysicalDrive3```
 -o | Path to output file or physical drive | ```-o rawnand.bin```<br/>```-o \\.\PhysicalDrive3```
 -part= | Copy from/to a specific NAND partition (optional) | ```-part=PRODINFO```<br/>```-part=BCPKG2-2-Normal-Sub```
