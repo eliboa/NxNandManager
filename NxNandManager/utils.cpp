@@ -4,15 +4,17 @@ using namespace std;
 wchar_t *convertCharArrayToLPCWSTR(const char* charArray)
 {
 	wchar_t* wString = new wchar_t[4096];
-	MultiByteToWideChar(CP_ACP, 0, charArray, -1, wString, 4096);
+	MultiByteToWideChar(CP_UTF8, 0, charArray, -1, wString, 4096); //Fix issue #1
 	return wString;
 }
 
 LPWSTR convertCharArrayToLPWSTR(const char* charArray)
 {
-	int nSize = MultiByteToWideChar(CP_ACP, 0, charArray, -1, NULL, 0);
+
+	//int nSize = MultiByteToWideChar(CP_ACP, 0, charArray, -1, NULL, 0);
+	int nSize = MultiByteToWideChar(CP_UTF8, 0, charArray, -1, NULL, 0); //Fix issue #1
 	LPWSTR wString = new WCHAR[nSize];
-	MultiByteToWideChar(CP_ACP, 0, charArray, -1, wString, 4096);
+	MultiByteToWideChar(CP_UTF8, 0, charArray, -1, wString, 4096);
 	return wString;
 }
 
