@@ -25,26 +25,26 @@ int main(int argc, char *argv[])
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
-	    printf("usage: NxNandManager [--gui] [--list] [--info] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
-	        "                    -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
-	        "  --gui              Start the program in graphical mode, doesn't need other argument\n"
-	        "  --list             List compatible NX physical disks\n"
-	        "  --info             Display information about input/output file or device\n"
-	        "  --enable_autoRCM   Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-	        "  --disable_autoRCM  Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-	        "  -i                 Path to input file or device\n"
-	        "  -o                 Path to output file or device\n"
-	        "  -part              Partition to copy (apply to both input & output if possible)\n"
-	        "                     Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
-	        "                     \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
-	        "                     \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
+		printf("usage: NxNandManager [--gui] [--list] [--info] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
+			"					-o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
+			"  --gui			  Start the program in graphical mode, doesn't need other argument\n"
+			"  --list			 List compatible NX physical disks\n"
+			"  --info			 Display information about input/output file or device\n"
+			"  --enable_autoRCM   Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
+			"  --disable_autoRCM  Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
+			"  -i				 Path to input file or device\n"
+			"  -o				 Path to output file or device\n"
+			"  -part			  Partition to copy (apply to both input & output if possible)\n"
+			"					 Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
+			"					 \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
+			"					 \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
 
-	    printf("  lFlags:            \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
-	           "  -------            \"FORCE\" to disable prompt for user input (no question asked)\n");
+		printf("  lFlags:			\"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
+			   "  -------			\"FORCE\" to disable prompt for user input (no question asked)\n");
 
-	    throwException(ERR_WRONG_USE);
-	    return -1;
-    };
+		throwException(ERR_WRONG_USE);
+		return -1;
+	};
 
 	if (argc == 1)
 	{
@@ -217,10 +217,10 @@ int main(int argc, char *argv[])
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
 			printf("NAND type : %s%s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
-			    curNxdata->type == PARTITION ? " " : "", curNxdata->type == PARTITION ? curNxdata->partitionName : "",
-			    curNxdata->isSplitted ? " (splitted dump)" : "");
+				curNxdata->type == PARTITION ? " " : "", curNxdata->type == PARTITION ? curNxdata->partitionName : "",
+				curNxdata->isSplitted ? " (splitted dump)" : "");
 			if (curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
-			printf("Size      : %s\n", GetReadableSize(curNxdata->size).c_str());
+			printf("Size	  : %s\n", GetReadableSize(curNxdata->size).c_str());
 			if (NULL != curNxdata->firstPartion)
 			{
 				int i = 0;
@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
 				while (NULL != cur)
 				{
 					u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
-					printf("%s%02d %s  (%s)\n", i == 1 ? "Partitions: " : "            ", ++i, cur->name, GetReadableSize(size).c_str());
+					printf("%s%02d %s  (%s)\n", i == 1 ? "Partitions: " : "			", ++i, cur->name, GetReadableSize(size).c_str());
 					cur = cur->next;
 				}
 			}
@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
 			}
 		}
 		printf("\nYOU ARE ABOUT TO COPY DATA TO A PHYSICAL DRIVE\n"
-		       "            BE VERY CAUTIOUS !!!\n\n");
+			   "			BE VERY CAUTIOUS !!!\n\n");
 		// If partition argument is specified
 		if (NULL != partition)
 		{
@@ -391,13 +391,13 @@ int main(int argc, char *argv[])
 			{
 				percent = percent2;
 				printf("Restoring from input %s (type: %s%s%s) to output %s (type: %s%s%s)... (%d%%) \r",
-				       nxdata.isDrive ? "drive" : "file",
-				       nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
-				       nxdata.size != bytesToRead && NULL != partition ? partition : "",
-				       nxdataOut.isDrive ? "drive" : "file",
-				       nxdataOut.GetNxStorageTypeAsString(), nxdataOut.size != bytesToRead && NULL != partition ? ", partition: " : "",
-				       nxdataOut.size != bytesToRead && NULL != partition ? partition : "",
-				       percent);
+					   nxdata.isDrive ? "drive" : "file",
+					   nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
+					   nxdata.size != bytesToRead && NULL != partition ? partition : "",
+					   nxdataOut.isDrive ? "drive" : "file",
+					   nxdataOut.GetNxStorageTypeAsString(), nxdataOut.size != bytesToRead && NULL != partition ? ", partition: " : "",
+					   nxdataOut.size != bytesToRead && NULL != partition ? partition : "",
+					   percent);
 			}
 		}
 		printf("\n");
@@ -453,11 +453,11 @@ int main(int argc, char *argv[])
 			{
 				percent = percent2;
 				printf("Copying from input %s (type: %s%s%s) to output %s... (%d%%) \r",
-				       nxdata.isDrive ? "drive" : "file",
-				       nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
-				       nxdata.size != bytesToRead && NULL != partition ? partition : "",
-				       nxdataOut.isDrive ? "drive" : "file",
-				       percent);
+					   nxdata.isDrive ? "drive" : "file",
+					   nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
+					   nxdata.size != bytesToRead && NULL != partition ? partition : "",
+					   nxdataOut.isDrive ? "drive" : "file",
+					   percent);
 			}
 		}
 		printf("\n");

@@ -33,12 +33,12 @@ void NxStorage::InitStorage()
 	DWORD junk = 0;
 
 	hDevice = CreateFileW(pathLPWSTR,
-	                      0,
-	                      FILE_SHARE_READ | FILE_SHARE_WRITE,
-	                      NULL,
-	                      OPEN_EXISTING,
-	                      0,
-	                      NULL);
+						  0,
+						  FILE_SHARE_READ | FILE_SHARE_WRITE,
+						  NULL,
+						  OPEN_EXISTING,
+						  0,
+						  NULL);
 
 	if (hDevice != INVALID_HANDLE_VALUE)
 	{
@@ -780,9 +780,9 @@ int NxStorage::GetMD5Hash(HCRYPTHASH *hHash, u64* readAmount)
 {
 
 	auto releaseContext = [this]() -> void {
-	        CryptReleaseContext(this->h_Prov, 0);
-	        CloseHandle(this->handle_out);
-	        return;
+			CryptReleaseContext(this->h_Prov, 0);
+			CloseHandle(this->handle_out);
+			return;
 };
 
 

@@ -2,8 +2,8 @@
 #include "opendrive.h"
 
 OpenDrive::OpenDrive(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::Dialog)
+	QDialog(parent),
+	ui(new Ui::Dialog)
 {
 	ui->setupUi(this);
 	connect(this, SIGNAL(finished(QString)), parent, SLOT(driveSet(QString)));

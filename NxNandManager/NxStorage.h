@@ -9,10 +9,10 @@
 using namespace std;
 
 #define BUFSIZE   0x40000
-#define MD5LEN    16
+#define MD5LEN	16
 #define INVALID   1000
-#define BOOT0     1001
-#define BOOT1     1002
+#define BOOT0	 1001
+#define BOOT1	 1002
 #define RAWNAND	  1003
 #define PARTITION 1005
 #define UNKNOWN   1004
@@ -104,34 +104,34 @@ struct NxHandle {
 
 static MagicOffsets mgkOffArr[] =
 {
-    // { offset, magic, size, type, firwmare }
-    // BOOT0 => Look for boot_data_version + block_size_log2 + page_size_log2
-    { 0x0530, "010021000E00000009000000", 12, BOOT0, 0},
-    // BOOT1 => Look for PK11 magic
-    { 0x13B4, "504B3131", 4, BOOT1, 1},
-    { 0x13F0, "504B3131", 4, BOOT1, 2},
-    { 0x1424, "504B3131", 4, BOOT1, 3},
-    { 0x12E8, "504B3131", 4, BOOT1, 4},
-    { 0x12D0, "504B3131", 4, BOOT1, 5},
-    { 0x12F0, "504B3131", 4, BOOT1, 6},
-    { 0x40AF8,"504B3131", 4, BOOT1, 7},
-    // RAWNAND -> Look for GPT partition
-    { 0x200, "4546492050415254", 8, RAWNAND, 0 }
+	// { offset, magic, size, type, firwmare }
+	// BOOT0 => Look for boot_data_version + block_size_log2 + page_size_log2
+	{ 0x0530, "010021000E00000009000000", 12, BOOT0, 0},
+	// BOOT1 => Look for PK11 magic
+	{ 0x13B4, "504B3131", 4, BOOT1, 1},
+	{ 0x13F0, "504B3131", 4, BOOT1, 2},
+	{ 0x1424, "504B3131", 4, BOOT1, 3},
+	{ 0x12E8, "504B3131", 4, BOOT1, 4},
+	{ 0x12D0, "504B3131", 4, BOOT1, 5},
+	{ 0x12F0, "504B3131", 4, BOOT1, 6},
+	{ 0x40AF8,"504B3131", 4, BOOT1, 7},
+	// RAWNAND -> Look for GPT partition
+	{ 0x200, "4546492050415254", 8, RAWNAND, 0 }
 };
 
 static NxPartition partInfoArr[] =
 {
-    { "PRODINFO",               0x003FBC00  },
-    { "PRODINFOF",              0x00400000  },
-    { "BCPKG2-1-Normal-Main",   0x00800000  },
-    { "BCPKG2-2-Normal-Sub",    0x00800000  },
-    { "BCPKG2-3-SafeMode-Main", 0x00800000  },
-    { "BCPKG2-4-SafeMode-Sub",  0x00800000  },
-    { "BCPKG2-5-Repair-Main",   0x00800000  },
-    { "BCPKG2-6-Repair-Sub",    0x00800000  },
-    { "SAFE",                   0x04000000  },
-    { "SYSTEM",                 0xA0000000  },
-    { "USER",                   0x680000000 }
+	{ "PRODINFO",			   0x003FBC00  },
+	{ "PRODINFOF",			  0x00400000  },
+	{ "BCPKG2-1-Normal-Main",   0x00800000  },
+	{ "BCPKG2-2-Normal-Sub",	0x00800000  },
+	{ "BCPKG2-3-SafeMode-Main", 0x00800000  },
+	{ "BCPKG2-4-SafeMode-Sub",  0x00800000  },
+	{ "BCPKG2-5-Repair-Main",   0x00800000  },
+	{ "BCPKG2-6-Repair-Sub",	0x00800000  },
+	{ "SAFE",				   0x04000000  },
+	{ "SYSTEM",				 0xA0000000  },
+	{ "USER",				   0x680000000 }
 };
 
 class NxStorage {

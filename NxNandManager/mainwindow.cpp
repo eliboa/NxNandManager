@@ -3,8 +3,8 @@
 #include <QtWidgets>
 
 MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::MainWindow)
+	QMainWindow(parent),
+	ui(new Ui::MainWindow)
 {
 	bTaskBarSet = FALSE;
 	ui->setupUi(this);
@@ -505,15 +505,15 @@ void MainWindow::setProgressBarStyle(QString color)
 {
 	if(nullptr == color) color = "06B025";
 	QString st = QString (
-	            "QProgressBar::chunk {"
-	            "background-color: #" + color + ";"
-	                                            "}");
+				"QProgressBar::chunk {"
+				"background-color: #" + color + ";"
+												"}");
 	st.append("QProgressBar {"
-	          "border: 1px solid grey;"
-	          "border-radius: 2px;"
-	          "text-align: center;"
-	          "background: #eeeeee;"
-	          "}");
+			  "border: 1px solid grey;"
+			  "border-radius: 2px;"
+			  "text-align: center;"
+			  "background: #eeeeee;"
+			  "}");
 	ui->progressBar->setStyleSheet(st);
 }
 

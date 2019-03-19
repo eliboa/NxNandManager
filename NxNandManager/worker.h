@@ -1,9 +1,9 @@
 #ifndef WORKER_H
 #define WORKER_H
 
-#define NEW_STORAGE     101
-#define DUMP		    102
-#define RESTORE		    103
+#define NEW_STORAGE	 101
+#define DUMP			102
+#define RESTORE			103
 
 #include <QMainWindow>
 #include <QThread>

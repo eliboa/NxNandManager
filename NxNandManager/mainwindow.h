@@ -11,7 +11,7 @@
 #include "worker.h"
 #include "opendrive.h"
 
-#define DUMP    102
+#define DUMP	102
 #define RESTORE 103
 
 QT_BEGIN_NAMESPACE

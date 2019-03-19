@@ -41,7 +41,7 @@ std::string GetLastErrorAsString()
 
 	LPSTR messageBuffer = NULL;
 	size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-	                             NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+								 NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
 
 	std::string message(messageBuffer, size);
 
@@ -53,13 +53,13 @@ std::string GetLastErrorAsString()
 
 
 constexpr char hexmap[] = {'0', '1', '2', '3', '4', '5', '6', '7',
-                           '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+						   '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 std::string hexStr(unsigned char *data, int len)
 {
 	std::string s(len * 2, ' ');
 	for (int i = 0; i < len; ++i)
 	{
-		s[2 * i]     = hexmap[(data[i] & 0xF0) >> 4];
+		s[2 * i]	 = hexmap[(data[i] & 0xF0) >> 4];
 		s[2 * i + 1] = hexmap[data[i] & 0x0F];
 	}
 	for (auto & c: s) c = toupper(c);
@@ -200,7 +200,7 @@ std::string ListPhysicalDrives(BOOL noError)
 		memset(local_buffer, 0, sizeof(local_buffer));
 
 		if (DeviceIoControl(hPhysicalDriveIOCTL, IOCTL_STORAGE_QUERY_PROPERTY, &query,
-		                    sizeof(query), &local_buffer[0], sizeof(local_buffer), &cbBytesReturned, NULL))
+							sizeof(query), &local_buffer[0], sizeof(local_buffer), &cbBytesReturned, NULL))
 		{
 			STORAGE_DEVICE_DESCRIPTOR * descrip = (STORAGE_DEVICE_DESCRIPTOR *)& local_buffer;
 			char productId[1000];
@@ -350,9 +350,9 @@ HMODULE GetCurrentModule()
 {
 	HMODULE hModule = NULL;
 	GetModuleHandleEx(
-	            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-	            (LPCTSTR)GetCurrentModule,
-	            &hModule);
+				GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+				(LPCTSTR)GetCurrentModule,
+				&hModule);
 
 	return hModule;
 }
