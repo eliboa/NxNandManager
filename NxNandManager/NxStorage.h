@@ -115,7 +115,8 @@ static MagicOffsets mgkOffArr[] =
 	{ 0x12D0, "504B3131", 4, BOOT1, 5},
 	{ 0x12F0, "504B3131", 4, BOOT1, 6},
 	{ 0x40AF8,"504B3131", 4, BOOT1, 7},
-    { 0x40ADC,"504B3131", 4, BOOT1, 8},
+	{ 0x40ADC,"504B3131", 4, BOOT1, 8},
+	{ 0x40ACC,"504B3131", 4, BOOT1, 8.1},
 	// RAWNAND -> Look for GPT partition
 	{ 0x200, "4546492050415254", 8, RAWNAND, 0 }
 };
