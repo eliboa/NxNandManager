@@ -1,4 +1,7 @@
 #pragma once
+#ifndef __utils_h__
+#define __utils_h__
+
 #include <stdio.h>
 #include <string>
 #include <sys/types.h>
@@ -11,6 +14,7 @@
 #include <iomanip>
 #include <fstream>
 #include <wchar.h>
+#include <algorithm>
 
 typedef std::chrono::duration< double > double_prec_seconds;
 typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds > timepoint_t;
@@ -20,6 +24,7 @@ typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds 
 #define strcpy_s strcpy
 #define sprintf_s snprintf
 #endif
+
 
 // ERRORS
 #define ERR_WRONG_USE			-1001
@@ -61,6 +66,15 @@ static ErrorLabel ErrorLabelArr[] =
 
 };
 
+typedef struct KeySet KeySet;
+struct KeySet {
+	char crypt1[33];
+	char tweak1[33];
+	char crypt2[33];
+	char tweak2[33];
+	char crypt3[33];
+	char tweak3[33];
+};
 
 wchar_t *convertCharArrayToLPCWSTR(const char* charArray);
 LPWSTR convertCharArrayToLPWSTR(const char* charArray);
@@ -96,3 +110,8 @@ T get_extension(T const & filename)
 	typename T::size_type const p(filename.find_last_of('.'));
 	return p > 0 && p != T::npos ? filename.substr(p, T::npos) : filename;
 }
+
+std::string ltrim(const std::string& s);
+std::string rtrim(const std::string& s);
+std::string trim(const std::string& s);
+#endif

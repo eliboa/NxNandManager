@@ -2,9 +2,17 @@
 #include <windows.h>
 #include <Wincrypt.h>
 #include <iostream>
+#include <fstream> 
+#include <unistd.h>
+#include <fcntl.h>
+#include <vector>
+#include <cassert>
+#include "hex_string.h"
+#include "xts_crypto.h"
 #include "Shlwapi.h"
 #include <string>
 #include "utils.h"
+
 
 using namespace std;
 
@@ -123,22 +131,22 @@ static MagicOffsets mgkOffArr[] =
 
 static NxPartition partInfoArr[] =
 {
-	{ "PRODINFO",			   0x003FBC00  },
-	{ "PRODINFOF",			  0x00400000  },
+	{ "PRODINFO",			    0x003FBC00  },
+	{ "PRODINFOF",			    0x00400000  },
 	{ "BCPKG2-1-Normal-Main",   0x00800000  },
 	{ "BCPKG2-2-Normal-Sub",	0x00800000  },
 	{ "BCPKG2-3-SafeMode-Main", 0x00800000  },
 	{ "BCPKG2-4-SafeMode-Sub",  0x00800000  },
 	{ "BCPKG2-5-Repair-Main",   0x00800000  },
 	{ "BCPKG2-6-Repair-Sub",	0x00800000  },
-	{ "SAFE",				   0x04000000  },
-	{ "SYSTEM",				 0xA0000000  },
-	{ "USER",				   0x680000000 }
+	{ "SAFE",				    0x04000000  },
+	{ "SYSTEM",				    0xA0000000  },
+	{ "USER",				    0x680000000 }
 };
 
 class NxStorage {
 public:
-	NxStorage(const char* storage=NULL);
+	NxStorage(const char* storage=NULL, KeySet *p_biskeys=NULL);
 
 	void ClearHandles();
 	BOOL GetSplitFile(NxSplitFile* pFile, const char* partition);
@@ -180,6 +188,8 @@ public:
 	HANDLE handle_out;
 	u64 bytesToRead;
 	u64 bytesAmount;
+	KeySet* biskeys;
+	BOOL crypto = FALSE;
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);

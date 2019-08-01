@@ -1,8 +1,8 @@
 #include "NxStorage.h"
 
-NxStorage::NxStorage(const char* storage)
+NxStorage::NxStorage(const char* storage, KeySet *p_biskeys)
 {
-	DEBUG_MODE = false;
+	DEBUG_MODE = true;
 	if (DEBUG_MODE) printf("NxStorage::NxStorage - path = %s\n", storage);
 	path = storage;
 	pathLPWSTR = NULL;
@@ -16,7 +16,11 @@ NxStorage::NxStorage(const char* storage)
 	partitionName[0] = '\0';
 	handle.h = NULL;
 	handle_out = NULL;
-
+	if(NULL != p_biskeys)
+	{
+		biskeys = p_biskeys;
+		crypto = TRUE;
+	}
 	if (NULL != storage)
 	{
 		pathLPWSTR = convertCharArrayToLPWSTR(storage);

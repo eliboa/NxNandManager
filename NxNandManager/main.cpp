@@ -19,8 +19,8 @@ int main(int argc, char *argv[])
 {
 	std::setlocale(LC_ALL, "en_US.utf8");
 	printf("[ NxNandManager v1.1 ]\n\n");
-	const char *input = NULL, *output = NULL, *partition = NULL;
-	BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE;
+	const char *input = NULL, *output = NULL, *partition = NULL, *keyset = NULL;
+	BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE;
 	int io_num = 1;
 
 	// Arguments, controls & usage
@@ -79,6 +79,8 @@ int main(int argc, char *argv[])
 	const char BYPASS_MD5SUM_FLAG[] = "BYPASS_MD5SUM";
 	const char DEBUG_MODE_FLAG[] = "DEBUG_MODE";
 	const char FORCE_FLAG[] = "FORCE";
+	const char KEYSET_ARGUMENT[] = "-keyset";
+	const char DECRYPT_ARGUMENT[] = "-d";
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -130,6 +132,12 @@ int main(int argc, char *argv[])
 		} else if (strncmp(currArg, FORCE_FLAG, array_countof(FORCE_FLAG) - 1) == 0)
 		{
 			FORCE = TRUE;
+		} else if (strncmp(currArg, KEYSET_ARGUMENT, array_countof(KEYSET_ARGUMENT) - 1) == 0 && i < argc)
+		{
+			keyset = argv[++i];
+		} else if (strncmp(currArg, DECRYPT_ARGUMENT, array_countof(DECRYPT_ARGUMENT) - 1) == 0)
+		{
+			decrypt = TRUE;
 		} else {
 			printf("Argument (%s) is not allowed.\n\n", currArg);
 			PrintUsage();
@@ -167,9 +175,62 @@ int main(int argc, char *argv[])
 		printf("BYPASS_MD5SUM is %s. \n", BYPASS_MD5SUM ? "true" : "false");
 	}
 
-
 	NxStorage nxdata(input);
 	NxStorage nxdataOut(output);
+
+	
+	if(decrypt) {
+		if(NULL == keyset) 
+		{
+			printf("keyset file not provided.\n");
+			PrintUsage();
+		} else {
+			ifstream readFile(keyset);
+			string readout;
+			std::string delimiter = ":";
+			std::string value = "";
+			if (readFile.is_open())
+			{		
+				KeySet biskeys;
+				while (getline(readFile, readout)) {
+					value.clear();
+					if (readout.find("BIS KEY 0 (crypt)") != std::string::npos) {						
+						value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+						strcpy_s(biskeys.crypt1, value.substr(0, 32).c_str());
+					} else if (readout.find("BIS KEY 0 (tweak)") != std::string::npos) {						
+						value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+						strcpy_s(biskeys.tweak1, value.substr(0, 32).c_str());
+					} else if (readout.find("BIS KEY 2 (crypt)") != std::string::npos) {						
+						value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+						strcpy_s(biskeys.crypt2, value.substr(0, 32).c_str());
+					} else if (readout.find("BIS KEY 2 (tweak)") != std::string::npos) {						
+						value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+						strcpy_s(biskeys.tweak2, value.substr(0, 32).c_str());
+					} else if (readout.find("BIS KEY 3 (crypt)") != std::string::npos) {						
+						value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+						strcpy_s(biskeys.crypt3, value.substr(0, 32).c_str());
+					} else if (readout.find("BIS KEY 3 (tweak)") != std::string::npos) {						
+						value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+						strcpy_s(biskeys.tweak3, value.substr(0, 32).c_str());
+					}
+				}
+				if (DEBUG_MODE)
+				{
+					printf("BIS 1 CRYPT=%s\n", biskeys.crypt1);
+					printf("BIS 1 TWEAK=%s\n", biskeys.tweak1);
+					printf("BIS 2 CRYPT=%s\n", biskeys.crypt2);
+					printf("BIS 2 TWEAK=%s\n", biskeys.tweak2);
+					printf("BIS 3 CRYPT=%s\n", biskeys.crypt3);
+					printf("BIS 3 TWEAK=%s\n", biskeys.tweak3);
+				}			
+
+			} else {
+				printf("Cannot open keyset file.\n");
+				exit (EXIT_FAILURE);
+			}
+			readFile.close();
+		}
+	}
 
 	if (nxdata.type == INVALID)
 	{
