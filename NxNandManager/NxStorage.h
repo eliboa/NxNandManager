@@ -16,7 +16,7 @@
 
 using namespace std;
 
-#define BUFSIZE   0x40000
+#define BUFSIZE   0x4000
 #define MD5LEN	16
 #define INVALID   1000
 #define BOOT0	 1001
@@ -28,7 +28,7 @@ using namespace std;
 #define NX_GPT_NUM_BLOCKS 33
 #define NX_EMMC_BLOCKSIZE 512
 #define GPT_PART_NAME_LEN 36
-#define DEFAULT_BUFF_SIZE 0x40000
+#define DEFAULT_BUFF_SIZE 0x4000
 
 
 
@@ -158,6 +158,7 @@ public:
 	int GetMD5Hash(HCRYPTHASH *hHash, u64* readAmount = NULL);
 	std::string GetMD5Hash(const char* partition = NULL);
 	u64 IsValidPartition(const char * part_name, u64 part_size = NULL);
+	BOOL setCrypto(const char * partition);
 	bool setAutoRCM(bool enable);
 	bool DEBUG_MODE;
 
@@ -190,6 +191,11 @@ public:
 	u64 bytesAmount;
 	KeySet* biskeys;
 	BOOL crypto = FALSE;
+	BOOL isEncrypted = FALSE;
+	std::vector<unsigned char> key_crypto;
+	std::vector<unsigned char> key_tweak;
+	xts_crypto *p_crypto = NULL;
+
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);

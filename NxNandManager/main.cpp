@@ -18,29 +18,32 @@ int startGUI(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	std::setlocale(LC_ALL, "en_US.utf8");
-	printf("[ NxNandManager v1.1 ]\n\n");
+	printf("[ NxNandManager v1.2 ]\n\n");
 	const char *input = NULL, *output = NULL, *partition = NULL, *keyset = NULL;
-	BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE;
+	BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE;
 	int io_num = 1;
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
 		printf("usage: NxNandManager [--gui] [--list] [--info] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
-			"					-o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
-			"  --gui			  Start the program in graphical mode, doesn't need other argument\n"
-			"  --list			 List compatible NX physical disks\n"
-			"  --info			 Display information about input/output file or device\n"
-			"  --enable_autoRCM   Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-			"  --disable_autoRCM  Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-			"  -i				 Path to input file or device\n"
-			"  -o				 Path to output file or device\n"
-			"  -part			  Partition to copy (apply to both input & output if possible)\n"
-			"					 Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
-			"					 \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
-			"					 \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n\n");
+			"           -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
+			"  --gui             Start the program in graphical mode, doesn't need other argument\n"
+			"  --list            List compatible NX physical disks\n"
+			"  --info            Display information about input/output file or device\n"
+			"  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
+			"  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
+			"  -i                Path to input file or device\n"
+			"  -o                Path to output file or device\n"
+			"  -part             Partition to copy (apply to both input & output if possible)\n"
+			"                    Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
+			"                    \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
+			"                    \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n"
+			"  -d                decrypt content (-keset mandatory))\n"
+			"  -e                encrypt content (-keset mandatory))\n"
+			"  -keyset           Path to keyset file (bis keys)\n\n");
 
-		printf("  lFlags:			\"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
-			   "  -------			\"FORCE\" to disable prompt for user input (no question asked)\n");
+	  	printf("  lFlags:           \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
+			   "  -------           \"FORCE\" to disable prompt for user input (no question asked)\n");
 
 		throwException(ERR_WRONG_USE);
 		return -1;
@@ -81,6 +84,7 @@ int main(int argc, char *argv[])
 	const char FORCE_FLAG[] = "FORCE";
 	const char KEYSET_ARGUMENT[] = "-keyset";
 	const char DECRYPT_ARGUMENT[] = "-d";
+	const char ENCRYPT_ARGUMENT[] = "-e";
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -138,6 +142,9 @@ int main(int argc, char *argv[])
 		} else if (strncmp(currArg, DECRYPT_ARGUMENT, array_countof(DECRYPT_ARGUMENT) - 1) == 0)
 		{
 			decrypt = TRUE;
+		} else if (strncmp(currArg, ENCRYPT_ARGUMENT, array_countof(ENCRYPT_ARGUMENT) - 1) == 0)
+		{
+			encrypt = TRUE;
 		} else {
 			printf("Argument (%s) is not allowed.\n\n", currArg);
 			PrintUsage();
@@ -174,12 +181,9 @@ int main(int argc, char *argv[])
 		if (NULL != partition) printf("PARTITION ARGUMENT is %s. \n", partition);
 		printf("BYPASS_MD5SUM is %s. \n", BYPASS_MD5SUM ? "true" : "false");
 	}
-
-	NxStorage nxdata(input);
-	NxStorage nxdataOut(output);
-
 	
-	if(decrypt) {
+	KeySet biskeys;
+	if(decrypt || encrypt) {
 		if(NULL == keyset) 
 		{
 			printf("keyset file not provided.\n");
@@ -190,14 +194,19 @@ int main(int argc, char *argv[])
 			std::string delimiter = ":";
 			std::string value = "";
 			if (readFile.is_open())
-			{		
-				KeySet biskeys;
+			{						
 				while (getline(readFile, readout)) {
 					value.clear();
 					if (readout.find("BIS KEY 0 (crypt)") != std::string::npos) {						
 						value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-						strcpy_s(biskeys.crypt1, value.substr(0, 32).c_str());
+						strcpy_s(biskeys.crypt0, value.substr(0, 32).c_str());
 					} else if (readout.find("BIS KEY 0 (tweak)") != std::string::npos) {						
+						value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+						strcpy_s(biskeys.tweak0, value.substr(0, 32).c_str());
+					} else if (readout.find("BIS KEY 1 (crypt)") != std::string::npos) {						
+						value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+						strcpy_s(biskeys.crypt1, value.substr(0, 32).c_str());
+					} else if (readout.find("BIS KEY 1 (tweak)") != std::string::npos) {						
 						value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
 						strcpy_s(biskeys.tweak1, value.substr(0, 32).c_str());
 					} else if (readout.find("BIS KEY 2 (crypt)") != std::string::npos) {						
@@ -231,6 +240,10 @@ int main(int argc, char *argv[])
 			readFile.close();
 		}
 	}
+
+	
+	NxStorage nxdata(input, (encrypt || decrypt) ? &biskeys : NULL);
+	NxStorage nxdataOut(output, encrypt ? &biskeys : NULL);
 
 	if (nxdata.type == INVALID)
 	{
@@ -277,6 +290,7 @@ int main(int argc, char *argv[])
 
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
 			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
+			printf("Encrypted : %s\n", curNxdata->isEncrypted ? "Yes" : "No");
 			printf("NAND type : %s%s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
 				curNxdata->type == PARTITION ? " " : "", curNxdata->type == PARTITION ? curNxdata->partitionName : "",
 				curNxdata->isSplitted ? " (splitted dump)" : "");
@@ -503,13 +517,15 @@ int main(int argc, char *argv[])
 			printf("MD5 Checksum validation bypassed\n");
 		}
 
-		// Copy
+		// Copy		
+		percent = 0;
 		while (rc = nxdata.DumpToStorage(&nxdataOut, partition, &readAmount, &writeAmount, &bytesToRead, !BYPASS_MD5SUM ? &hHash : NULL))
 		{
 			if (rc < 0)
 				break;
 
 			int percent2 = writeAmount * 100 / bytesToRead;
+
 			if (percent2 > percent)
 			{
 				percent = percent2;
@@ -528,7 +544,7 @@ int main(int argc, char *argv[])
 		}
 		else if (writeAmount != bytesToRead)
 		{
-			printf("ERROR : %I64d bytes to read but %I64d bytes written", bytesToRead, writeAmount);
+			printf("ERROR : %I64d bytes to read but %I64d bytes written\n", bytesToRead, writeAmount);
 			throwException();
 		}
 		nxdata.ClearHandles();
@@ -555,6 +571,7 @@ int main(int argc, char *argv[])
 			}
 			printf("\n");
 			md5hashOut = BuildChecksum(hHash_out);
+
 			if (md5hash != md5hashOut)
 			{
 				throwException(ERR_MD5_COMPARE);

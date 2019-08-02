@@ -68,6 +68,8 @@ static ErrorLabel ErrorLabelArr[] =
 
 typedef struct KeySet KeySet;
 struct KeySet {
+	char crypt0[33];
+	char tweak0[33];
 	char crypt1[33];
 	char tweak1[33];
 	char crypt2[33];

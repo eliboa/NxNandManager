@@ -57,3 +57,21 @@ void xts_crypto::decrypt(unsigned char* data, size_t offset) {
 
     apply_tweak(tweak, data, sector_size);
 }
+
+
+void xts_crypto::encrypt(unsigned char* data, size_t offset) {
+    int outl, outl2;
+
+    unsigned char tweak[16];
+    create_tweak(tweak, offset);
+
+    apply_tweak(tweak, data, sector_size);
+
+    assert(EVP_EncryptInit(ctx_crypto, EVP_aes_128_ecb(), crypto_key, nullptr));
+    assert(EVP_CIPHER_CTX_set_padding(ctx_crypto, 0));
+    assert(EVP_EncryptUpdate(ctx_crypto, data, &outl, data, (int) sector_size));
+    assert(EVP_EncryptFinal(ctx_crypto, &data[outl], &outl2));
+    assert(outl + outl2 == sector_size);
+
+    apply_tweak(tweak, data, sector_size);
+}

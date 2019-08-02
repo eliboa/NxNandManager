@@ -2,13 +2,13 @@
 
 NxStorage::NxStorage(const char* storage, KeySet *p_biskeys)
 {
-	DEBUG_MODE = true;
+	DEBUG_MODE = false;
 	if (DEBUG_MODE) printf("NxStorage::NxStorage - path = %s\n", storage);
 	path = storage;
 	pathLPWSTR = NULL;
 	type = UNKNOWN;
 	size = 0, fileDiskTotalBytes = 0, fileDiskFreeBytes = 0;
-	isDrive = FALSE, backupGPTfound = FALSE, autoRcm = FALSE;
+	isDrive = FALSE, backupGPTfound = FALSE, autoRcm = FALSE, crypto = FALSE, isEncrypted = FALSE;
 	pdg = { 0 };
 	partCount = 0;
 	firstPartion = NULL;
@@ -154,6 +154,44 @@ void NxStorage::InitStorage()
 		}
 	}
 
+	// Find encrypted partitions
+	if(type == PARTITION)
+	{
+		if (strcmp(partitionName, "PRODINFO") == 0 || strcmp(partitionName, "PRODINFOF") == 0 || 
+			strcmp(partitionName, "SAFE") == 0 || strcmp(partitionName, "SYSTEM") == 0 || strcmp(partitionName, "USER") == 0)
+		{
+			isEncrypted = TRUE; // Default value
+
+			if(crypto)
+			{
+				unsigned char buf[DEFAULT_BUFF_SIZE];				
+
+				if (strcmp(partitionName, "PRODINFO") == 0)
+				{
+					SetFilePointer(hStorage, 0, NULL, FILE_BEGIN);
+					ReadFile(hStorage, buf, DEFAULT_BUFF_SIZE, &bytesRead, NULL);
+					if (0 != bytesRead && hexStr(buf, 4).compare("43414C30") == 0)
+							isEncrypted = FALSE;
+				}
+				else if (strcmp(partitionName, "PRODINFOF") == 0)
+				{
+					SetFilePointer(hStorage, 0, NULL, FILE_BEGIN);
+					ReadFile(hStorage, buf, DEFAULT_BUFF_SIZE, &bytesRead, NULL);
+					if (0 != bytesRead && hexStr(&buf[0x680], 6).compare("434552544946") == 0)
+						isEncrypted = FALSE;
+				}
+				else if (strcmp(partitionName, "SAFE") == 0 || strcmp(partitionName, "SYSTEM") == 0 )
+				{
+					SetFilePointer(hStorage, 0, NULL, FILE_BEGIN);
+					ReadFile(hStorage, buf, DEFAULT_BUFF_SIZE, &bytesRead, NULL);
+					if (0 != bytesRead && hexStr(&buf[0x47], 7).compare("4E4F204E414D45") == 0)
+						isEncrypted = FALSE;
+				}
+			}
+		}
+	}
+
+
 	// Detect autoRCM
 	if (type == BOOT0)
 	{
@@ -172,6 +210,7 @@ void NxStorage::InitStorage()
 	// Read & parse GPT
 	if (type == RAWNAND)
 	{
+		isEncrypted = TRUE; // Default value
 		DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{
@@ -622,7 +661,7 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 }
 
 int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite, HCRYPTHASH* hHash)
-{
+{	
 	// First iteration
 	if (handle.readAmount == 0)
 	{
@@ -630,6 +669,14 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		wcscpy(handle.path, pathLPWSTR);
 		//handle.path = this->pathLPWSTR;
 
+		// Init crypto
+		if ((NULL != partition && strlen(partition) > 0 || type == PARTITION) && (isEncrypted || out->crypto) && crypto)
+		{
+			setCrypto(type == PARTITION ? partitionName : partition);
+			p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
+			//printf("NxStorage::DumpToStorage - new xts_crypto() \n");
+		}	
+ 
 		// If partition specified
 		if (NULL != partition && strlen(partition) > 0)
 		{
@@ -741,6 +788,17 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 	*readAmount += bytesRead;
 	handle.readAmount += bytesRead;
 
+	// Decrypt
+	if(isEncrypted && crypto)
+	{
+		p_crypto->decrypt(buffer, handle.readAmount / DEFAULT_BUFF_SIZE - 1);
+	} 
+	// Encrypt
+	else if (!isEncrypted && out->crypto)
+	{
+		p_crypto->encrypt(buffer, handle.readAmount / DEFAULT_BUFF_SIZE - 1);
+	}
+
 	// Write
 	BYTE *wbuffer = new BYTE[DEFAULT_BUFF_SIZE];
 	if (*readAmount > *bytesToWrite)
@@ -773,6 +831,12 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 	}
 
 	*writeAmount += (DWORD)bytesWritten;
+
+	//printf("NxStorage::DumpToStorage - %I64d / %I64d \n", *writeAmount, *bytesToWrite);
+	if (*writeAmount >= *bytesToWrite)
+	{
+		delete p_crypto;
+	}
 
 	delete[] buffer;
 	delete[] wbuffer;
@@ -1108,4 +1172,35 @@ bool NxStorage::setAutoRCM(bool enable)
 		return true;
 	}
 
+}
+
+BOOL NxStorage::setCrypto(const char * partition)
+{
+	if(!crypto)
+		return false;
+
+	if (strcmp(partition, "PRODINFO") == 0 || (strcmp(partition, "PRODINFOF") == 0))
+	{
+		key_crypto = hex_string::decode(biskeys->crypt0);
+		key_tweak = hex_string::decode(biskeys->tweak0);
+	} 
+	else if (strcmp(partition, "SAFE") == 0)
+	{
+		key_crypto = hex_string::decode(biskeys->crypt1);
+		key_tweak = hex_string::decode(biskeys->tweak1);
+	}
+	else if (strcmp(partition, "SYSTEM") == 0)
+	{
+		key_crypto = hex_string::decode(biskeys->crypt2);
+		key_tweak = hex_string::decode(biskeys->tweak2);
+	}
+	else if (strcmp(partition, "USER") == 0)
+	{
+		key_crypto = hex_string::decode(biskeys->crypt3);
+		key_tweak = hex_string::decode(biskeys->tweak3);
+	}
+	else 
+		return FALSE;
+
+	return TRUE;
 }
