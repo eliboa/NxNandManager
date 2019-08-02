@@ -26,7 +26,7 @@ Set the first split file as input
  2) Open NxNandManager (CLI : add argument --list to list all available physical drives, GUI : File > Open drive).   
  3) Select the mounted drive. You can now perform backup/restore operations.   
 
-![Png](http://splatoon.eu/switch/NxNandManager_v1.1_howto_open_drive.png)   
+![Png](http://laumonier.org/switch/NxNandManager_v1.1_howto_open_drive.png)   
 
 ## CLI Usage
 
