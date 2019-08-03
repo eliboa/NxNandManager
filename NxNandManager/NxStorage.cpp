@@ -16,11 +16,7 @@ NxStorage::NxStorage(const char* storage, KeySet *p_biskeys)
 	partitionName[0] = '\0';
 	handle.h = NULL;
 	handle_out = NULL;
-	if(NULL != p_biskeys)
-	{
-		biskeys = p_biskeys;
-		crypto = TRUE;
-	}
+	this->InitKeySet(p_biskeys);
 	if (NULL != storage)
 	{
 		pathLPWSTR = convertCharArrayToLPWSTR(storage);
@@ -341,6 +337,19 @@ void NxStorage::InitStorage()
 	CloseHandle(hStorage);
 }
 
+void::NxStorage::InitKeySet(KeySet *p_biskeys)
+{
+	if(NULL == p_biskeys)
+	{
+		biskeys = NULL;
+		crypto = false;
+		return;
+	}
+	biskeys = p_biskeys;
+	crypto = true;
+	return;
+}
+
 // Parse GUID Partition Table
 BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 {
@@ -475,8 +484,10 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 			else
 			{
 				encrypt = true;
-				setCrypto(in->partitionName);
-				p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
+                if(setCrypto(in->partitionName) > 0)
+                    p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
+                else
+                    return ERR_CRYPTO_KEY_MISSING;
 			}
 		}	
 
@@ -661,8 +672,10 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 
 	*writeAmount += (DWORD)bytesWritten;
 
+    /*
 	if (*writeAmount >= *bytesToWrite)
 		delete p_crypto;
+    */
 
 	delete[] buffer;
 	delete[] wbuffer;
@@ -682,8 +695,10 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		// Init crypto
 		if ((NULL != partition && strlen(partition) > 0 || type == PARTITION) && (isEncrypted || out->crypto) && crypto)
 		{
-			setCrypto(type == PARTITION ? partitionName : partition);
-			p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
+            if(setCrypto(type == PARTITION ? partitionName : partition) > 0)
+                p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
+            else
+                return ERR_CRYPTO_KEY_MISSING;
 			//printf("NxStorage::DumpToStorage - new xts_crypto() \n");
 		}	
  
@@ -845,9 +860,10 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 
 	*writeAmount += (DWORD)bytesWritten;
 
-	if (*writeAmount >= *bytesToWrite)
+    /*
+    if (*writeAmount >= *bytesToWrite && NULL != p_crypto)
 		delete p_crypto;
-
+    */
 	delete[] buffer;
 	delete[] wbuffer;
 
@@ -1184,35 +1200,43 @@ bool NxStorage::setAutoRCM(bool enable)
 
 }
 
-bool NxStorage::setCrypto(const char * partition)
+int NxStorage::setCrypto(const char * partition)
 {
 	if(!crypto)
-		return false;
+        return ERR_CRYPTO_GENERIC;
 
 	if (strcmp(partition, "PRODINFO") == 0 || (strcmp(partition, "PRODINFOF") == 0))
 	{
+        if(std::string(biskeys->crypt0).length() != 32 || std::string(biskeys->tweak0).length() != 32)
+			return ERR_CRYPTO_KEY_MISSING;
 		key_crypto = hex_string::decode(biskeys->crypt0);
 		key_tweak = hex_string::decode(biskeys->tweak0);
 	} 
 	else if (strcmp(partition, "SAFE") == 0)
 	{
+        if(std::string(biskeys->crypt1).length() != 32 || std::string(biskeys->tweak1).length() != 32)
+            return ERR_CRYPTO_KEY_MISSING;
 		key_crypto = hex_string::decode(biskeys->crypt1);
 		key_tweak = hex_string::decode(biskeys->tweak1);
 	}
 	else if (strcmp(partition, "SYSTEM") == 0)
 	{
+        if(std::string(biskeys->crypt2).length() != 32 || std::string(biskeys->tweak2).length() != 32)
+            return ERR_CRYPTO_KEY_MISSING;
 		key_crypto = hex_string::decode(biskeys->crypt2);
 		key_tweak = hex_string::decode(biskeys->tweak2);
 	}
 	else if (strcmp(partition, "USER") == 0)
 	{
+        if(std::string(biskeys->crypt3).length() != 32 || std::string(biskeys->tweak3).length() != 32)
+            return ERR_CRYPTO_KEY_MISSING;
 		key_crypto = hex_string::decode(biskeys->crypt3);
 		key_tweak = hex_string::decode(biskeys->tweak3);
 	}
 	else 
-		return false;
+		return ERR_CRYPTO_KEY_MISSING;
 
-	return true;
+    return 1;
 }
 
 bool NxStorage::ValidateDecryptBuf(unsigned char *buf, const char* partition)

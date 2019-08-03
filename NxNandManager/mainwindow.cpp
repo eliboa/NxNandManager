@@ -12,13 +12,14 @@ MainWindow::MainWindow(QWidget *parent) :
 
 	// Init partition table
 	QTableWidget *partitionTable = ui->partition_table;
-	partitionTable->resize(290, partitionTable->height());
+    partitionTable->resize(330, partitionTable->height());
 	partitionTable->setRowCount(0);
-	partitionTable->setColumnCount(2);
-	partitionTable->setColumnWidth(0, 160);
-	partitionTable->setColumnWidth(1, 80);
+    partitionTable->setColumnCount(3);
+    partitionTable->setColumnWidth(0, 160);
+    partitionTable->setColumnWidth(1, 60);
+    partitionTable->setColumnWidth(2, 60);
 	QStringList header;
-	header<<"Name"<<"Size";
+    header<<"Name"<<"Size"<<"Encrypt.";
 	partitionTable->setHorizontalHeaderLabels(header);
 	QFont font("Calibri", 10, QFont::Bold);
 	partitionTable->horizontalHeader()->setFont(font);
@@ -26,7 +27,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
 	// Init progress bar
-	ui->progressBar->resize(265, ui->progressBar->height());
+    ui->progressBar->resize(305, ui->progressBar->height());
 	ui->progressBar->setValue(0);
 	ui->progressBar->setTextVisible(true);
 	ui->progressBar->setFormat("");
@@ -49,6 +50,12 @@ MainWindow::MainWindow(QWidget *parent) :
 	// Init buttons
 	ui->rawdump_button->setEnabled(false);
 	ui->fullrestore_button->setEnabled(false);
+
+    // Keyset bool
+    bKeyset = false;
+    QFile file("keys.dat");
+    if (file.exists())
+        bKeyset = true;
 }
 
 MainWindow::~MainWindow()
@@ -115,7 +122,21 @@ void MainWindow::openDrive()
 	openDriveDialog->exec();
 }
 
-void MainWindow::on_rawdump_button_clicked()
+void MainWindow::openKeySet()
+{
+    if(workInProgress)
+    {
+        error(ERR_WORK_RUNNING);
+        return;
+    }
+
+    keysetDialog = new KeySetDialog(this);
+    keysetDialog->setWindowTitle("Configure keyset");
+    keysetDialog->show();
+    keysetDialog->exec();
+}
+
+void MainWindow::on_rawdump_button_clicked(int crypto_mode)
 {
 	if(workInProgress)
 	{
@@ -132,8 +153,17 @@ void MainWindow::on_rawdump_button_clicked()
 	QString fileName = fd.getSaveFileName(this, "Save as", save_filename + ".bin");
 	if (!fileName.isEmpty())
 	{
+        bool do_crypto = false;
+        if(crypto_mode && bKeyset && parseKeySetFile("keys.dat", &biskeys))
+        {
+            do_crypto = true;
+            input->InitKeySet(&biskeys);
+        }
+        else
+            input->InitKeySet();
+
 		//New output storage
-		selected_io = new NxStorage(fileName.toUtf8().constData());
+        selected_io = new NxStorage(fileName.toUtf8().constData(), (do_crypto && crypto_mode == ENCRYPT) ? &biskeys : NULL);
 
 		// Open new thread to copy data
 		workThread = new Worker(this, input, selected_io, DUMP, bypassMD5);
@@ -141,7 +171,17 @@ void MainWindow::on_rawdump_button_clicked()
 	}
 }
 
-void MainWindow::dumpPartition()
+void MainWindow::on_rawdumpDec_button_clicked()
+{
+    on_rawdump_button_clicked(DECRYPT);
+}
+
+void MainWindow::on_rawdumpEnc_button_clicked()
+{
+    on_rawdump_button_clicked(ENCRYPT);
+}
+
+void MainWindow::dumpPartition(int crypto_mode)
 {
 	if(workInProgress)
 	{
@@ -163,8 +203,18 @@ void MainWindow::dumpPartition()
 		QString fileName = fd.getSaveFileName(this, "Save as", cur_partition); // Default filename is partition name
 		if (!fileName.isEmpty())
 		{
-			//New output storage
-			selected_io = new NxStorage(fileName.toUtf8().constData());
+
+            bool do_crypto = false;
+            if(crypto_mode && bKeyset && parseKeySetFile("keys.dat", &biskeys))
+            {
+                do_crypto = true;
+                input->InitKeySet(&biskeys);
+            }
+            else
+                input->InitKeySet();
+
+            //New output storage
+            selected_io = new NxStorage(fileName.toUtf8().constData());
 
 			// Open new thread to copy data
 			workThread = new Worker(this, input, selected_io, DUMP, bypassMD5, cur_partition.toUtf8().constData());
@@ -172,6 +222,12 @@ void MainWindow::dumpPartition()
 		}
 
 	}
+}
+
+void MainWindow::dumpDecPartition()
+{
+    //QMessageBox::critical(nullptr,"Error","dumpDecPartition");
+    dumpPartition(DECRYPT);
 }
 
 void MainWindow::restorePartition()
@@ -219,6 +275,19 @@ void MainWindow::restorePartition()
 				return;
 			}
 
+            // Set crypto for decrypted partitions (if keyset provided)
+            if(!selected_io->isEncrypted && selected_io->type == PARTITION && bKeyset && parseKeySetFile("keys.dat", &biskeys) &&
+               (QString(selected_io->partitionName) == "PRODINFO" || QString(selected_io->partitionName) == "PRODINFOF" ||
+                QString(selected_io->partitionName) == "SAFE" || QString(selected_io->partitionName) == "SYSTEM" || QString(selected_io->partitionName) == "USER"))
+            {
+                QMessageBox::critical(nullptr,"Error","Set crypto");
+                input->InitKeySet(&biskeys);
+                selected_io->InitKeySet(&biskeys);
+            } else {
+                input->InitKeySet();
+                selected_io->InitKeySet();
+            }
+
 			// Open new thread to restore data
 			workThread = new Worker(this, selected_io, input, RESTORE, bypassMD5, cur_partition.toUtf8().constData());
 			startWorkThread();
@@ -227,6 +296,7 @@ void MainWindow::restorePartition()
 	}
 
 }
+
 void MainWindow::initButtons()
 {
 	ui->rawdump_button->setText("FULL DUMP");
@@ -263,7 +333,7 @@ void MainWindow::inputSet(NxStorage *storage)
 	ui->progressBar->setFormat("");
 	ui->progressBar->setValue(0);
 
-	createActions();
+    createActions();
 	initButtons();
 
 	if(input->type == INVALID || input->type == UNKNOWN)
@@ -289,25 +359,32 @@ void MainWindow::inputSet(NxStorage *storage)
 			u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
 			QString qSize = QString::number(size);
 			ui->partition_table->setItem(i, 1, new QTableWidgetItem(GetReadableSize(size).c_str()));
+
+            if(QString(cur->name) == "PRODINFO" || QString(cur->name) == "PRODINFOF" ||
+               QString(cur->name) == "SAFE" || QString(cur->name) == "SYSTEM" || QString(cur->name) == "USER")
+            {
+                ui->partition_table->setItem(i, 2, new QTableWidgetItem("Yes"));
+            } else {
+                ui->partition_table->setItem(i, 2, new QTableWidgetItem("No"));
+            }
 			cur = cur->next;
 			i++;
 		}
 
 		ui->partition_table->setStatusTip(tr("Right-click on partition to dump/restore to/from file."));
 
-		QMenu *fileMenu = menuBar()->addMenu(tr("&Tools"));
 		QAction *fdumpAction = new QAction(input->isSplitted ? "Join dump" : "Full dump", this);
 		fdumpAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_D));
 		fdumpAction->setStatusTip(tr("Dump as file..."));
-		connect(fdumpAction, &QAction::triggered, this, &MainWindow::on_rawdump_button_clicked);
-		fileMenu->addAction(fdumpAction);
+        connect(fdumpAction, &QAction::triggered, this, &MainWindow::on_rawdump_button_clicked);
+        ui->menuTools->addAction(fdumpAction);
 		if(!input->isSplitted)
 		{
 			QAction *frestoreAction = new QAction("Full restore", this);
 			frestoreAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_R));
 			frestoreAction->setStatusTip(tr("Restore from file..."));
 			connect(frestoreAction, &QAction::triggered, this, &MainWindow::on_fullrestore_button_clicked);
-			fileMenu->addAction(frestoreAction);
+            ui->menuTools->addAction(frestoreAction);
 		}
 	}
 
@@ -328,26 +405,46 @@ void MainWindow::inputSet(NxStorage *storage)
 		}
 		ui->partition_table->setItem(0, 1, new QTableWidgetItem(GetReadableSize(input->size).c_str()));
 
-		QMenu *fileMenu = menuBar()->addMenu(tr("&Tools"));
 		if(input->type == BOOT0)
 		{
-
+            ui->partition_table->setItem(0, 2, new QTableWidgetItem("No"));
 			QAction *autoRcmAction = new QAction(input->autoRcm ? tr("&Disable autoRCM") : tr("&Enable autoRCM"), this);
 			autoRcmAction->setStatusTip(tr("Toggle autoRCM"));
 			connect(autoRcmAction, &QAction::triggered, this, &MainWindow::toggleAutoRCM);
-			fileMenu->addAction(autoRcmAction);
+            ui->menuTools->addAction(autoRcmAction);
 		}
 
-		QAction *fdumpAction = new QAction("Dump", this);
+        QAction *fdumpAction = new QAction("Dump to file", this);
 		fdumpAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_D));
-		fdumpAction->setStatusTip(tr("Dump as file..."));
 		connect(fdumpAction, &QAction::triggered, this, &MainWindow::on_rawdump_button_clicked);
-		fileMenu->addAction(fdumpAction);
-		QAction *frestoreAction = new QAction("Restore", this);
-		frestoreAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_R));
-		frestoreAction->setStatusTip(tr("Restore from file..."));
-		connect(frestoreAction, &QAction::triggered, this, &MainWindow::on_fullrestore_button_clicked);
-		fileMenu->addAction(frestoreAction);
+        ui->menuTools->addAction(fdumpAction);
+
+        if(input->type == PARTITION && (QString(input->partitionName) == "PRODINFO" || QString(input->partitionName) == "PRODINFOF" ||
+           QString(input->partitionName) == "SAFE" || QString(input->partitionName) == "SYSTEM" || QString(input->partitionName) == "USER"))
+        {
+            if(input->isEncrypted) {
+                ui->partition_table->setItem(0, 2, new QTableWidgetItem("Yes"));
+                QAction *fdumpDecAction = new QAction("Decrypt && Dump to file", this);
+                if(!bKeyset || !input->isEncrypted)
+                    fdumpDecAction->setDisabled(true);
+                connect(fdumpDecAction, &QAction::triggered, this, &MainWindow::on_rawdumpDec_button_clicked);
+                ui->menuTools->addAction(fdumpDecAction);
+            } else {
+                ui->partition_table->setItem(0, 2, new QTableWidgetItem("No"));
+                QAction *fdumpEncAction = new QAction("Encrypt && Dump to file", this);
+                if(!bKeyset || input->isEncrypted)
+                    fdumpEncAction->setDisabled(true);
+                connect(fdumpEncAction, &QAction::triggered, this, &MainWindow::on_rawdumpEnc_button_clicked);
+                ui->menuTools->addAction(fdumpEncAction);
+            }
+        }
+        if(input->type != PARTITION)
+        {
+            QAction *frestoreAction = new QAction("Restore from file", this);
+            frestoreAction->setShortcut(QKeySequence(Qt::CTRL +  Qt::SHIFT + Qt::Key_R));
+            connect(frestoreAction, &QAction::triggered, this, &MainWindow::on_fullrestore_button_clicked);
+            ui->menuTools->addAction(frestoreAction);
+        }
 	}
 
 	QString path = QString::fromWCharArray(input->pathLPWSTR), input_label;
@@ -375,6 +472,21 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 		dumpAction->setStatusTip(tr("Save as new file"));
 		ui->partition_table->connect(dumpAction, SIGNAL(triggered()), this, SLOT(dumpPartition()));
 		ui->partition_table->addAction(dumpAction);
+
+        QList<QTableWidgetItem *> list = ui->partition_table->selectedItems();
+        for(auto &item : list)
+        {
+            if(item->text() == "PRODINFO" || item->text() == "PRODINFOF" || item->text() == "SAFE" ||
+               item->text() == "SYSTEM" || item->text() == "USER")
+            {
+                QAction* dumpDecAction = new QAction(dumpIcon, "Decrypt && dump to file...");
+                dumpDecAction->setStatusTip(tr("Save as new file"));
+                if(!bKeyset)
+                    dumpDecAction->setDisabled(true);
+                ui->partition_table->connect(dumpDecAction, SIGNAL(triggered()), this, SLOT(dumpDecPartition()));
+                ui->partition_table->addAction(dumpDecAction);
+            }
+        }
 
 		if(!input->isSplitted)
 		{
@@ -519,22 +631,28 @@ void MainWindow::setProgressBarStyle(QString color)
 
 void MainWindow::createActions()
 {
-	menuBar()->clear();
-	QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
-	//QToolBar *fileToolBar = addToolBar(tr("File"));
+    ui->menuFile->clear();
+    ui->menuTools->clear();
 	const QIcon openIcon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
 	QAction *openAct = new QAction(openIcon, tr("&Open file..."), this);
 	openAct->setShortcuts(QKeySequence::Open);
 	openAct->setStatusTip(tr("Open an existing file"));
 	connect(openAct, &QAction::triggered, this, &MainWindow::open);
-	fileMenu->addAction(openAct);
+    ui->menuFile->addAction(openAct);
 
 	const QIcon openDIcon = QIcon::fromTheme("document-open", QIcon(":/images/drive.png"));
 	QAction *openDAct = new QAction(openDIcon, tr("&Open drive..."), this);
 	openDAct->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_D));
 	openDAct->setStatusTip(tr("Open a logical drive"));
 	connect(openDAct, &QAction::triggered, this, &MainWindow::openDrive);
-	fileMenu->addAction(openDAct);
+    ui->menuFile->addAction(openDAct);
+
+    QAction *keysetAct = new QAction("Configure keyset", this);
+    keysetAct->setShortcut(QKeySequence(Qt::CTRL +  Qt::Key_K));
+    keysetAct->setStatusTip(tr("Configure keyset"));
+    connect(keysetAct, &QAction::triggered, this, &MainWindow::openKeySet);
+    ui->menuTools->addAction(keysetAct);
+
 }
 
 void MainWindow::timer1000()
@@ -620,3 +738,10 @@ void MainWindow::toggleAutoRCM()
 
 }
 
+void MainWindow::keySetSet()
+{
+    bKeyset = false;
+    QFile file("keys.dat");
+    if (file.exists() && parseKeySetFile("keys.dat", &biskeys) >= 2)
+        bKeyset = true;
+}

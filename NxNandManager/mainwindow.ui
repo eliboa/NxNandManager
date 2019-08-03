@@ -6,13 +6,13 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>310</width>
+    <width>350</width>
     <height>445</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>310</width>
+    <width>350</width>
     <height>445</height>
    </size>
   </property>
@@ -26,7 +26,7 @@
    <enum>Qt::NoFocus</enum>
   </property>
   <property name="windowTitle">
-   <string>NxNandManager v1.1</string>
+   <string>NxNandManager v2.0</string>
   </property>
   <property name="windowIcon">
    <iconset resource="application.qrc">
@@ -41,7 +41,7 @@
      <rect>
       <x>10</x>
       <y>20</y>
-      <width>291</width>
+      <width>331</width>
       <height>311</height>
      </rect>
     </property>
@@ -57,7 +57,7 @@
      <rect>
       <x>10</x>
       <y>360</y>
-      <width>265</width>
+      <width>301</width>
       <height>21</height>
      </rect>
     </property>
@@ -572,7 +572,7 @@
      <rect>
       <x>10</x>
       <y>335</y>
-      <width>141</width>
+      <width>162</width>
       <height>22</height>
      </rect>
     </property>
@@ -604,9 +604,9 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>160</x>
+      <x>178</x>
       <y>335</y>
-      <width>141</width>
+      <width>162</width>
       <height>22</height>
      </rect>
     </property>
@@ -632,7 +632,7 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>278</x>
+      <x>320</x>
       <y>360</y>
       <width>22</width>
       <height>22</height>
@@ -663,7 +663,7 @@
      <rect>
       <x>6</x>
       <y>0</y>
-      <width>291</width>
+      <width>331</width>
       <height>20</height>
      </rect>
     </property>
@@ -691,10 +691,22 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>310</width>
+     <width>350</width>
      <height>21</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+   </widget>
+   <widget class="QMenu" name="menuTools">
+    <property name="title">
+     <string>Tools</string>
+    </property>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuTools"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
  </widget>

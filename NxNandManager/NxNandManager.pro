@@ -27,7 +27,8 @@ CONFIG += console
 
 SOURCES += \
     hex_string.cpp \
-        mainwindow.cpp \
+    keyset.cpp \
+    mainwindow.cpp \
     main.cpp \
     NxStorage.cpp \
     utils.cpp \
@@ -37,7 +38,8 @@ SOURCES += \
 
 HEADERS += \
     hex_string.h \
-        mainwindow.h \
+    keyset.h \
+     mainwindow.h \
     NxStorage.h \
     utils.h \
     types.h \
@@ -47,7 +49,8 @@ HEADERS += \
     xts_crypto.h
 
 FORMS += \
-        mainwindow.ui \
+    keyset.ui \
+    mainwindow.ui \
     opendrive.ui
 
 # Default rules for deployment.
@@ -64,8 +67,7 @@ QT += winextras
 
 RC_FILE = NxNandManager.rc
 
-win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../../openssl-1.1.1c-win64-mingw/lib/ -lcrypto
-else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../../openssl-1.1.1c-win64-mingw/lib/ -lcryptod
+win32: LIBS += -L$$PWD/../../openssl-1.1.1c-win64-mingw/lib/ -lcrypto
 
 INCLUDEPATH += $$PWD/../../openssl-1.1.1c-win64-mingw/include
 DEPENDPATH += $$PWD/../../openssl-1.1.1c-win64-mingw/include

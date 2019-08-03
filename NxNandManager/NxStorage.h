@@ -155,10 +155,11 @@ public:
 	int RestoreFromStorage(NxStorage *in, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite);
 	const char* GetNxStorageTypeAsString();
 	void InitStorage();
+	void InitKeySet(KeySet *p_biskeys=NULL);
 	int GetMD5Hash(HCRYPTHASH *hHash, u64* readAmount = NULL);
 	std::string GetMD5Hash(const char* partition = NULL);
 	u64 IsValidPartition(const char * part_name, u64 part_size = NULL);
-	bool setCrypto(const char * partition);
+	int setCrypto(const char * partition);
 	bool ValidateDecryptBuf(unsigned char *buf, const char* partition);
 	bool setAutoRCM(bool enable);
 	bool DEBUG_MODE;

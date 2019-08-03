@@ -387,3 +387,55 @@ std::string trim(const std::string& s)
 {
 	return rtrim(ltrim(s));
 }
+
+int parseKeySetFile(const char *keyset_file, KeySet* biskeys)
+{
+    int num_keys = 0;
+	ifstream readFile(keyset_file);
+	string readout;
+	std::string delimiter = ":";
+	std::string value = "";
+	if (readFile.is_open())
+	{						
+		while (getline(readFile, readout)) {
+			value.clear();
+			if (readout.find("BIS KEY 0 (crypt)") != std::string::npos) {						
+				value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+				strcpy_s(biskeys->crypt0, value.substr(0, 32).c_str());
+				num_keys++;
+			} else if (readout.find("BIS KEY 0 (tweak)") != std::string::npos) {						
+				value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+				strcpy_s(biskeys->tweak0, value.substr(0, 32).c_str());
+				num_keys++;
+			} else if (readout.find("BIS KEY 1 (crypt)") != std::string::npos) {						
+				value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+				strcpy_s(biskeys->crypt1, value.substr(0, 32).c_str());
+				num_keys++;
+			} else if (readout.find("BIS KEY 1 (tweak)") != std::string::npos) {						
+				value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+				strcpy_s(biskeys->tweak1, value.substr(0, 32).c_str());
+				num_keys++;
+			} else if (readout.find("BIS KEY 2 (crypt)") != std::string::npos) {						
+				value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+				strcpy_s(biskeys->crypt2, value.substr(0, 32).c_str());
+				num_keys++;
+			} else if (readout.find("BIS KEY 2 (tweak)") != std::string::npos) {						
+				value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+				strcpy_s(biskeys->tweak2, value.substr(0, 32).c_str());
+				num_keys++;
+			} else if (readout.find("BIS KEY 3 (crypt)") != std::string::npos) {						
+				value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+				strcpy_s(biskeys->crypt3, value.substr(0, 32).c_str());
+				num_keys++;
+			} else if (readout.find("BIS KEY 3 (tweak)") != std::string::npos) {						
+				value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
+				strcpy_s(biskeys->tweak3, value.substr(0, 32).c_str());
+				num_keys++;
+			}
+		}
+	} else {
+		return 0;
+	}
+	readFile.close();
+	return num_keys;
+}

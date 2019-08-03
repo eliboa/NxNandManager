@@ -25,6 +25,9 @@ typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds 
 #define sprintf_s snprintf
 #endif
 
+//CRYPTO
+#define ENCRYPT 1
+#define DECRYPT 2
 
 // ERRORS
 #define ERR_WRONG_USE			   -1001
@@ -46,6 +49,8 @@ typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds 
 #define ERR_RESTORE_TO_SPLIT	   -1017
 #define ERR_DECRYPT_CONTENT		   -1018
 #define ERR_RESTORE_CRYPTO_MISSING -1019
+#define ERR_CRYPTO_KEY_MISSING	   -1020
+#define ERR_CRYPTO_GENERIC  	   -1021
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -66,8 +71,8 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_IO_MISMATCH, "Input type/size doesn't match output size/type"},
 	{ ERR_INVALID_INPUT, "Input is not a valid NX storage"},
 	{ ERR_DECRYPT_CONTENT, "Failed to validate decrypted content (wrong keys ?)" },
-	{ ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted content to encrypted partition and keyset missing to encrypt data"},
-
+    { ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted content to encrypted partition and keyset missing to encrypt data"},
+    { ERR_CRYPTO_KEY_MISSING, "Crypto error : key missing"}
 };
 
 typedef struct KeySet KeySet;
@@ -120,4 +125,5 @@ T get_extension(T const & filename)
 std::string ltrim(const std::string& s);
 std::string rtrim(const std::string& s);
 std::string trim(const std::string& s);
+int parseKeySetFile(const char *keyset_file, KeySet *biskeys);
 #endif
