@@ -158,7 +158,8 @@ public:
 	int GetMD5Hash(HCRYPTHASH *hHash, u64* readAmount = NULL);
 	std::string GetMD5Hash(const char* partition = NULL);
 	u64 IsValidPartition(const char * part_name, u64 part_size = NULL);
-	BOOL setCrypto(const char * partition);
+	bool setCrypto(const char * partition);
+	bool ValidateDecryptBuf(unsigned char *buf, const char* partition);
 	bool setAutoRCM(bool enable);
 	bool DEBUG_MODE;
 
@@ -190,7 +191,7 @@ public:
 	u64 bytesToRead;
 	u64 bytesAmount;
 	KeySet* biskeys;
-	BOOL crypto = FALSE;
+	BOOL crypto = FALSE, encrypt = FALSE;
 	BOOL isEncrypted = FALSE;
 	std::vector<unsigned char> key_crypto;
 	std::vector<unsigned char> key_tweak;

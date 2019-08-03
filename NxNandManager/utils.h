@@ -27,23 +27,25 @@ typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds 
 
 
 // ERRORS
-#define ERR_WRONG_USE			-1001
-#define ERR_INVALID_INPUT		-1002
-#define ERR_INVALID_OUTPUT		-1003
-#define ERR_INVALID_PART		-1004
-#define ERR_IO_MISMATCH			-1005
-#define ERR_INPUT_HANDLE		-1006
-#define ERR_OUTPUT_HANDLE		-1007
-#define ERR_CRYPTO_MD5			-1008
-#define ERR_NO_LIST_DISK		-1009
-#define ERR_NO_SPACE_LEFT		-1010
-#define ERR_COPY_SIZE			-1011
-#define ERR_MD5_COMPARE			-1012
-#define ERR_INIT_GUI			-1013
-#define ERR_WORK_RUNNING		-1014
-#define ERR_WHILE_COPY			-1015
-#define NO_MORE_BYTES_TO_COPY   -1016
-#define ERR_RESTORE_TO_SPLIT	-1017
+#define ERR_WRONG_USE			   -1001
+#define ERR_INVALID_INPUT		   -1002
+#define ERR_INVALID_OUTPUT		   -1003
+#define ERR_INVALID_PART		   -1004
+#define ERR_IO_MISMATCH			   -1005
+#define ERR_INPUT_HANDLE		   -1006
+#define ERR_OUTPUT_HANDLE		   -1007
+#define ERR_CRYPTO_MD5			   -1008
+#define ERR_NO_LIST_DISK		   -1009
+#define ERR_NO_SPACE_LEFT		   -1010
+#define ERR_COPY_SIZE			   -1011
+#define ERR_MD5_COMPARE			   -1012
+#define ERR_INIT_GUI			   -1013
+#define ERR_WORK_RUNNING		   -1014
+#define ERR_WHILE_COPY			   -1015
+#define NO_MORE_BYTES_TO_COPY      -1016
+#define ERR_RESTORE_TO_SPLIT	   -1017
+#define ERR_DECRYPT_CONTENT		   -1018
+#define ERR_RESTORE_CRYPTO_MISSING -1019
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -62,7 +64,9 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_RESTORE_TO_SPLIT, "Restore to splitted dump is not supported"},
 	{ ERR_WHILE_COPY, "An error occured during copy"},
 	{ ERR_IO_MISMATCH, "Input type/size doesn't match output size/type"},
-	{ ERR_INVALID_INPUT, "Input is not a valid NX storage"}
+	{ ERR_INVALID_INPUT, "Input is not a valid NX storage"},
+	{ ERR_DECRYPT_CONTENT, "Failed to validate decrypted content (wrong keys ?)" },
+	{ ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted content to encrypted partition and keyset missing to encrypt data"},
 
 };
 

@@ -154,7 +154,7 @@ void NxStorage::InitStorage()
 		}
 	}
 
-	// Find encrypted partitions
+	// Find decrypted partition
 	if(type == PARTITION)
 	{
 		if (strcmp(partitionName, "PRODINFO") == 0 || strcmp(partitionName, "PRODINFOF") == 0 || 
@@ -162,32 +162,12 @@ void NxStorage::InitStorage()
 		{
 			isEncrypted = TRUE; // Default value
 
-			if(crypto)
-			{
-				unsigned char buf[DEFAULT_BUFF_SIZE];				
-
-				if (strcmp(partitionName, "PRODINFO") == 0)
-				{
-					SetFilePointer(hStorage, 0, NULL, FILE_BEGIN);
-					ReadFile(hStorage, buf, DEFAULT_BUFF_SIZE, &bytesRead, NULL);
-					if (0 != bytesRead && hexStr(buf, 4).compare("43414C30") == 0)
-							isEncrypted = FALSE;
-				}
-				else if (strcmp(partitionName, "PRODINFOF") == 0)
-				{
-					SetFilePointer(hStorage, 0, NULL, FILE_BEGIN);
-					ReadFile(hStorage, buf, DEFAULT_BUFF_SIZE, &bytesRead, NULL);
-					if (0 != bytesRead && hexStr(&buf[0x680], 6).compare("434552544946") == 0)
-						isEncrypted = FALSE;
-				}
-				else if (strcmp(partitionName, "SAFE") == 0 || strcmp(partitionName, "SYSTEM") == 0 )
-				{
-					SetFilePointer(hStorage, 0, NULL, FILE_BEGIN);
-					ReadFile(hStorage, buf, DEFAULT_BUFF_SIZE, &bytesRead, NULL);
-					if (0 != bytesRead && hexStr(&buf[0x47], 7).compare("4E4F204E414D45") == 0)
-						isEncrypted = FALSE;
-				}
-			}
+			// Check for decrypted content
+			unsigned char buf[DEFAULT_BUFF_SIZE];				
+			SetFilePointer(hStorage, 0, NULL, FILE_BEGIN);
+			ReadFile(hStorage, buf, DEFAULT_BUFF_SIZE, &bytesRead, NULL);
+			if (0 != bytesRead && ValidateDecryptBuf(buf, partitionName))
+				isEncrypted = FALSE;
 		}
 	}
 
@@ -481,6 +461,25 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 		if (isSplitted)
 			return ERR_RESTORE_TO_SPLIT;
 
+
+		// Set crypto if restoring decrypted partition file to RAWNAND
+		encrypt = false;
+		if(type == RAWNAND && NULL != partition && in->type == PARTITION && !in->isEncrypted)
+		{
+			// Restoring from decrypted file and keyset missing
+			if(!in->crypto && (	strcmp(partition, "PRODINFO") == 0  || 
+				strcmp(partition, "PRODINFOF") == 0 || strcmp(partition, "SAFE") == 0 || 
+				strcmp(partition, "USER") == 0 		|| strcmp(partition, "SYSTEM") == 0))
+				return ERR_RESTORE_CRYPTO_MISSING;
+			
+			else
+			{
+				encrypt = true;
+				setCrypto(in->partitionName);
+				p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
+			}
+		}	
+
 		// Default path is input object path
 		wcscpy(handle.path, in->pathLPWSTR);
 		// If partition specified
@@ -626,6 +625,14 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 	*readAmount += bytesRead;
 	handle.readAmount += bytesRead;
 
+
+	// Encrypt data
+	if(encrypt)
+	{
+		u64 block_num = handle.readAmount / DEFAULT_BUFF_SIZE - 1;
+		p_crypto->encrypt(buffer, block_num);
+	}
+
 	// Write
 	BYTE *wbuffer = new BYTE[DEFAULT_BUFF_SIZE];
 	if (*readAmount > *bytesToWrite)
@@ -653,6 +660,9 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 	}
 
 	*writeAmount += (DWORD)bytesWritten;
+
+	if (*writeAmount >= *bytesToWrite)
+		delete p_crypto;
 
 	delete[] buffer;
 	delete[] wbuffer;
@@ -789,15 +799,18 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 	handle.readAmount += bytesRead;
 
 	// Decrypt
+	u64 block_num = handle.readAmount / DEFAULT_BUFF_SIZE - 1;
 	if(isEncrypted && crypto)
 	{
-		p_crypto->decrypt(buffer, handle.readAmount / DEFAULT_BUFF_SIZE - 1);
-	} 
+		p_crypto->decrypt(buffer, block_num);
+
+		// Validate first block
+		if(block_num == 0 && !ValidateDecryptBuf(buffer, type == PARTITION ? partitionName : partition))		
+			return ERR_DECRYPT_CONTENT;
+	}
 	// Encrypt
 	else if (!isEncrypted && out->crypto)
-	{
-		p_crypto->encrypt(buffer, handle.readAmount / DEFAULT_BUFF_SIZE - 1);
-	}
+		p_crypto->encrypt(buffer, block_num);
 
 	// Write
 	BYTE *wbuffer = new BYTE[DEFAULT_BUFF_SIZE];
@@ -832,11 +845,8 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 
 	*writeAmount += (DWORD)bytesWritten;
 
-	//printf("NxStorage::DumpToStorage - %I64d / %I64d \n", *writeAmount, *bytesToWrite);
 	if (*writeAmount >= *bytesToWrite)
-	{
 		delete p_crypto;
-	}
 
 	delete[] buffer;
 	delete[] wbuffer;
@@ -1174,7 +1184,7 @@ bool NxStorage::setAutoRCM(bool enable)
 
 }
 
-BOOL NxStorage::setCrypto(const char * partition)
+bool NxStorage::setCrypto(const char * partition)
 {
 	if(!crypto)
 		return false;
@@ -1200,7 +1210,18 @@ BOOL NxStorage::setCrypto(const char * partition)
 		key_tweak = hex_string::decode(biskeys->tweak3);
 	}
 	else 
-		return FALSE;
+		return false;
 
-	return TRUE;
+	return true;
+}
+
+bool NxStorage::ValidateDecryptBuf(unsigned char *buf, const char* partition)
+{
+	if ((strcmp(partition, "PRODINFO") == 0 && hexStr(buf, 4).compare("43414C30") == 0) || 
+		(strcmp(partition, "PRODINFOF") == 0 && hexStr(&buf[0x680], 6).compare("434552544946") == 0) ||
+		(strcmp(partition, "SAFE") == 0 || strcmp(partition, "SYSTEM") == 0 || strcmp(partition, "USER") == 0) && hexStr(&buf[0x47], 7).compare("4E4F204E414D45") == 0)
+	{
+		return true;
+	}	
+	return false;
 }
