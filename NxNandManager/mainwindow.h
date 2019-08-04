@@ -19,10 +19,9 @@ QT_BEGIN_NAMESPACE
 class QAction;
 class QMenu;
 class Worker;
-class OpenDrive;
 
 namespace Ui {
-class MainWindow;
+    class MainWindow;
 }
 using namespace std;
 
@@ -38,7 +37,7 @@ public:
 
 private:
 	Ui::MainWindow *ui;
-	OpenDrive* openDriveDialog;
+    OpenDrive* openDriveDialog;
     KeySetDialog* keysetDialog;
 	NxStorage* input;
 	NxStorage* selected_io;

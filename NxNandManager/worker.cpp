@@ -30,8 +30,15 @@ Worker::~Worker()
 void Worker::run()
 {
 	if (work == NEW_STORAGE)
-	{
-		storage = new NxStorage(file.toUtf8().constData());
+	{        
+        KeySet biskeys;
+        QFile kfile("keys.dat");
+        if (kfile.exists() && parseKeySetFile("keys.dat", &biskeys) >= 2) {
+            storage = new NxStorage(file.toUtf8().constData(), &biskeys);
+            storage->InitKeySet();
+        } else {
+            storage = new NxStorage(file.toUtf8().constData());
+        }
 		emit finished(storage);
 	} else {
 		dumpStorage(work);

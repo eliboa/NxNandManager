@@ -3,7 +3,7 @@
 
 KeySetDialog::KeySetDialog(QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::Dialog)
+    ui(new Ui::DialogKeySet)
 {
     ui->setupUi(this);
     this->setAttribute(Qt::WA_DeleteOnClose);

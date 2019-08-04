@@ -116,24 +116,27 @@ void MainWindow::openDrive()
 		return;
 	}
 
-	openDriveDialog = new OpenDrive(this);
+    openDriveDialog = new OpenDrive(this);
 	openDriveDialog->setWindowTitle("Logical drives");
 	openDriveDialog->show();
 	openDriveDialog->exec();
+
 }
 
 void MainWindow::openKeySet()
 {
+
     if(workInProgress)
     {
         error(ERR_WORK_RUNNING);
         return;
     }
-
     keysetDialog = new KeySetDialog(this);
     keysetDialog->setWindowTitle("Configure keyset");
     keysetDialog->show();
     keysetDialog->exec();
+
+
 }
 
 void MainWindow::on_rawdump_button_clicked(int crypto_mode)
@@ -450,8 +453,14 @@ void MainWindow::inputSet(NxStorage *storage)
 	QString path = QString::fromWCharArray(input->pathLPWSTR), input_label;
 	QFileInfo fi(path);
 	input_label.append(fi.fileName() + " (");
-	if(input->isSplitted) input_label.append("splitted dump, ");
+    if(input->isSplitted)
+        input_label.append("splitted dump, ");
 	input_label.append(QString(GetReadableSize(input->size).c_str()) + ")");
+    if(input->fw_detected) {
+        input_label.append(" - FW " + QString(input->fw_version));
+        if(input->exFat_driver)
+            input_label.append(" (exFat)");
+    }
 	ui->inputLabel->setText(input_label);
 }
 

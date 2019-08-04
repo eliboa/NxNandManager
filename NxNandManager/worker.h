@@ -7,6 +7,7 @@
 
 #include <QMainWindow>
 #include <QThread>
+#include <QFile>
 #include "NxStorage.h"
 
 class Worker : public QThread {

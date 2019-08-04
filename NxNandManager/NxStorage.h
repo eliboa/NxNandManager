@@ -29,7 +29,7 @@ using namespace std;
 #define NX_EMMC_BLOCKSIZE 512
 #define GPT_PART_NAME_LEN 36
 #define DEFAULT_BUFF_SIZE 0x4000
-
+#define CLUSTER_SIZE 0x4000
 
 
 typedef unsigned char u8;
@@ -38,6 +38,7 @@ typedef unsigned int u32;
 typedef unsigned long long int u64;
 typedef char s8;
 
+// GUID Partition Table structures
 typedef struct _GptHeader
 {
 	u64 signature;
@@ -67,7 +68,6 @@ typedef struct _GptEntry
 	u16 name[36];
 } GptEntry;
 
-
 typedef struct GptPartition GptPartition;
 struct GptPartition {
 	u32 lba_start;
@@ -76,6 +76,50 @@ struct GptPartition {
 	s8 name[37];
 	GptPartition *next;
 };
+
+// FAT32 structures
+struct fs_attr {
+	unsigned short bytes_per_sector;
+	unsigned char sectors_per_cluster;
+	unsigned char num_fats;
+	unsigned short reserved_sector_count;
+	unsigned int fat_size;
+	char label[11];
+};
+
+struct fat32_entry { 
+	char filename[11];
+	unsigned char attributes;
+	unsigned char reserved;
+	unsigned char creation_ms;
+	unsigned short creation_time;
+	unsigned short creation_date;
+	unsigned short last_access_time;
+	unsigned short cluster_hi;
+	unsigned short modified_time;
+	unsigned short modified_date;
+	unsigned short first_cluster;
+	unsigned int file_size;
+}__attribute__((__packed__));
+
+typedef struct fat32_LFNentry {
+	BYTE sequenceNo;            
+	BYTE fileName_Part1[10];    
+	BYTE fileattribute;         
+	BYTE reserved_1;
+	BYTE checksum;              
+	BYTE fileName_Part2[12];    
+	BYTE FstClusLO[2];
+	BYTE fileName_Part3[4];
+}LFN;
+
+typedef struct _FileMarker_Part2
+{
+	DWORD _Mark1;
+	DWORD _Mark2;
+	DWORD _Mark3;
+}FMark;
+
 
 typedef struct MagicOffsets MagicOffsets;
 struct MagicOffsets {
@@ -144,6 +188,70 @@ static NxPartition partInfoArr[] =
 	{ "USER",				    0x680000000 }
 };
 
+typedef struct NxSytemTitles NxSytemTitles;
+struct NxSytemTitles {
+	s8 fw_version[48];
+	const char nca_filename[40];
+};
+
+
+static NxSytemTitles sytemTitlesArr[] = {
+	{ "8.1.0", "7eedb7006ad855ec567114be601b2a9d.nca"},
+	{ "8.0.1", "6c5426d27c40288302ad616307867eba.nca"},
+	{ "8.0.0", "4fe7b4abcea4a0bcc50975c1a926efcb.nca"}, 
+	{ "7.0.1", "e6b22c40bb4fa66a151f1dc8db5a7b5c.nca"},
+	{ "7.0.0", "c613bd9660478de69bc8d0e2e7ea9949.nca"},
+	{ "6.2.0", "6dfaaf1a3cebda6307aa770d9303d9b6.nca"},
+	{ "6.1.0", "1d21680af5a034d626693674faf81b02.nca"},
+	{ "6.0.1", "663e74e45ffc86fbbaeb98045feea315.nca"},
+	{ "6.0.0", "258c1786b0f6844250f34d9c6f66095b.nca"},
+	{ "6.0.0 (pre-release)", "286e30bafd7e4197df6551ad802dd815.nca"},
+	{ "5.1.0", "fce3b0ea366f9c95fe6498b69274b0e7.nca"},
+	{ "5.0.2", "c5758b0cb8c6512e8967e38842d35016.nca"},
+	{ "5.0.1", "7f5529b7a092b77bf093bdf2f9a3bf96.nca"},
+	{ "5.0.0", "faa857ad6e82f472863e97f810de036a.nca"},
+	{ "4.1.0", "77e1ae7661ad8a718b9b13b70304aeea.nca"},
+	{ "4.0.1", "d0e5d20e3260f3083bcc067483b71274.nca"},
+	{ "4.0.0", "f99ac61b17fdd5ae8e4dda7c0b55132a.nca"},
+	{ "3.0.2", "704129fc89e1fcb85c37b3112e51b0fc.nca"},
+	{ "3.0.1", "9a78e13d48ca44b1987412352a1183a1.nca"},
+	{ "3.0.0", "7bef244b45bf63efb4bf47a236975ec6.nca"},
+	{ "2.3.0", "d1c991c53a8a9038f8c3157a553d876d.nca"},
+	{ "2.2.0", "7f90353dff2d7ce69e19e07ebc0d5489.nca"},
+	{ "2.1.0", "e9b3e75fce00e52fe646156634d229b4.nca"},
+	{ "2.0.0", "7a1f79f8184d4b9bae1755090278f52c.nca"},
+	{ "1.0.0", "117f7b9c7da3e8cef02340596af206b3.nca"} 
+};
+
+static NxSytemTitles sytemExFatTitlesArr[] = {
+	{"8.1.0", "96f4b8b729ade072cc661d9700955258.nca" },
+	{"6.0.0", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
+	{"8.0.1", "b2708136b24bbe206e502578000b1998.nca" }, 
+	{"8.0.0", "b2708136b24bbe206e502578000b1998.nca" },
+	{"7.0.1", "02a2cbfd48b2f2f3a6cec378d20a5eff.nca" },
+	{"7.0.0", "58c731cdacb330868057e71327bd343e.nca" },
+	{"6.2.0", "97cb7dc89421decc0340aec7abf8e33b.nca" },
+	{"6.1.0", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
+	{"6.0.1", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
+	{"6.0.0 (pre-release)", "711b5fc83a1f07d443dfc36ba606033b.nca" },
+	{"5.1.0", "c9e500edc7bb0fde52eab246028ef84c.nca" },
+	{"5.0.2", "432f5cc48e6c1b88de2bc882204f03a1.nca" },
+	{"5.0.1", "432f5cc48e6c1b88de2bc882204f03a1.nca" },
+	{"5.0.0", "432f5cc48e6c1b88de2bc882204f03a1.nca" },
+	{"4.1.0", "458a54253f9e49ddb044642286ca6485.nca" },
+	{"4.0.1", "090b012b110973fbdc56a102456dc9c6.nca" },
+	{"4.0.0", "090b012b110973fbdc56a102456dc9c6.nca" },
+	{"3.0.2", "e7dd3c6cf68953e86cce54b69b333256.nca" },
+	{"3.0.1", "17f9864ce7fe3a35cbe3e3b9f6185ffb.nca" },
+	{"3.0.0", "9e5c73ec938f3e1e904a4031aa4240ed.nca" },
+	{"2.3.0", "4a94289d2400b301cbe393e64831f84c.nca" },
+	{"2.2.0", "4a94289d2400b301cbe393e64831f84c.nca" },
+	{"2.1.0", "4a94289d2400b301cbe393e64831f84c.nca" },
+	{"2.0.0", "f55a04978465ebf5666ca93e21b26dd2.nca" },
+	{"1.0.0", "3b7cd379e18e2ee7e1c6d0449d540841.nca" }
+};
+
+
 class NxStorage {
 public:
 	NxStorage(const char* storage=NULL, KeySet *p_biskeys=NULL);
@@ -162,12 +270,14 @@ public:
 	int setCrypto(const char * partition);
 	bool ValidateDecryptBuf(unsigned char *buf, const char* partition);
 	bool setAutoRCM(bool enable);
-	bool DEBUG_MODE;
+	int fat32_read(const char* partition = NULL);
+	int fat32_read_attr(BYTE *cluster, fs_attr *fat32_attr);
 
 private:
 	BOOL ParseGpt(unsigned char* gptHeader);
 
 public:
+	bool DEBUG_MODE;
 	const char* path;
 	LPWSTR pathLPWSTR;
 	int type;
@@ -197,6 +307,9 @@ public:
 	std::vector<unsigned char> key_crypto;
 	std::vector<unsigned char> key_tweak;
 	xts_crypto *p_crypto = NULL;
+	bool fw_detected = FALSE;
+	s8 fw_version[48];
+	bool exFat_driver = FALSE;
 
 };
 

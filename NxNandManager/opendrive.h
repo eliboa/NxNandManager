@@ -10,32 +10,32 @@ class QAction;
 class QMenu;
 
 namespace Ui {
-class Dialog;
+    class DialogOpenDrive;
 }
 
 class OpenDrive : public QDialog
 {
-	Q_OBJECT
+    Q_OBJECT
 
 public:
-	explicit OpenDrive(QWidget *parent = nullptr);
-	~OpenDrive();
-	Ui::Dialog *ui;
+    explicit OpenDrive(QWidget *parent = nullptr);
+    ~OpenDrive();
+    Ui::DialogOpenDrive *ui;
 
 private slots:
-	void on_listWidget_itemDoubleClicked(QListWidgetItem *item);
+    void on_listWidget_itemDoubleClicked(QListWidgetItem *item);
 
 private:
 
 
 signals:
-	void finished(QString);
+    void finished(QString);
 };
 
 class keyEnterReceiver : public QObject
 {
-	Q_OBJECT
+    Q_OBJECT
 protected:
-	bool eventFilter(QObject* obj, QEvent* event);
+    bool eventFilter(QObject* obj, QEvent* event);
 };
 #endif // OPENDRIVE_H

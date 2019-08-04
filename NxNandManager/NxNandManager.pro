@@ -39,7 +39,7 @@ SOURCES += \
 HEADERS += \
     hex_string.h \
     keyset.h \
-     mainwindow.h \
+    mainwindow.h \
     NxStorage.h \
     utils.h \
     types.h \
@@ -49,9 +49,9 @@ HEADERS += \
     xts_crypto.h
 
 FORMS += \
-    keyset.ui \
     mainwindow.ui \
-    opendrive.ui
+    opendrive.ui \
+    keyset.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

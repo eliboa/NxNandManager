@@ -257,13 +257,19 @@ int main(int argc, char *argv[])
 			NxStorage* curNxdata = i == 2 ? &nxdataOut : &nxdata;
 
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
-			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
-			printf("Encrypted : %s\n", curNxdata->isEncrypted ? "Yes" : "No");
 			printf("NAND type : %s%s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
 				curNxdata->type == PARTITION ? " " : "", curNxdata->type == PARTITION ? curNxdata->partitionName : "",
 				curNxdata->isSplitted ? " (splitted dump)" : "");
+			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
+			printf("Encrypted : %s\n", curNxdata->isEncrypted ? "Yes" : "No");
 			if (curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
 			printf("Size	  : %s\n", GetReadableSize(curNxdata->size).c_str());
+			//if (curNxdata->fw_detected && (curNxdata->type == RAWNAND || (curNxdata->type == PARTITION && std::string(curNxdata->partitionName).substr(0, 6).compare("SYSTEM") == 0)))
+			if(curNxdata->fw_detected)
+			{
+				printf("Firmware  : %s\n", curNxdata->fw_version);
+				printf("ExFat     : %s\n", curNxdata->exFat_driver ? "Yes" : "No");
+			}
 			if (NULL != curNxdata->firstPartion)
 			{
 				int i = 0;
@@ -281,7 +287,8 @@ int main(int argc, char *argv[])
 					printf("Backup GPT: FOUND (offset 0x%s)\n", n2hexstr((u64)curNxdata->size - NX_EMMC_BLOCKSIZE, 8).c_str());
 				} else {
 					printf("Backup GPT: /!\\ Missing or invalid !!!\n");
-				}
+				}			
+
 			}
 			// If there's nothing left to do, exit (we don't want to pursue with i/o operations)
 			if (i == io_num)

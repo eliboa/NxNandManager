@@ -11,7 +11,7 @@ class QAction;
 class QMenu;
 
 namespace Ui {
-class Dialog;
+    class DialogKeySet;
 }
 
 class KeySetDialog : public QDialog
@@ -21,7 +21,7 @@ class KeySetDialog : public QDialog
 public:
     explicit KeySetDialog(QWidget *parent = nullptr);
     ~KeySetDialog();
-    Ui::Dialog *ui;
+    Ui::DialogKeySet *ui;
 
 private:
     QWidget *parent;
