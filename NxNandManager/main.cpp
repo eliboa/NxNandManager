@@ -25,24 +25,28 @@ int main(int argc, char *argv[])
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
-		printf("usage: NxNandManager [--gui] [--list] [--info] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
-			"           -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
-			"  --gui             Start the program in graphical mode, doesn't need other argument\n"
+		printf("usage: NxNandManager [Options] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
+			"           -o <outputFilename|\\\\.\\PhysicalDiskX> [<lFlags>]\n\n"
+			"Options:\n"
+			#if defined(ENABLE_GUI)
+				"  --gui             Start the program in graphical mode, doesn't need other argument\n"
+			#endif
 			"  --list            List compatible NX physical disks\n"
 			"  --info            Display information about input/output file or device\n"
 			"  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
 			"  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
 			"  -i                Path to input file or device\n"
 			"  -o                Path to output file or device\n"
-			"  -part             Partition to copy (apply to both input & output if possible)\n"
+			"  -part=             Partition to copy (apply to both input & output if possible)\n"
 			"                    Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
 			"                    \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
 			"                    \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n"
-			"  -d                decrypt content (-keset mandatory))\n"
-			"  -e                encrypt content (-keset mandatory))\n"
-			"  -keyset           Path to keyset file (bis keys)\n\n");
+			"  -d                decrypt content (-keyset mandatory))\n"
+			"  -e                encrypt content (-keyset mandatory))\n"
+			"  -keyset=           Path to keyset file (bis keys)\n\n");
 
-	  	printf("  lFlags:           \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
+		printf("  lFlags:\n"
+		"  -------           \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
 			   "  -------           \"FORCE\" to disable prompt for user input (no question asked)\n");
 
 		throwException(ERR_WRONG_USE);
