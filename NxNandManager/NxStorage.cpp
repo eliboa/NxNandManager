@@ -35,7 +35,7 @@ void NxStorage::InitStorage()
 	BOOL bResult = FALSE;
 	DWORD junk = 0;
 
-	hDevice = CreateFileW(pathLPWSTR,
+	hDevice = CreateFileW(pathLPWSTR, 
 						  0,
 						  FILE_SHARE_READ | FILE_SHARE_WRITE,
 						  NULL,
@@ -221,13 +221,21 @@ void NxStorage::InitStorage()
 			}
 		}
 
-		// Look for firmware version
+		
 		if (crypto)
+		{
+			// Look for firmware version
 			fat32_read("SYSTEM");
+			// Look for serial number
+			prodinfo_read();
+		}
 	}
 
 	if (type == PARTITION && std::string(partitionName).substr(0, 6).compare("SYSTEM") == 0 &&(crypto || !isEncrypted))
 		fat32_read();
+
+	if (type == PARTITION && std::string(partitionName).substr(0, 8).compare("PRODINFO") == 0 && strlen(partitionName) == 8 &&(crypto || !isEncrypted))
+		prodinfo_read();	
 
 	// Look for splitted dump
 	if (type == RAWNAND && !backupGPTfound && !isDrive) {
@@ -1316,7 +1324,6 @@ int NxStorage::fat32_read(const char* partition)
 			return ERR_INPUT_HANDLE;
 	}
 
-
 	BYTE *buffer = new BYTE[CLUSTER_SIZE];
 	DWORD bytesRead = 0;
 
@@ -1354,6 +1361,7 @@ int NxStorage::fat32_read(const char* partition)
 	int num_cluster = root_addr / CLUSTER_SIZE;
 
 	// Set pointer to root	
+	if (DEBUG_MODE) printf("Root Directory Region offset = %I64d \n", root_addr);
 	liDistanceToMove.QuadPart = handle.off_start + root_addr;
 	if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
 		return ERR_INPUT_HANDLE;
@@ -1366,143 +1374,259 @@ int NxStorage::fat32_read(const char* partition)
 		p_crypto->decrypt(buffer, num_cluster);
 
 	int buf_off = 0;
-	u64 contents_off = 0;
+	u64 contents_off = 0, regist_off = 0, save_off = 0;
 
-	// Look for /CONTENTS dir
-	for (int i = 0; i < 16; i++)
+	// Look for /CONTENTS et /REGIST~ dir
+	u64 cur_offset = root_addr;
+	int nca_found = 0;
+
+	// Parse directory table
+	while (cur_offset == root_addr || buffer[0] == 0x2E)
 	{
-		struct fat32_entry dir;
-		memcpy(&dir, &buffer[buf_off], 32);
+		for (int i = 0; i < 32; i++)
+		{			
+			struct fat32_entry dir;
+			memcpy(&dir, &buffer[buf_off], 32);
 
-		if (std::string(dir.filename).compare(0, 8, "CONTENTS") == 0) {
-			contents_off = root_addr + (dir.first_cluster * CLUSTER_SIZE);
-			break;
+			if (dir.filename[0] == 0x00)
+				break;
+
+			if (std::string(dir.filename).compare(0, 8, "CONTENTS") == 0) {
+				contents_off = fs.bytes_per_sector * ((dir.first_cluster - 2) * fs.sectors_per_cluster) + root_addr;
+
+			} 
+			else if (std::string(dir.filename).compare(0, 7, "REGIST~") == 0) {
+				regist_off = fs.bytes_per_sector * ((dir.first_cluster - 2) * fs.sectors_per_cluster) + root_addr;
+			}
+			else if (std::string(dir.filename).compare(0, 4, "SAVE") == 0) {
+				save_off = fs.bytes_per_sector * ((dir.first_cluster - 2) * fs.sectors_per_cluster) + root_addr;
+			}
+			/*
+			else {
+
+				// Look for NCA 
+				unsigned char ext[3];
+				memcpy(&ext, &dir.filename[8], 3);
+				if (strcmp(hexStr(ext, 3).c_str(), "4E4341") == 0)
+				{
+					nca_found++;
+					// Get nca fiename
+					std::string filename = get_longfilename(buffer, buf_off, 3);
+
+					if (DEBUG_MODE) printf("%s (off %s)\n", filename.c_str(), int_to_hex((int)cur_offset + buf_off).c_str());
+
+					// Look for firmware version
+					for (int l = 0; l < (int)array_countof(sytemTitlesArr); l++)
+					{
+						if (filename.compare(std::string(sytemTitlesArr[l].nca_filename)) == 0)
+						{
+							memcpy(&fw_version, &sytemTitlesArr[l].fw_version, sizeof(&sytemExFatTitlesArr[l].fw_version));
+							fw_detected = true;
+						}
+					}
+
+					// Look for exFat driver
+					for (int l = 0; l < (int)array_countof(sytemExFatTitlesArr); l++)
+					{
+						if (filename.compare(std::string(sytemExFatTitlesArr[l].nca_filename)) == 0)
+						{
+							if(!fw_detected)
+								memcpy(&fw_version, &sytemExFatTitlesArr[l].fw_version, sizeof(&sytemExFatTitlesArr[l].fw_version));
+							exFat_driver = true;
+						}
+					}
+				}
+			}
+			*/
+
+			if (DEBUG_MODE && dir.attributes == 0x10) {
+				int t_off = fs.bytes_per_sector * ((dir.first_cluster - 2) * fs.sectors_per_cluster) + root_addr;
+				printf("SUB DIR at off %d : %s (first cluster %d, off2 %s)\n", cur_offset+ buf_off, dir.filename, 
+					dir.first_cluster, int_to_hex(t_off).c_str());
+			}
+
+			buf_off += 32;
 		}
-		buf_off += 32;
+
+		// Read next cluster
+		if (!fat32_read_next_cluster(&buffer[0], do_crypto, num_cluster))
+			break;
+
+		num_cluster++;
+		cur_offset += CLUSTER_SIZE;
+		buf_off = 0;
+
 	}
 
-	if (contents_off <= 0)
+	if (contents_off <= 0 || regist_off <= 0 || save_off <= 0)
 		return -1;
 
+	// Iterate contents, registered & save entries
+	for (int num_dir = 0; num_dir < 3; num_dir++)
+	{
+		u64 dir_off;
+		if (num_dir == 0) dir_off = contents_off;
+		if (num_dir == 1) dir_off = regist_off;
+		else dir_off = save_off;
 
-	// Set pointer to contents file table	
-	liDistanceToMove.QuadPart = handle.off_start + contents_off;
+		// Set pointer to file table	
+		if (DEBUG_MODE) printf("CONTENTS file table %d \n", num_dir + 1);
+		liDistanceToMove.QuadPart = handle.off_start + dir_off;
 
-	if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
-		return ERR_INPUT_HANDLE;
+		if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+			return ERR_INPUT_HANDLE;
 
-	// Read first cluster of contents
-	num_cluster = contents_off / CLUSTER_SIZE;
-	if (!ReadFile(handle.h, buffer, CLUSTER_SIZE, &bytesRead, NULL))
-		return ERR_WHILE_COPY;
+		// Read first cluster 
+		num_cluster = dir_off / CLUSTER_SIZE;
+		if (!ReadFile(handle.h, buffer, CLUSTER_SIZE, &bytesRead, NULL))
+			return ERR_WHILE_COPY;
 
-	if (do_crypto)
-		p_crypto->decrypt(buffer, num_cluster);	
+		if (do_crypto)
+			p_crypto->decrypt(buffer, num_cluster);
 
-
-	// Iterate file/dir entries
-	int i = 0;
-	while(1)
-	{		
-		struct fat32_entry dir;
-		memcpy(&dir, &buffer[i], 0x20);
-
-		unsigned char buf2[0x20];
-		memcpy(&buf2, &buffer[i], 0x20);
-
-		if (dir.filename[0] == 0x00)
-		{
-			break;
-		}
-		unsigned char basename[8];
-		memcpy(&basename, &dir.filename, 8);
-
-		// Subdir found
-		if (dir.attributes == 0x10)
-		{
-			//printf("=> %s \n", dir.filename);
-		}
-
-		unsigned char ext[3];
-		memcpy(&ext, &dir.filename[8], 3);
-		// If NCA file found
-        if ((dir.attributes == 0x20 || dir.attributes == 0x30) && strcmp(hexStr(ext, 3).c_str(), "4E4341") == 0) {
-
-			unsigned char filename[40];
-			int x = 0;
-			// Get long filename
-			for (int j = 1; j <= 3; j++)
-			{
-				
-				int off = i - (j * 0x20);
-				LFN lfn;
-				memcpy(&lfn, &buffer[off], 0x20);					
-				
-				for (int k = 0; k < sizeof(lfn.fileName_Part1); k = k + 2) {
-					memcpy(&filename[x], &lfn.fileName_Part1[k], 1);
-					x++;
-				}
-				for (int k = 0; k < sizeof(lfn.fileName_Part2); k = k + 2) {
-					memcpy(&filename[x], &lfn.fileName_Part2[k], 1);
-					x++;
-				}				
-				for (int k = 0; k < sizeof(lfn.fileName_Part3); k = k + 2) {
-					memcpy(&filename[x], &lfn.fileName_Part3[k], 1);
-					x++;
-				}
-			}
-			//printf("%s\n", filename);
-			
-			// Look for firmware version
-			for (int l = 0; l < (int)array_countof(sytemTitlesArr); l++)
-			{
-				if (std::string(reinterpret_cast<const char*>(filename)).compare(std::string(sytemTitlesArr[l].nca_filename)) == 0)
-				{
-					memcpy(&fw_version, &sytemTitlesArr[l].fw_version, sizeof(fw_version));
-					fw_detected = true;
-					break;
-				}
-			}
-
-			// Look for exFat driver
-			for (int l = 0; l < (int)array_countof(sytemExFatTitlesArr); l++)
-			{
-				if (std::string(reinterpret_cast<const char*>(filename)).compare(std::string(sytemExFatTitlesArr[l].nca_filename)) == 0)
-				{
-					exFat_driver = true;
-					break;
-				}
-			}
-		}
-
-		// Switch to next cluster if needed
-		if (i == CLUSTER_SIZE - 0x20)
+		// Iterate file entries
+		int i = 0, lfn_length = 0;;
+		while (1)
 		{			
-			liDistanceToMove.QuadPart = liDistanceToMove.QuadPart + 0x20;
-			SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN);
+			struct fat32_entry dir;
+			memcpy(&dir, &buffer[i], 0x20);
 
-			if (!ReadFile(handle.h, buffer, CLUSTER_SIZE, &bytesRead, NULL))
-				return ERR_WHILE_COPY;
+			if (dir.filename[0] == 0x00)
+			{
+				break;
+			}
 
-			num_cluster++;
+			if (dir.attributes == 0x0F)
+				lfn_length++;
 
-			if (do_crypto)
-				p_crypto->decrypt(buffer, num_cluster);
-			
-			i = 0;
+			unsigned char basename[8];
+			memcpy(&basename, &dir.filename, 8);
+
+			// Subdir found
+			if (dir.attributes == 0x10)
+			{
+				int nYear = (dir.modified_date >> 9);
+				int nMonth = (dir.modified_date << 7);
+				nMonth = nMonth >> 12;
+				int nDay = (dir.modified_date << 11);
+				nDay = nDay >> 11;
+
+				if (DEBUG_MODE) printf("Modification Date    : %d/%d/%d\n", nDay, nMonth, (nYear + 1980));
+
+				std::string filename = get_longfilename(buffer, i, lfn_length);
+				if (DEBUG_MODE) printf("=> %s (off %s)\n", filename.c_str(), int_to_hex((int)dir_off + i).c_str(), lfn_length);
+				
+				// If SAVE sub dir
+				if (num_dir == 2 && filename.compare(0, 16, "8000000000000060") == 0 )
+				{
+					if (DEBUG_MODE) printf("8000000000000060 FOUND \n");
+				}
+
+
+			}
+
+			unsigned char ext[3];
+			memcpy(&ext, &dir.filename[8], 3);
+			// If NCA file found
+			if ((dir.attributes == 0x20 || dir.attributes == 0x30) && strcmp(hexStr(ext, 3).c_str(), "4E4341") == 0) {
+
+				nca_found++;
+				// Get nca fiename
+				std::string filename = get_longfilename(buffer, i, lfn_length);
+
+				if (DEBUG_MODE) printf("%s (off %s)\n", filename.c_str(), int_to_hex((int)dir_off + i).c_str());
+
+				// Look for firmware version
+				for (int l = 0; l < (int)array_countof(sytemTitlesArr); l++)
+				{
+					if (filename.compare(std::string(sytemTitlesArr[l].nca_filename)) == 0)
+					{
+						memcpy(&fw_version, &sytemTitlesArr[l].fw_version, sizeof(&sytemExFatTitlesArr[l].fw_version));
+						fw_detected = true;
+					}
+				}
+
+				// Look for exFat driver
+				for (int l = 0; l < (int)array_countof(sytemExFatTitlesArr); l++)
+				{
+					if (filename.compare(std::string(sytemExFatTitlesArr[l].nca_filename)) == 0)
+					{
+						if (!fw_detected)
+							memcpy(&fw_version, &sytemExFatTitlesArr[l].fw_version, sizeof(&sytemExFatTitlesArr[l].fw_version));
+						exFat_driver = true;
+					}
+				}
+			}		
+
+			// Switch to next cluster if needed
+			if (i == CLUSTER_SIZE - 0x20)
+			{
+
+				if (!fat32_read_next_cluster(&buffer[0], do_crypto, num_cluster))
+					break;
+
+				num_cluster++;
+				i = 0;
+			}
+			else {
+				i += 0x20;
+			}
+
+			if (dir.attributes != 0x0F)
+				lfn_length = 0;
 		}
-		else {
-			i += 0x20;
-		}				
+
 	}
 
-	printf("NCA LookUp end 6 \n");
+	if (DEBUG_MODE) printf("Total of %d NCA found\n", nca_found);
 
 	if (NULL != p_crypto)
 		delete p_crypto;
 
 	ClearHandles();
 	return 1;
+}
+
+std::string NxStorage::get_longfilename(BYTE *buffer, int offset, int length) {
+	unsigned char filename[40];
+	int x = 0;
+	// Get long filename
+	for (int j = 1; j <= 3; j++)
+	{
+
+		int off = offset - (j * 0x20);
+		LFN lfn;
+		memcpy(&lfn, &buffer[off], 0x20);
+
+		for (int k = 0; k < sizeof(lfn.fileName_Part1); k = k + 2) {
+			memcpy(&filename[x], &lfn.fileName_Part1[k], 1);
+			x++;
+		}
+		for (int k = 0; k < sizeof(lfn.fileName_Part2); k = k + 2) {
+			memcpy(&filename[x], &lfn.fileName_Part2[k], 1);
+			x++;
+		}
+		for (int k = 0; k < sizeof(lfn.fileName_Part3); k = k + 2) {
+			memcpy(&filename[x], &lfn.fileName_Part3[k], 1);
+			x++;
+		}
+	}
+	return std::string(reinterpret_cast<const char*>(filename));
+}
+
+int NxStorage::fat32_read_next_cluster(BYTE *buffer, bool do_crypto, int num_cluster)
+{
+	DWORD bytesRead = 0;
+	if (!ReadFile(handle.h, buffer, CLUSTER_SIZE, &bytesRead, NULL))
+		return ERR_WHILE_COPY;
+
+	if (bytesRead <= 0)
+		return -1;
+
+	num_cluster++;
+
+	if (do_crypto)
+		p_crypto->decrypt(buffer, num_cluster);
 }
 
 int NxStorage::fat32_read_attr(BYTE *cluster, fs_attr *fat32_attr)
@@ -1514,5 +1638,100 @@ int NxStorage::fat32_read_attr(BYTE *cluster, fs_attr *fat32_attr)
 	memcpy(&fat32_attr->fat_size, &cluster[0x24], 4);
 	memcpy(&fat32_attr->label, &cluster[0x47], 11);
 	
+	return 1;
+}
+
+int NxStorage::prodinfo_read()
+{
+	ClearHandles();
+
+	if(DEBUG_MODE) printf("prodinfo_read begin\n");
+	if(type == RAWNAND)
+	{
+		if (DEBUG_MODE) printf("prodinfo_read, type RAWNAND\n");
+		// Iterate GPT entry
+		GptPartition *part = firstPartion;
+		while (NULL != part)
+		{
+			if (strncmp(part->name, "PRODINFO", strlen("PRODINFO")) == 0)
+			{
+				
+				handle.off_start = (u64)part->lba_start * NX_EMMC_BLOCKSIZE;
+				handle.off_end = (u64)part->lba_end * NX_EMMC_BLOCKSIZE;
+				handle.off_max = handle.off_end;
+				bytesToRead = ((u64)part->lba_end - (u64)part->lba_start + 1) * (int)NX_EMMC_BLOCKSIZE;
+				if (DEBUG_MODE) printf("prodinfo_read, PRODINFO part found (offet %I64d)\n", int_to_hex((int)handle.off_start).c_str());
+				break;
+			}
+			part = part->next;
+		}
+
+		// No partition found
+		if (handle.off_end <= 0) 
+			return ERR_INVALID_PART;
+	}
+	else if (type == PARTITION && std::string(partitionName).compare(0, 8, "PRODINFO") == 0 
+			 && std::string(partitionName).compare(0, 9, "PRODINFOF") != 0)
+	{
+		handle.off_start = 0;
+		handle.off_end = this->size;
+		handle.off_max = this->size;
+	} else {
+		return ERR_INVALID_PART;	
+	}
+
+	// Get handle 
+	handle.h = CreateFileW(pathLPWSTR, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	if (handle.h == INVALID_HANDLE_VALUE)
+		return ERR_INPUT_HANDLE;
+
+	// Set pointer if needed
+	LARGE_INTEGER liDistanceToMove;
+	if (handle.off_start > 0)
+	{
+		liDistanceToMove.QuadPart = handle.off_start;
+		if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+			return ERR_INPUT_HANDLE;
+	}
+
+	BYTE *buffer = new BYTE[CLUSTER_SIZE];
+	DWORD bytesRead = 0;
+
+	if (DEBUG_MODE) printf("PRODINFO read at offset %s \n", int_to_hex((int)handle.off_start).c_str());
+
+	// Read first cluster
+	if (!ReadFile(handle.h, buffer, CLUSTER_SIZE, &bytesRead, NULL))
+		return ERR_WHILE_COPY;
+
+	bool do_crypto = false;
+	if (!ValidateDecryptBuf(buffer, "PRODINFO"))
+	{
+		if (!crypto)
+			return ERR_CRYPTO_KEY_MISSING;
+
+		int rc = setCrypto("PRODINFO");
+		if (rc <= 0)
+			return rc;
+
+		p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
+
+		p_crypto->decrypt(buffer, 0);
+
+		if (!ValidateDecryptBuf(buffer, "PRODINFO"))
+		{
+			delete p_crypto;
+			return ERR_DECRYPT_CONTENT;
+		}		
+		do_crypto = true;
+	}	
+
+	if (DEBUG_MODE) printf("PRODINFO crypt ok\n");
+
+	memcpy(&serial_number, &buffer[0x250], 18);
+	
+	if (NULL != p_crypto)
+		delete p_crypto;
+
+	ClearHandles();
 	return 1;
 }

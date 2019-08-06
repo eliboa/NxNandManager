@@ -15,6 +15,7 @@
 #include <fstream>
 #include <wchar.h>
 #include <algorithm>
+#include <sstream>
 
 typedef std::chrono::duration< double > double_prec_seconds;
 typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds > timepoint_t;
@@ -120,6 +121,16 @@ T get_extension(T const & filename)
 {
 	typename T::size_type const p(filename.find_last_of('.'));
 	return p > 0 && p != T::npos ? filename.substr(p, T::npos) : filename;
+}
+
+template< typename T >
+std::string int_to_hex(T i)
+{
+	std::stringstream stream;
+	stream << "0x"
+		<< std::setfill('0') << std::setw(sizeof(T) * 2)
+		<< std::hex << i;
+	return stream.str();
 }
 
 std::string ltrim(const std::string& s);

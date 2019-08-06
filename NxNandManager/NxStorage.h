@@ -3,6 +3,7 @@
 #include <Wincrypt.h>
 #include <iostream>
 #include <fstream> 
+#include "utils.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <vector>
@@ -11,7 +12,6 @@
 #include "xts_crypto.h"
 #include "Shlwapi.h"
 #include <string>
-#include "utils.h"
 
 
 using namespace std;
@@ -271,7 +271,10 @@ public:
 	bool ValidateDecryptBuf(unsigned char *buf, const char* partition);
 	bool setAutoRCM(bool enable);
 	int fat32_read(const char* partition = NULL);
+	int fat32_read_next_cluster(BYTE *buffer, bool do_crypto, int num_cluster = NULL);
 	int fat32_read_attr(BYTE *cluster, fs_attr *fat32_attr);
+	std::string get_longfilename(BYTE *buffer, int offset, int length);
+	int prodinfo_read();
 
 private:
 	BOOL ParseGpt(unsigned char* gptHeader);
@@ -310,6 +313,7 @@ public:
 	bool fw_detected = FALSE;
 	s8 fw_version[48];
 	bool exFat_driver = FALSE;
+	s8 serial_number[18] = { 0 };
 
 };
 

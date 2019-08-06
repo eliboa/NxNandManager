@@ -25,24 +25,28 @@ int main(int argc, char *argv[])
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
-		printf("usage: NxNandManager [--gui] [--list] [--info] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
-			"           -o <outputFilename|\\\\.\\PhysicalDiskX> [-part=nxPartitionName] [<lFlags>]\n\n"
-			"  --gui             Start the program in graphical mode, doesn't need other argument\n"
+		printf("usage: NxNandManager [Options] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
+			"           -o <outputFilename|\\\\.\\PhysicalDiskX> [<lFlags>]\n\n"
+			"Options:\n"
+			#if defined(ENABLE_GUI)
+				"  --gui             Start the program in graphical mode, doesn't need other argument\n"
+			#endif
 			"  --list            List compatible NX physical disks\n"
 			"  --info            Display information about input/output file or device\n"
 			"  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
 			"  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
 			"  -i                Path to input file or device\n"
 			"  -o                Path to output file or device\n"
-			"  -part             Partition to copy (apply to both input & output if possible)\n"
+			"  -part=             Partition to copy (apply to both input & output if possible)\n"
 			"                    Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
 			"                    \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
 			"                    \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n"
-			"  -d                decrypt content (-keset mandatory))\n"
-			"  -e                encrypt content (-keset mandatory))\n"
-			"  -keyset           Path to keyset file (bis keys)\n\n");
+			"  -d                decrypt content (-keyset mandatory))\n"
+			"  -e                encrypt content (-keyset mandatory))\n"
+			"  -keyset=           Path to keyset file (bis keys)\n\n");
 
-	  	printf("  lFlags:           \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
+		printf("  lFlags:\n"
+		"  -------           \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
 			   "  -------           \"FORCE\" to disable prompt for user input (no question asked)\n");
 
 		throwException(ERR_WRONG_USE);
@@ -257,19 +261,22 @@ int main(int argc, char *argv[])
 			NxStorage* curNxdata = i == 2 ? &nxdataOut : &nxdata;
 
 			if (io_num == 2) printf("--- %s ---\n", isInput ? "INPUT" : "OUTPUT");
-			printf("NAND type : %s%s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
+			printf("NAND type  : %s%s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
 				curNxdata->type == PARTITION ? " " : "", curNxdata->type == PARTITION ? curNxdata->partitionName : "",
 				curNxdata->isSplitted ? " (splitted dump)" : "");
-			printf("File/Disk : %s\n", curNxdata->isDrive ? "Disk" : "File");
-			printf("Encrypted : %s\n", curNxdata->isEncrypted ? "Yes" : "No");
-			if (curNxdata->type == BOOT0) printf("AutoRCM   : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
-			printf("Size	  : %s\n", GetReadableSize(curNxdata->size).c_str());
+			printf("File/Disk  : %s\n", curNxdata->isDrive ? "Disk" : "File");
+			printf("Encrypted  : %s\n", curNxdata->isEncrypted ? "Yes" : "No");
+			if (curNxdata->type == BOOT0) printf("AutoRCM    : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
+			printf("Size	   : %s\n", GetReadableSize(curNxdata->size).c_str());
 			//if (curNxdata->fw_detected && (curNxdata->type == RAWNAND || (curNxdata->type == PARTITION && std::string(curNxdata->partitionName).substr(0, 6).compare("SYSTEM") == 0)))
 			if(curNxdata->fw_detected)
 			{
-				printf("Firmware  : %s\n", curNxdata->fw_version);
-				printf("ExFat     : %s\n", curNxdata->exFat_driver ? "Yes" : "No");
+				printf("Firmware   : %s\n", curNxdata->fw_version);
+				if(curNxdata->exFat_driver) printf("ExFat driv.: Detected\n");
 			}
+			if(strlen(curNxdata->serial_number) > 3)
+				printf("Serial num.: %s\n", curNxdata->serial_number);
+
 			if (NULL != curNxdata->firstPartion)
 			{
 				int i = 0;
@@ -277,16 +284,16 @@ int main(int argc, char *argv[])
 				while (NULL != cur)
 				{
 					u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;														 
-					printf("%s%02d %s  (%s)\n", i == 1 ? "Partitions: " : "            ", ++i, cur->name, GetReadableSize(size).c_str());
+					printf("%s%02d %s  (%s)\n", i == 1 ? "Partitions : " : "             ", ++i, cur->name, GetReadableSize(size).c_str());
 					cur = cur->next;
 				}
 			}
 			if (curNxdata->type == RAWNAND) {
 				if (curNxdata->backupGPTfound)
 				{
-					printf("Backup GPT: FOUND (offset 0x%s)\n", n2hexstr((u64)curNxdata->size - NX_EMMC_BLOCKSIZE, 8).c_str());
+					printf("Backup GPT : FOUND (offset 0x%s)\n", n2hexstr((u64)curNxdata->size - NX_EMMC_BLOCKSIZE, 8).c_str());
 				} else {
-					printf("Backup GPT: /!\\ Missing or invalid !!!\n");
+					printf("Backup GPT : /!\\ Missing or invalid !!!\n");
 				}			
 
 			}
