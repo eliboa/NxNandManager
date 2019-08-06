@@ -87,7 +87,7 @@ struct fs_attr {
 	char label[11];
 };
 
-struct fat32_entry { 
+typedef struct fat32_entry { 
 	char filename[11];
 	unsigned char attributes;
 	unsigned char reserved;
@@ -100,7 +100,7 @@ struct fat32_entry {
 	unsigned short modified_date;
 	unsigned short first_cluster;
 	unsigned int file_size;
-}__attribute__((__packed__));
+} fat32_entry __attribute__((__packed__));
 
 typedef struct fat32_LFNentry {
 	BYTE sequenceNo;            
@@ -113,13 +113,14 @@ typedef struct fat32_LFNentry {
 	BYTE fileName_Part3[4];
 }LFN;
 
-typedef struct _FileMarker_Part2
-{
-	DWORD _Mark1;
-	DWORD _Mark2;
-	DWORD _Mark3;
-}FMark;
-
+typedef struct fat32_dir_entry fat32_dir_entry;
+struct fat32_dir_entry {
+	std::string filename;
+	bool is_directory = FALSE;
+	fat32_entry entry;
+	fat32_dir_entry *subdir = NULL;
+	fat32_dir_entry *next = NULL;
+};
 
 typedef struct MagicOffsets MagicOffsets;
 struct MagicOffsets {
@@ -305,7 +306,7 @@ public:
 	u64 bytesToRead;
 	u64 bytesAmount;
 	KeySet* biskeys;
-	BOOL crypto = FALSE, encrypt = FALSE;
+	BOOL crypto = FALSE, encrypt = FALSE, do_crypto = FALSE;;
 	BOOL isEncrypted = FALSE;
 	std::vector<unsigned char> key_crypto;
 	std::vector<unsigned char> key_tweak;
@@ -314,7 +315,8 @@ public:
 	s8 fw_version[48];
 	bool exFat_driver = FALSE;
 	s8 serial_number[18] = { 0 };
-
+	fs_attr fs;
+	char last_boot[20] = { 0 };
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);

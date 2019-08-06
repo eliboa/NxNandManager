@@ -274,7 +274,10 @@ int main(int argc, char *argv[])
 				printf("Firmware   : %s\n", curNxdata->fw_version);
 				if(curNxdata->exFat_driver) printf("ExFat driv.: Detected\n");
 			}
-			if(strlen(curNxdata->serial_number) > 3)
+			if (strlen(curNxdata->last_boot) > 0)
+				printf("Last boot  : %s\n", curNxdata->last_boot);
+
+			if (strlen(curNxdata->serial_number) > 3)
 				printf("Serial num.: %s\n", curNxdata->serial_number);
 
 			if (NULL != curNxdata->firstPartion)
