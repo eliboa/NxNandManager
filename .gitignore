@@ -224,3 +224,5 @@ NxNandManager/debug.bat
 NxNandManager/debug.bat.bak
 NxNandManager/main.o
 NxNandManager/utils.o
+NxNandManager/hex_string.o
+NxNandManager/xts_crypto.o
