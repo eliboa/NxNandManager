@@ -1,8 +1,8 @@
 #include "NxStorage.h"
 
-NxStorage::NxStorage(const char* storage, KeySet *p_biskeys)
+NxStorage::NxStorage(const char* storage, KeySet *p_biskeys, bool debug_mode)
 {
-	DEBUG_MODE = false;
+	DEBUG_MODE = debug_mode ? true : false;
 	if (DEBUG_MODE) printf("NxStorage::NxStorage - path = %s\n", storage);
 	path = storage;
 	pathLPWSTR = NULL;
@@ -18,6 +18,7 @@ NxStorage::NxStorage(const char* storage, KeySet *p_biskeys)
 	handle_out = NULL;
 	exFat_driver = false;
 	fw_detected = false;
+	memset(fw_version, 0, sizeof fw_version);
 	this->InitKeySet(p_biskeys);
 	if (NULL != storage)
 	{
@@ -31,6 +32,7 @@ NxStorage::NxStorage(const char* storage, KeySet *p_biskeys)
 void NxStorage::InitStorage()
 {
 	if (DEBUG_MODE) printf("NxStorage::InitStorage - Initialize\n");
+
 	HANDLE hDevice = INVALID_HANDLE_VALUE;
 	BOOL bResult = FALSE;
 	DWORD junk = 0;
@@ -1269,6 +1271,8 @@ bool NxStorage::ValidateDecryptBuf(unsigned char *buf, const char* partition)
 
 int NxStorage::fat32_read(const char* partition)
 {
+	if (DEBUG_MODE) printf("FAT32 read partition %s\n", partition ? partition : partitionName);
+
 	ClearHandles();
 	do_crypto = false;
 
@@ -1326,7 +1330,6 @@ int NxStorage::fat32_read(const char* partition)
 		liDistanceToMove.QuadPart = handle.off_start + offset;
 		if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
 			return ERR_INPUT_HANDLE;
-
 
 		if (!ReadFile(handle.h, buffer, CLUSTER_SIZE, &bytesRead, NULL))
 			return ERR_WHILE_COPY;
@@ -1392,8 +1395,9 @@ int NxStorage::fat32_read(const char* partition)
 					for (int l = 0; l < (int)array_countof(sytemTitlesArr); l++)
 					{
 						if (rootdir->filename.compare(std::string(sytemTitlesArr[l].nca_filename)) == 0)
-						{
+						{							
 							memcpy(&fw_version, &sytemTitlesArr[l].fw_version, sizeof(&sytemExFatTitlesArr[l].fw_version));
+							if (DEBUG_MODE) printf("firmware version found searching nca (%s)", fw_version);
 							fw_detected = true;
 						}
 					}
@@ -1403,8 +1407,10 @@ int NxStorage::fat32_read(const char* partition)
 					{
 						if (rootdir->filename.compare(std::string(sytemExFatTitlesArr[l].nca_filename)) == 0)
 						{
-							if (!fw_detected)
+							if (!fw_detected) {
 								memcpy(&fw_version, &sytemExFatTitlesArr[l].fw_version, sizeof(&sytemExFatTitlesArr[l].fw_version));
+								if (DEBUG_MODE) printf("firmware version found searching nca [exFat] (%s)", fw_version);
+							}
 							exFat_driver = true;
 						}
 					}
@@ -1420,6 +1426,26 @@ int NxStorage::fat32_read(const char* partition)
 						rootdir->entry.modified_time >> 11,
 						(rootdir->entry.modified_time >> 5) & 0x3f,
 						rootdir->entry.modified_time & 0x1f);
+				}
+
+				// Get address of journal report (/save/80000000000000d1)
+				if (NULL != parentEntry && rootdir->filename.compare(0, 16, "80000000000000d1") == 0
+					&& hexStr(reinterpret_cast<unsigned char*>(parentEntry->entry.filename), 5).compare("5341564520") == 00) // parent is "/save" (hex val)
+				{
+					journal_report_off = fs.bytes_per_sector * ((rootdir->entry.first_cluster - 2) * fs.sectors_per_cluster) + (fs.num_fats * fs.fat_size * fs.bytes_per_sector) + (fs.reserved_sector_count * fs.bytes_per_sector);
+					journal_report_off_end = journal_report_off + rootdir->entry.file_size;
+
+					//if (DEBUG_MODE) printf("/save/80000000000000d1 ENDS AT %s\n", int_to_hex(journal_report_off + rootdir->entry.file_size).c_str());
+				}
+
+				// Get address of play report (/save/80000000000000a1)
+				if (NULL != parentEntry && rootdir->filename.compare(0, 16, "80000000000000a1") == 0
+					&& hexStr(reinterpret_cast<unsigned char*>(parentEntry->entry.filename), 5).compare("5341564520") == 00) // parent is "/save" (hex val)
+				{
+					play_report_off = fs.bytes_per_sector * ((rootdir->entry.first_cluster - 2) * fs.sectors_per_cluster) + (fs.num_fats * fs.fat_size * fs.bytes_per_sector) + (fs.reserved_sector_count * fs.bytes_per_sector);
+					play_report_off_end = play_report_off + rootdir->entry.file_size;
+					
+					//if (DEBUG_MODE) printf("/save/80000000000000a1 ENDS AT %s\n", int_to_hex(play_report_off + rootdir->entry.file_size).c_str());
 				}
 			}
 
@@ -1438,12 +1464,12 @@ int NxStorage::fat32_read(const char* partition)
 	readCluster(buffer, 0);
 
 	// Check whether to use crypto or not
-	if (!ValidateDecryptBuf(buffer, NULL != partition ? partition : "SYSTEM"))
+	if (!ValidateDecryptBuf(buffer, NULL != partition ? partition : partitionName))
 	{
 		if (!crypto)
 			return ERR_CRYPTO_KEY_MISSING;
 
-		int rc = setCrypto(partition ? partition : "SYSTEM");
+		int rc = setCrypto(partition ? partition : partitionName);
 		if (rc <= 0)
 			return rc;
 
@@ -1451,7 +1477,7 @@ int NxStorage::fat32_read(const char* partition)
 
 		p_crypto->decrypt(buffer, 0);
 
-		if (!ValidateDecryptBuf(buffer, partition ? partition : "SYSTEM"))
+		if (!ValidateDecryptBuf(buffer, partition ? partition : partitionName))
 		{
 			delete p_crypto;
 			return ERR_DECRYPT_CONTENT;
@@ -1482,6 +1508,8 @@ int NxStorage::fat32_read(const char* partition)
 			return 1;
 
 		char str_buff[20];
+		//u64 off = fs.bytes_per_sector * ((cur_entry->entry.first_cluster - 2) * fs.sectors_per_cluster) +  (fs.num_fats * fs.fat_size * fs.bytes_per_sector) + (fs.reserved_sector_count * fs.bytes_per_sector);
+		u64 off = fs.bytes_per_sector * ((cur_entry->entry.first_cluster - 2) * fs.sectors_per_cluster) + root_addr;
 		sprintf(str_buff, "%02d/%02d/%04d %02d:%02d:%02d",
 			cur_entry->entry.modified_date & 0x1f,
 			(cur_entry->entry.modified_date >> 5) & 0xf,
@@ -1490,11 +1518,12 @@ int NxStorage::fat32_read(const char* partition)
 			(cur_entry->entry.modified_time >> 5) & 0x3f,
 			cur_entry->entry.modified_time & 0x1f);
 
-		printf("%s %-40s %s %s\n", 
+		printf("%s %-40s %s %-10s first_data_off %s\n", 
 			cur_entry->is_directory ? "=>" : "  ",
 			cur_entry->filename.c_str(), 
 			str_buff,
-			cur_entry->entry.file_size > 0 ? GetReadableSize(cur_entry->entry.file_size).c_str() : "");
+			cur_entry->entry.file_size > 0 ? GetReadableSize(cur_entry->entry.file_size).c_str() : "",
+			int_to_hex(off).c_str());
 		return 1;
 	};
 
@@ -1539,6 +1568,88 @@ int NxStorage::fat32_read(const char* partition)
 		cur_entry = cur_entry->next;
 	}	
 
+
+	// Check for firmare version in play report
+	bool search_fmw = FALSE;
+	if (play_report_off > 0 && strlen(fw_version) < 1 && readCluster(buffer, play_report_off) > 0)
+	{
+		search_fmw = true;
+
+		if (DEBUG_MODE) printf("Searching patterns in PLAY REPORTS at offset %s\n", int_to_hex(play_report_off).c_str());
+		u64 cur_off = play_report_off + CLUSTER_SIZE;
+		s8 fwv[10]  = { 0 }; 
+		while (cur_off < play_report_off_end) {
+
+			std::string haystack(buffer, buffer + CLUSTER_SIZE);
+			std::size_t n;
+
+			n = haystack.find("os_version");
+			if (n != std::string::npos) {
+
+				strcpy(fwv, haystack.substr(n + 11, 5).c_str());								
+				if (strcmp(fwv, fw_version) > 0)
+				{
+					if(DEBUG_MODE) printf("Newer firmware version found in PLAY REPORTS (%s) \n", fwv);
+					memcpy(fw_version, fwv, 5);		
+					fw_detected = true;
+				}					
+			}
+
+			// Read next cluster
+			if(readCluster(buffer, cur_off) > 0) cur_off += CLUSTER_SIZE;
+			else break;
+		}
+	}
+
+	   	// Check form firmware version in journal
+	if (journal_report_off > 0 && (search_fmw || strlen(serial_number) <= 3 ) && readCluster(buffer, journal_report_off) > 0)
+	{
+		if (DEBUG_MODE) printf("Searching patterns in JOURNAL at offset %s\n", int_to_hex(journal_report_off).c_str());
+
+		u64 cur_off = journal_report_off + CLUSTER_SIZE;
+		s8 fwv[10] = { 0 };
+
+		while (cur_off < journal_report_off_end) {
+
+			std::string haystack(buffer, buffer + CLUSTER_SIZE);
+			std::size_t n;
+
+			if (search_fmw)
+			{
+				n = haystack.find("OsVersion");
+				if (n != std::string::npos) {
+
+					strcpy(fwv, haystack.substr(n + 10, 5).c_str());
+					if (strcmp(fwv, fw_version) > 0)
+					{
+						if (DEBUG_MODE) printf("Newer firmware version found in JOURNAL (%s) \n", fwv);
+						memcpy(fw_version, fwv, 5);
+						fw_detected = true;
+					}
+				}
+			}
+
+			if (strlen(serial_number) <= 3)
+			{				
+				n = haystack.find("\xACSerialNumber");
+				if (n != std::string::npos) {
+					strcpy(serial_number, haystack.substr(n + 14, 14).c_str());
+					if (DEBUG_MODE) printf("Serial Number found in JOURNAL (%s) \n", serial_number);
+
+					if (!search_fmw)
+						break;
+				}
+			}
+
+			// Read next cluster
+			if (readCluster(buffer, cur_off) > 0) cur_off += CLUSTER_SIZE;
+			else break;
+		}
+	}
+
+	if (fw_detected && search_fmw)
+		strcat(fw_version, " (or higher)");
+
 	if (NULL != p_crypto)
 		delete p_crypto;
 
@@ -1548,13 +1659,12 @@ int NxStorage::fat32_read(const char* partition)
 	return 1;
 }
 
+// Get FAT32 long filename
 std::string NxStorage::get_longfilename(BYTE *buffer, int offset, int length) {
 	unsigned char filename[40];
 	int x = 0;
-	// Get long filename
 	for (int j = 1; j <= length; j++)
 	{
-
 		int off = offset - (j * 0x20);
 		LFN lfn;
 		memcpy(&lfn, &buffer[off], 0x20);
@@ -1575,21 +1685,6 @@ std::string NxStorage::get_longfilename(BYTE *buffer, int offset, int length) {
 	return std::string(reinterpret_cast<const char*>(filename));
 }
 
-int NxStorage::fat32_read_next_cluster(BYTE *buffer, bool do_crypto, int num_cluster)
-{
-	DWORD bytesRead = 0;
-	if (!ReadFile(handle.h, buffer, CLUSTER_SIZE, &bytesRead, NULL))
-		return ERR_WHILE_COPY;
-
-	if (bytesRead <= 0)
-		return -1;
-
-	num_cluster++;
-
-	if (do_crypto)
-		p_crypto->decrypt(buffer, num_cluster);
-}
-
 int NxStorage::fat32_read_attr(BYTE *cluster, fs_attr *fat32_attr)
 {
 	memcpy(&fat32_attr->bytes_per_sector, &cluster[0xB], 2);
@@ -1606,7 +1701,7 @@ int NxStorage::prodinfo_read()
 {
 	ClearHandles();
 
-	if(DEBUG_MODE) printf("prodinfo_read begin\n");
+	if(DEBUG_MODE) printf("PRODINFO read\n");
 	if(type == RAWNAND)
 	{
 		if (DEBUG_MODE) printf("prodinfo_read, type RAWNAND\n");
@@ -1658,7 +1753,7 @@ int NxStorage::prodinfo_read()
 	BYTE *buffer = new BYTE[CLUSTER_SIZE];
 	DWORD bytesRead = 0;
 
-	if (DEBUG_MODE) printf("PRODINFO read at offset %s \n", int_to_hex((int)handle.off_start).c_str());
+	if (DEBUG_MODE) printf("PRODINFO reading at offset %s \n", int_to_hex((int)handle.off_start).c_str());
 
 	// Read first cluster
 	if (!ReadFile(handle.h, buffer, CLUSTER_SIZE, &bytesRead, NULL))
@@ -1685,8 +1780,6 @@ int NxStorage::prodinfo_read()
 		}		
 		do_crypto = true;
 	}	
-
-	if (DEBUG_MODE) printf("PRODINFO crypt ok\n");
 
 	memcpy(&serial_number, &buffer[0x250], 18);
 	

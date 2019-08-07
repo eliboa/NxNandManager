@@ -104,6 +104,7 @@ char * flipAndCodeBytes(const char * str, int pos, int flip, char * buf);
 std::string ExePath();
 HMODULE GetCurrentModule();
 bool is_file_exist(const wchar_t *fileName);
+int digit_to_int(char d);
 
 template<class T>
 T base_name(T const & path, T const & delims = "/\\")

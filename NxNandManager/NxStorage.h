@@ -255,7 +255,7 @@ static NxSytemTitles sytemExFatTitlesArr[] = {
 
 class NxStorage {
 public:
-	NxStorage(const char* storage=NULL, KeySet *p_biskeys=NULL);
+	NxStorage(const char* storage = NULL, KeySet *p_biskeys = NULL, bool debug_mode = FALSE);
 
 	void ClearHandles();
 	BOOL GetSplitFile(NxSplitFile* pFile, const char* partition);
@@ -272,7 +272,6 @@ public:
 	bool ValidateDecryptBuf(unsigned char *buf, const char* partition);
 	bool setAutoRCM(bool enable);
 	int fat32_read(const char* partition = NULL);
-	int fat32_read_next_cluster(BYTE *buffer, bool do_crypto, int num_cluster = NULL);
 	int fat32_read_attr(BYTE *cluster, fs_attr *fat32_attr);
 	std::string get_longfilename(BYTE *buffer, int offset, int length);
 	int prodinfo_read();
@@ -317,6 +316,10 @@ public:
 	s8 serial_number[18] = { 0 };
 	fs_attr fs;
 	char last_boot[20] = { 0 };
+	u64 journal_report_off = 0;
+	u64 journal_report_off_end = 0;
+	u64 play_report_off = 0;
+	u64 play_report_off_end = 0;
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);

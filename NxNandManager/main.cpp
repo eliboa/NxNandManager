@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
 	if(decrypt || encrypt) {
 		if(NULL == keyset) 
 		{
-			printf("keyset file not provided.\n");
+			printf("keyset file not provided.\n\n");
 			PrintUsage();
 		} else {
 			if(!parseKeySetFile(keyset, &biskeys))
@@ -213,9 +213,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	
-	NxStorage nxdata(input, (encrypt || decrypt) ? &biskeys : NULL);
-	NxStorage nxdataOut(output, encrypt ? &biskeys : NULL);
+	printf("Accessing input...\r");
+	NxStorage nxdata(input, (encrypt || decrypt) ? &biskeys : NULL, DEBUG_MODE);
+	printf("Accessing output...\r");
+	NxStorage nxdataOut(output, encrypt ? &biskeys : NULL, DEBUG_MODE);
+	printf("                      \r");
 
 	if (nxdata.type == INVALID)
 	{
@@ -300,6 +302,7 @@ int main(int argc, char *argv[])
 				}			
 
 			}
+			printf("\n");
 			// If there's nothing left to do, exit (we don't want to pursue with i/o operations)
 			if (i == io_num)
 				exit(EXIT_SUCCESS);
@@ -522,7 +525,7 @@ int main(int argc, char *argv[])
 					   percent);
 			}
 		}
-		printf("\n");
+		
 		if (rc != NO_MORE_BYTES_TO_COPY)
 		{
 			throwException(rc);
@@ -532,6 +535,8 @@ int main(int argc, char *argv[])
 			printf("ERROR : %I64d bytes to read but %I64d bytes written\n", bytesToRead, writeAmount);
 			throwException();
 		}
+		printf("\n");
+
 		nxdata.ClearHandles();
 
 		// Check dump integrity
