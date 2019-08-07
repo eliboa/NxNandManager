@@ -25,29 +25,31 @@ int main(int argc, char *argv[])
 
 	// Arguments, controls & usage
 	auto PrintUsage = []() -> int {
-		printf("usage: NxNandManager [Options] -i <inputFilename|\\\\.\\PhysicalDiskX>\n"
-			"           -o <outputFilename|\\\\.\\PhysicalDiskX> [<lFlags>]\n\n"
-			"Options:\n"
+		printf("usage: NxNandManager -i <inputFilename|\\\\.\\PhysicalDriveX>\n"
+			"           -o <outputFilename|\\\\.\\PhysicalDrivekX> [Options] [Flags]\n\n"
+			"=> Arguments:\n\n"
+			"  -i                Path to input file/drive\n"
+			"  -o                Path to output file/drive\n"
+			"  -part=            Partition to copy (apply to both input & output if possible)\n"
+			"                    Possible values are PRODINFO, PRODINFOF, SAFE, SYSTEM, USER,\n"
+			"                    BCPKG2-2-Normal-Sub, BCPKG2-3-SafeMode-Main, etc. (see --info)\n\n"
+			"  -d                Decrypt content (-keyset mandatory)\n"
+			"  -e                Encrypt content (-keyset mandatory)\n"
+			"  -keyset           Path to keyset file (bis keys)\n\n"
+			"=> Options:\n\n"
 			#if defined(ENABLE_GUI)
-				"  --gui             Start the program in graphical mode, doesn't need other argument\n"
+			"  --gui             Start the program in graphical mode, doesn't need other argument\n"
 			#endif
-			"  --list            List compatible NX physical disks\n"
-			"  --info            Display information about input/output file or device\n"
+			"  --list            Detect and list compatible NX physical drives (ie, monted with memloder)\n"
+			"  --info            Display information about input/output (depends on NAND type):\n"
+			"                    NAND type, partitions, encryption, autoRCM status... \n"
+			"                    ...more info when -keyset provided: firmware ver., S/N, last boot date\n\n"
 			"  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-			"  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-			"  -i                Path to input file or device\n"
-			"  -o                Path to output file or device\n"
-			"  -part=             Partition to copy (apply to both input & output if possible)\n"
-			"                    Value could be \"PRODINFO\", \"PRODINFOF\", \"BCPKG2-1-Normal-Main\"\n"
-			"                    \"BCPKG2-2-Normal-Sub\", \"BCPKG2-3-SafeMode-Main\", \"BCPKG2-4-SafeMode-Sub\",\n"
-			"                    \"BCPKG2-5-Repair-Main\", \"BCPKG2-6-Repair-Sub\", \"SAFE\", \"SYSTEM\" or \"USER\"\n"
-			"  -d                decrypt content (-keyset mandatory))\n"
-			"  -e                encrypt content (-keyset mandatory))\n"
-			"  -keyset=           Path to keyset file (bis keys)\n\n");
+			"  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n\n"
+		);
 
-		printf("  lFlags:\n"
-		"  -------           \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
-			   "  -------           \"FORCE\" to disable prompt for user input (no question asked)\n");
+		printf("=> Flags:           \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
+			   "                    \"FORCE\" to disable prompt for user input (no question asked)\n");
 
 		throwException(ERR_WRONG_USE);
 		return -1;
@@ -95,7 +97,7 @@ int main(int argc, char *argv[])
 		char* currArg = argv[i];
 		if ((strncmp(currArg, AUTORCMON_ARGUMENT, array_countof(AUTORCMON_ARGUMENT) - 1) == 0 && setAutoRCM == true) || (strncmp(currArg, AUTORCMOFF_ARGUMENT, array_countof(AUTORCMOFF_ARGUMENT) - 1) == 0 && setAutoRCM  == true))
 		{
-			printf("Arguments (--enable_autoRCM) and (--disable_autoRCM) couldn't be used at the same time.\n\n");
+			printf("Arguments (--enable_autoRCM) and (--disable_autoRCM) cannot be used at the same time.\n\n");
 			PrintUsage();
 		}
 		if (strncmp(currArg, LIST_ARGUMENT, array_countof(LIST_ARGUMENT) - 1) == 0)
@@ -187,36 +189,35 @@ int main(int argc, char *argv[])
 	}
 	
 	KeySet biskeys;
-	if(decrypt || encrypt) {
-		if(NULL == keyset) 
+	bool do_crypto = false;
+	if(decrypt || encrypt || NULL != keyset) {
+
+		if(!parseKeySetFile(keyset, &biskeys))
 		{
-			printf("keyset file not provided.\n\n");
-			PrintUsage();
-		} else {
-			if(!parseKeySetFile(keyset, &biskeys))
-			{
-				printf("Error while parsing keyset file.\n");
-				exit(EXIT_FAILURE);
-			}
-			
-			if (DEBUG_MODE)
-			{
-				printf("BIS 0 CRYPT=%s\n", biskeys.crypt0);
-				printf("BIS 0 TWEAK=%s\n", biskeys.tweak0);
-				printf("BIS 1 CRYPT=%s\n", biskeys.crypt1);
-				printf("BIS 1 TWEAK=%s\n", biskeys.tweak1);
-				printf("BIS 2 CRYPT=%s\n", biskeys.crypt2);
-				printf("BIS 2 TWEAK=%s\n", biskeys.tweak2);
-				printf("BIS 3 CRYPT=%s\n", biskeys.crypt3);
-				printf("BIS 3 TWEAK=%s\n", biskeys.tweak3);
-			}			
+			printf("Error while parsing keyset file.\n");
+			exit(EXIT_FAILURE);
 		}
+
+		if (encrypt || decrypt || (NULL != keyset && info))
+			do_crypto = true;
+			
+		if (DEBUG_MODE)
+		{
+			printf("BIS 0 CRYPT=%s\n", biskeys.crypt0);
+			printf("BIS 0 TWEAK=%s\n", biskeys.tweak0);
+			printf("BIS 1 CRYPT=%s\n", biskeys.crypt1);
+			printf("BIS 1 TWEAK=%s\n", biskeys.tweak1);
+			printf("BIS 2 CRYPT=%s\n", biskeys.crypt2);
+			printf("BIS 2 TWEAK=%s\n", biskeys.tweak2);
+			printf("BIS 3 CRYPT=%s\n", biskeys.crypt3);
+			printf("BIS 3 TWEAK=%s\n", biskeys.tweak3);
+		}			
 	}
 
 	printf("Accessing input...\r");
-	NxStorage nxdata(input, (encrypt || decrypt) ? &biskeys : NULL, DEBUG_MODE);
+	NxStorage nxdata(input, (do_crypto) ? &biskeys : NULL, DEBUG_MODE);
 	printf("Accessing output...\r");
-	NxStorage nxdataOut(output, encrypt ? &biskeys : NULL, DEBUG_MODE);
+	NxStorage nxdataOut(output, (do_crypto && encrypt) ? &biskeys : NULL, DEBUG_MODE);
 	printf("                      \r");
 
 	if (nxdata.type == INVALID)
