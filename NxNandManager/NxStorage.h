@@ -74,6 +74,8 @@ struct GptPartition {
 	u32 lba_end;
 	u64 attrs;
 	s8 name[37];
+	bool isEncrypted = false;
+	bool bad_crypto = false;
 	GptPartition *next;
 };
 
@@ -260,6 +262,7 @@ public:
 	void ClearHandles();
 	BOOL GetSplitFile(NxSplitFile* pFile, const char* partition);
 	BOOL GetSplitFile(NxSplitFile* pFile, u64 offset);
+	int ReadBufferAtOffset(BYTE *buffer, u64 offset, int length = CLUSTER_SIZE);
 	int DumpToStorage(NxStorage *out, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite, HCRYPTHASH* hHash = NULL);
 	int RestoreFromStorage(NxStorage *in, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite);
 	const char* GetNxStorageTypeAsString();
@@ -305,7 +308,7 @@ public:
 	u64 bytesToRead;
 	u64 bytesAmount;
 	KeySet* biskeys;
-	BOOL crypto = FALSE, encrypt = FALSE, do_crypto = FALSE;;
+	BOOL crypto = FALSE, encrypt = FALSE, do_crypto = FALSE, bad_crypto = FALSE;
 	BOOL isEncrypted = FALSE;
 	std::vector<unsigned char> key_crypto;
 	std::vector<unsigned char> key_tweak;

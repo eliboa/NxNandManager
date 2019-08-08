@@ -155,7 +155,7 @@ void NxStorage::InitStorage()
 		}
 	}
 
-	// Find decrypted partition
+	// Partition crypto validation
 	if(type == PARTITION)
 	{
 		if (strcmp(partitionName, "PRODINFO") == 0 || strcmp(partitionName, "PRODINFOF") == 0 || 
@@ -172,8 +172,7 @@ void NxStorage::InitStorage()
 		}
 	}
 
-
-	// Detect autoRCM
+	// Detect autoRCM & bootloader version
 	if (type == BOOT0)
 	{
 		DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
@@ -185,6 +184,14 @@ void NxStorage::InitStorage()
 				if(buff[0x10] != 0xF7) autoRcm = TRUE;
 				else autoRcm = FALSE;
 			}
+			// Get bootloader version
+			SetFilePointer(hStorage, 0x2200, NULL, FILE_BEGIN);
+			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
+			if (0 != bytesRead)
+			{
+				memcpy(&bootloader_ver, &buff[0x130], sizeof(unsigned char));
+			} 
+
 		}
 	}
 
@@ -223,21 +230,7 @@ void NxStorage::InitStorage()
 			}
 		}
 
-		
-		if (crypto)
-		{
-			// Look for firmware version
-			fat32_read("SYSTEM");
-			// Look for serial number
-			prodinfo_read();
-		}
 	}
-
-	if (type == PARTITION && std::string(partitionName).substr(0, 6).compare("SYSTEM") == 0 &&(crypto || !isEncrypted))
-		fat32_read();
-
-	if (type == PARTITION && std::string(partitionName).substr(0, 8).compare("PRODINFO") == 0 && strlen(partitionName) == 8 &&(crypto || !isEncrypted))
-		prodinfo_read();	
 
 	// Look for splitted dump
 	if (type == RAWNAND && !backupGPTfound && !isDrive) {
@@ -352,6 +345,69 @@ void NxStorage::InitStorage()
 		}
 	}
 
+
+	if (type == PARTITION && std::string(partitionName).substr(0, 6).compare("SYSTEM") == 0 && (crypto || !isEncrypted))
+		fat32_read();
+
+	if (type == PARTITION && std::string(partitionName).substr(0, 8).compare("PRODINFO") == 0 && strlen(partitionName) == 8 && (crypto || !isEncrypted))
+		prodinfo_read();
+
+	// RAWNAND crypto validation & init operations
+	if (type == RAWNAND)
+	{
+		BYTE buffer[CLUSTER_SIZE];
+		// For each partition
+		GptPartition *part = firstPartion;
+		while (NULL != part)
+		{
+			if (DEBUG_MODE) printf("Validate crypto for %s partition (%s) \n", part->name, part->isEncrypted ? "encrypted" : "decrypted");
+
+			// Read buffer for the so called "encrypted" partition
+			u64 offset = (u64)part->lba_start * NX_EMMC_BLOCKSIZE;
+			if (part->isEncrypted && ReadBufferAtOffset(buffer, offset) > 0)
+			{
+				// If partition already decrypted
+				if (ValidateDecryptBuf(buffer, part->name))
+					part->isEncrypted = false;
+
+				if (part->isEncrypted && crypto)
+				{
+					part->bad_crypto = false;
+
+					setCrypto(part->name);
+					p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
+					p_crypto->decrypt(buffer, 0); // 0 because we only read first cluster
+					delete p_crypto;
+
+					// Validate decrypted buffer
+					if (!ValidateDecryptBuf(buffer, part->name))
+					{
+						if (DEBUG_MODE) printf("BAD crypto for %s partition\n", part->name);
+
+						// There's something wrong with crypto keys
+						part->bad_crypto = true;
+						bad_crypto = true;
+					}
+					else if (DEBUG_MODE) printf("GOOD crypto for %s partition\n", part->name);				
+				}
+			}
+
+			// Do operations on un/decrypted partitions
+			if (!part->isEncrypted || (part->isEncrypted && crypto && !part->bad_crypto))
+			{
+
+				if (strcmp(part->name, "SYSTEM") == 0)
+					fat32_read(part->name);
+
+				if (strcmp(part->name, "PRODINFO") == 0)
+					prodinfo_read();;
+			}
+
+			// Switch to next partition
+			part = part->next;
+		}
+	}
+
 	CloseHandle(hStorage);
 }
 
@@ -403,9 +459,11 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 		part->lba_start = ent->lba_start;
 		part->lba_end = ent->lba_end;
 		part->attrs = ent->attrs;
+		
 		for (u32 i = 0; i < 36; i++)
 		{
 			part->name[i] = ent->name[i];
+			part->name[i+1] = '0';
 		}
 		part->name[36] = '0';
 
@@ -413,6 +471,12 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 		if (strcmp(part->name, "PRODINFO") == 0)
 		{
 			type = RAWNAND;
+		}
+
+		if (strcmp(part->name, "PRODINFO") == 0 || strcmp(part->name, "PRODINFOF") == 0 || strcmp(part->name, "SAFE") == 0 ||
+			strcmp(part->name, "SYSTEM") == 0 || strcmp(part->name, "USER") == 0)
+		{
+			part->isEncrypted = true;
 		}
 		// Add partition to linked list
 		part->next = firstPartion;
@@ -458,12 +522,62 @@ BOOL NxStorage::GetSplitFile(NxSplitFile* pFile, u64 offset)
 	{
 		if (offset >= file->offset && offset < file->offset + file->size)
 		{
-			*pFile = *file;
+			*pFile = *file;			
 			return TRUE;
 		}
 		file = file->next;
 	}
 	return FALSE;
+}
+
+int NxStorage::ReadBufferAtOffset(BYTE *buffer, u64 offset, int length)
+{
+	if (DEBUG_MODE) printf("ReadBufferAtOffset off %s\n", int_to_hex(offset).c_str());
+	// Get real offset (in case of splitted files)
+	u64 real_off = offset;
+	NxSplitFile file;
+	if (isSplitted) 
+	{		
+		if (!GetSplitFile(&file, offset))
+			return -2;
+
+		real_off = offset - file.offset;
+		if (DEBUG_MODE) printf("ReadBufferAtOffset -> real_off is %s\n", int_to_hex(real_off).c_str());
+	}
+
+	if (DEBUG_MODE) printf("ReadBufferAtOffset -> Create new handle\n");
+
+	// Default input is self object path
+	if(!isSplitted) 
+		wcscpy(handle.path, pathLPWSTR);
+		
+	// Overwrite path for splitted file
+	else if(wcscmp(handle.path, file.file_path) != 0)
+		wcscpy(handle.path, file.file_path); 
+
+	// Get new handle
+	handle.h = CreateFileW(&handle.path[0], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	if (handle.h == INVALID_HANDLE_VALUE) 
+		return ERR_INPUT_HANDLE;
+
+	if (DEBUG_MODE) printf("ReadBufferAtOffset -> Set pointer at off %s\n", int_to_hex(real_off).c_str());
+	// Set pointer
+	LARGE_INTEGER liDistanceToMove;
+	liDistanceToMove.QuadPart = real_off;
+	if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+		return ERR_INPUT_HANDLE;
+
+	if (DEBUG_MODE) printf("ReadBufferAtOffset -> ReadFile, length %s\n", int_to_hex(length).c_str());
+
+	// Read buffer
+	DWORD bytesRead = 0;
+	if (!ReadFile(handle.h, buffer, length, &bytesRead, NULL)) {
+		if (DEBUG_MODE) printf("ReadBufferAtOffset -> ReadFile fails : %s\n", GetLastErrorAsString().c_str());
+		return -1;
+	}
+
+	if (DEBUG_MODE) printf("ReadBufferAtOffset ends, %d bytes read\n", bytesRead);
+	return bytesRead;
 }
 
 void NxStorage::ClearHandles()
