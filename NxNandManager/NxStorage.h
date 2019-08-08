@@ -312,6 +312,7 @@ public:
 	xts_crypto *p_crypto = NULL;
 	bool fw_detected = FALSE;
 	s8 fw_version[48];
+	unsigned char bootloader_ver = 0;
 	bool exFat_driver = FALSE;
 	s8 serial_number[18] = { 0 };
 	fs_attr fs;

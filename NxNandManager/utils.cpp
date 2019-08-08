@@ -431,11 +431,42 @@ int parseKeySetFile(const char *keyset_file, KeySet* biskeys)
 				value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
 				strcpy_s(biskeys->tweak3, value.substr(0, 32).c_str());
 				num_keys++;
+			} else if (readout.find("bis_key_00") != std::string::npos) {						
+				value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
+				strcpy_s(biskeys->crypt0, value.substr(0, 32).c_str());				
+				strcpy_s(biskeys->tweak0, value.substr(32, 32).c_str());
+				num_keys += 2;
+			} else if (readout.find("bis_key_01") != std::string::npos) {						
+				value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
+				strcpy_s(biskeys->crypt1, value.substr(0, 32).c_str());
+				strcpy_s(biskeys->tweak1, value.substr(32, 32).c_str());
+				num_keys += 2;
+			}else if (readout.find("bis_key_02") != std::string::npos) {						
+				value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
+				strcpy_s(biskeys->crypt2, value.substr(0, 32).c_str());
+				strcpy_s(biskeys->tweak2, value.substr(32, 32).c_str());
+				num_keys += 2;
+			} else if (readout.find("bis_key_03") != std::string::npos) {						
+				value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
+				strcpy_s(biskeys->crypt3, value.substr(0, 32).c_str());
+				strcpy_s(biskeys->tweak3, value.substr(32, 32).c_str());
+				num_keys += 2;
 			}
 		}
 	} else {
 		return 0;
 	}
+
+	// toupper keys
+	for(int i=0;i<strlen(biskeys->crypt0);i++) biskeys->crypt0[i] = toupper(biskeys->crypt0[i]);
+	for(int i=0;i<strlen(biskeys->crypt1);i++) biskeys->crypt1[i] = toupper(biskeys->crypt1[i]);
+	for(int i=0;i<strlen(biskeys->crypt2);i++) biskeys->crypt2[i] = toupper(biskeys->crypt2[i]);
+	for(int i=0;i<strlen(biskeys->crypt3);i++) biskeys->crypt3[i] = toupper(biskeys->crypt3[i]);
+	for(int i=0;i<strlen(biskeys->tweak0);i++) biskeys->tweak0[i] = toupper(biskeys->tweak0[i]);
+	for(int i=0;i<strlen(biskeys->tweak1);i++) biskeys->tweak1[i] = toupper(biskeys->tweak1[i]);
+	for(int i=0;i<strlen(biskeys->tweak2);i++) biskeys->tweak2[i] = toupper(biskeys->tweak2[i]);
+	for(int i=0;i<strlen(biskeys->tweak3);i++) biskeys->tweak3[i] = toupper(biskeys->tweak3[i]);
+
 	readFile.close();
 	return num_keys;
 }
