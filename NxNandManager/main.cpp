@@ -278,7 +278,7 @@ int main(int argc, char *argv[])
 			if(curNxdata->fw_detected)
 			{
 				printf("Firmware ver.  : %s\n", curNxdata->fw_version);
-				if(curNxdata->exFat_driver) printf("ExFat driv.: Detected\n");
+				if(curNxdata->type == RAWNAND || strcmp(curNxdata->partitionName, "SYSTEM") == 0) printf("ExFat driver   : %s\n", curNxdata->exFat_driver ? "Detected" : "Undetected");
 			}
 			if (strlen(curNxdata->last_boot) > 0)
 				printf("Last boot      : %s\n", curNxdata->last_boot);
