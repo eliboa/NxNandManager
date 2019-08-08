@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 			#if defined(ENABLE_GUI)
 			"  --gui             Start the program in graphical mode, doesn't need other argument\n"
 			#endif
-			"  --list            Detect and list compatible NX physical drives (ie, monted with memloder)\n"
+			"  --list            Detect and list compatible NX physical drives (ie, mounted with memloader)\n"
 			"  --info            Display information about input/output (depends on NAND type):\n"
 			"                    NAND type, partitions, encryption, autoRCM status... \n"
 			"                    ...more info when -keyset provided: firmware ver., S/N, last boot date\n\n"
@@ -48,7 +48,8 @@ int main(int argc, char *argv[])
 			"  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n\n"
 		);
 
-		printf("=> Flags:           \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
+		printf("=> Flags:\n\n"
+			"                    \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
 			   "                    \"FORCE\" to disable prompt for user input (no question asked)\n");
 
 		throwException(ERR_WRONG_USE);
