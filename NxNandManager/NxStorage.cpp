@@ -18,6 +18,7 @@ NxStorage::NxStorage(const char* storage, KeySet *p_biskeys, bool debug_mode)
 	handle_out = NULL;
 	exFat_driver = false;
 	fw_detected = false;
+	bad_crypto = false;
 	memset(fw_version, 0, sizeof fw_version);
 	this->InitKeySet(p_biskeys);
 	if (NULL != storage)
@@ -169,6 +170,29 @@ void NxStorage::InitStorage()
 			ReadFile(hStorage, buf, DEFAULT_BUFF_SIZE, &bytesRead, NULL);
 			if (0 != bytesRead && ValidateDecryptBuf(buf, partitionName))
 				isEncrypted = FALSE;
+			
+			// Validate crypto
+			else if (crypto)
+			{
+				BYTE buffer[CLUSTER_SIZE];
+				if (ReadBufferAtOffset(buffer, 0) > 0)
+				{
+					setCrypto(partitionName);
+					p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
+					p_crypto->decrypt(buffer, 0); // 0 because we only read first cluster
+					delete p_crypto;
+
+					// Validate decrypted buffer
+					if (!ValidateDecryptBuf(buffer, partitionName))
+					{
+						if (DEBUG_MODE) printf("BAD crypto for %s partition\n", partitionName);
+
+						// There's something wrong with crypto keys
+						bad_crypto = true;
+					}
+					else if (DEBUG_MODE) printf("GOOD crypto for %s partition\n", partitionName);
+				}
+			}
 		}
 	}
 
@@ -199,7 +223,6 @@ void NxStorage::InitStorage()
 	if (type == RAWNAND)
 	{
 		// Read & parse GPT
-		isEncrypted = TRUE; // Default value
 		DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{
@@ -346,16 +369,17 @@ void NxStorage::InitStorage()
 	}
 
 
-	if (type == PARTITION && std::string(partitionName).substr(0, 6).compare("SYSTEM") == 0 && (crypto || !isEncrypted))
+	if (type == PARTITION && std::string(partitionName).substr(0, 6).compare("SYSTEM") == 0 && ((crypto && !bad_crypto) || !isEncrypted))
 		fat32_read();
 
-	if (type == PARTITION && std::string(partitionName).substr(0, 8).compare("PRODINFO") == 0 && strlen(partitionName) == 8 && (crypto || !isEncrypted))
+	if (type == PARTITION && std::string(partitionName).substr(0, 8).compare("PRODINFO") == 0 && strlen(partitionName) == 8 && ((crypto && !bad_crypto) || !isEncrypted))
 		prodinfo_read();
 
 	// RAWNAND crypto validation & init operations
 	if (type == RAWNAND)
 	{
 		BYTE buffer[CLUSTER_SIZE];
+
 		// For each partition
 		GptPartition *part = firstPartion;
 		while (NULL != part)
@@ -369,6 +393,8 @@ void NxStorage::InitStorage()
 				// If partition already decrypted
 				if (ValidateDecryptBuf(buffer, part->name))
 					part->isEncrypted = false;
+				else
+					isEncrypted = true; // RAWNAND is encrypted if at least one partition is encrypted
 
 				if (part->isEncrypted && crypto)
 				{
@@ -459,6 +485,8 @@ BOOL NxStorage::ParseGpt(unsigned char* gptHeader)
 		part->lba_start = ent->lba_start;
 		part->lba_end = ent->lba_end;
 		part->attrs = ent->attrs;
+		part->bad_crypto = false;
+		part->isEncrypted = false;
 		
 		for (u32 i = 0; i < 36; i++)
 		{

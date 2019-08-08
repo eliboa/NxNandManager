@@ -269,7 +269,8 @@ int main(int argc, char *argv[])
 				curNxdata->type == PARTITION ? " " : "", curNxdata->type == PARTITION ? curNxdata->partitionName : "",
 				curNxdata->isSplitted ? " (splitted dump)" : "");
 			printf("File/Disk      : %s\n", curNxdata->isDrive ? "Disk" : "File");
-			printf("Encrypted      : %s\n", curNxdata->isEncrypted ? "Yes" : "No");
+			printf("Encrypted      : %s%s\n", curNxdata->isEncrypted ? "Yes" : "No", 
+				curNxdata->type != RAWNAND && curNxdata->isEncrypted && curNxdata->bad_crypto ? "  !!! DECRYPTION FAILED !!!" : "");
 			if (curNxdata->type == BOOT0) printf("AutoRCM        : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
 			printf("Size	       : %s\n", GetReadableSize(curNxdata->size).c_str());
 			if(curNxdata->type == BOOT0)
@@ -292,7 +293,9 @@ int main(int argc, char *argv[])
 				while (NULL != cur)
 				{
 					u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;														 
-					printf("%s%02d %s  (%s)\n", i == 1 ? "\nPartitions : \n             " : "             ", ++i, cur->name, GetReadableSize(size).c_str());
+					printf("%s%02d %s  (%s)%s\n", i == 1 ? "\nPartitions     : \n                 " : "                 ", ++i, 
+						cur->name, GetReadableSize(size).c_str(), cur->isEncrypted && cur->bad_crypto ? "  !!! DECRYPTION FAILED !!!" : "");
+
 					cur = cur->next;
 				}
 			}
@@ -306,10 +309,11 @@ int main(int argc, char *argv[])
 
 			}
 			printf("\n");
-			// If there's nothing left to do, exit (we don't want to pursue with i/o operations)
-			if (i == io_num)
-				exit(EXIT_SUCCESS);
+
+			if (curNxdata->bad_crypto)
+				exit(ERROR_DECRYPTION_FAILED);
 		}
+		// If there's nothing left to do, exit (we don't want to pursue with i/o operations)
 		exit(EXIT_SUCCESS);
 	}
 
