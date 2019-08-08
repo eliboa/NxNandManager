@@ -291,7 +291,7 @@ int main(int argc, char *argv[])
 				while (NULL != cur)
 				{
 					u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;														 
-					printf("%s%02d %s  (%s)\n", i == 1 ? "Partitions : " : "             ", ++i, cur->name, GetReadableSize(size).c_str());
+					printf("%s%02d %s  (%s)\n", i == 1 ? "\nPartitions : \n             " : "             ", ++i, cur->name, GetReadableSize(size).c_str());
 					cur = cur->next;
 				}
 			}
