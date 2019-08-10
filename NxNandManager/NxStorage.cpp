@@ -853,6 +853,32 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		wcscpy(handle.path, pathLPWSTR);
 		//handle.path = this->pathLPWSTR;
 
+		/*
+
+		TODO
+
+		// Init crypto
+		if (isEncrypted && crypto)
+		{
+			if (bad_crypto)
+				return ERROR_DECRYPTION_FAILED;
+
+			// Partition specified of partition file
+			if (NULL != partition && strlen(partitionName) > 0)
+			{
+				if (setCrypto(NULL != partition ? partition : partitionName) > 0)
+					p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
+				else
+					return ERR_CRYPTO_KEY_MISSING;
+			}
+			else if (type == RAWNAND)
+			{
+
+			}
+
+		}
+		*/
+
 		// Init crypto
 		if ((NULL != partition && strlen(partition) > 0 || type == PARTITION) && (isEncrypted || out->crypto) && crypto)
 		{

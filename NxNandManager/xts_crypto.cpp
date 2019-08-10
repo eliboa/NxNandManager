@@ -14,9 +14,11 @@ void xts_crypto::create_tweak(unsigned char* tweak, size_t offset) {
     int outl, outl2;
 
     // Create the tweak data
-    memset(tweak, 0, sizeof(tweak));
-    for (int i = 0; i < sizeof(size_t); i++)
-        tweak[15 - i] = ((unsigned char*) &offset)[i];
+    memset(tweak, 0, 16);
+
+	for (int i = 0; i < sizeof(size_t); i++) 
+		tweak[15 - i] = ((unsigned char*)&offset)[i];
+
 
     // Encrypt the tweak
     assert(EVP_EncryptInit(ctx_tweak, EVP_aes_128_ecb(), tweak_key, nullptr));
@@ -28,7 +30,8 @@ void xts_crypto::create_tweak(unsigned char* tweak, size_t offset) {
 
 void xts_crypto::apply_tweak(const unsigned char* tweak, unsigned char* data, size_t data_len) {
     unsigned char buf[16];
-    memcpy(buf, tweak, sizeof(buf));
+    memcpy(buf, tweak, sizeof(buf));	
+
     for (size_t i = 0; i < data_len; i += 16) {
         for (int j = 0; j < 16; j++) {
             data[i + j] ^= buf[j];

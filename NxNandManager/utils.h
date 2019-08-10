@@ -73,7 +73,8 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_INVALID_INPUT, "Input is not a valid NX storage"},
 	{ ERR_DECRYPT_CONTENT, "Failed to validate decrypted content (wrong keys ?)" },
     { ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted content to encrypted partition and keyset missing to encrypt data"},
-    { ERR_CRYPTO_KEY_MISSING, "Crypto error : key missing"}
+    { ERR_CRYPTO_KEY_MISSING, "Crypto error : key missing"},
+	{ ERROR_DECRYPTION_FAILED, "Decryption validation failed (wrong keys ?)"}
 };
 
 typedef struct KeySet KeySet;

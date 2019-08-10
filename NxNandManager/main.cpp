@@ -320,6 +320,7 @@ int main(int argc, char *argv[])
 	if (NULL == output || nxdata.size == 0) // Nothing to copy from/to
 		exit(EXIT_SUCCESS);
 
+
 	// COPY TO FILE
 	if (!nxdataOut.isDrive)
 	{
