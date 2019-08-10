@@ -52,6 +52,9 @@ typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds 
 #define ERR_RESTORE_CRYPTO_MISSING -1019
 #define ERR_CRYPTO_KEY_MISSING	   -1020
 #define ERR_CRYPTO_GENERIC  	   -1021
+#define ERR_CRYPTO_NOT_ENCRYPTED   -1022
+#define ERR_CRYPTO_ENCRYPTED_YET   -1023
+
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -74,7 +77,9 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_DECRYPT_CONTENT, "Failed to validate decrypted content (wrong keys ?)" },
     { ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted content to encrypted partition and keyset missing to encrypt data"},
     { ERR_CRYPTO_KEY_MISSING, "Crypto error : key missing"},
-	{ ERROR_DECRYPTION_FAILED, "Decryption validation failed (wrong keys ?)"}
+	{ ERROR_DECRYPTION_FAILED, "Decryption validation failed (wrong keys ?)"},
+	{ ERR_CRYPTO_NOT_ENCRYPTED, "Input file is not encrypted"},
+	{ ERR_CRYPTO_ENCRYPTED_YET, "Input file is already decrypted"}
 };
 
 typedef struct KeySet KeySet;

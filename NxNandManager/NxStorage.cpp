@@ -560,7 +560,7 @@ BOOL NxStorage::GetSplitFile(NxSplitFile* pFile, u64 offset)
 
 int NxStorage::ReadBufferAtOffset(BYTE *buffer, u64 offset, int length)
 {
-	if (DEBUG_MODE) printf("ReadBufferAtOffset off %s\n", int_to_hex(offset).c_str());
+	//if (DEBUG_MODE) printf("ReadBufferAtOffset off %s\n", int_to_hex(offset).c_str());
 	// Get real offset (in case of splitted files)
 	u64 real_off = offset;
 	NxSplitFile file;
@@ -570,10 +570,10 @@ int NxStorage::ReadBufferAtOffset(BYTE *buffer, u64 offset, int length)
 			return -2;
 
 		real_off = offset - file.offset;
-		if (DEBUG_MODE) printf("ReadBufferAtOffset -> real_off is %s\n", int_to_hex(real_off).c_str());
+		//if (DEBUG_MODE) printf("ReadBufferAtOffset -> real_off is %s\n", int_to_hex(real_off).c_str());
 	}
 
-	if (DEBUG_MODE) printf("ReadBufferAtOffset -> Create new handle\n");
+	//if (DEBUG_MODE) printf("ReadBufferAtOffset -> Create new handle\n");
 
 	// Default input is self object path
 	if(!isSplitted) 
@@ -588,7 +588,7 @@ int NxStorage::ReadBufferAtOffset(BYTE *buffer, u64 offset, int length)
 	if (handle.h == INVALID_HANDLE_VALUE) 
 		return ERR_INPUT_HANDLE;
 
-	if (DEBUG_MODE) printf("ReadBufferAtOffset -> Set pointer at off %s\n", int_to_hex(real_off).c_str());
+	//if (DEBUG_MODE) printf("ReadBufferAtOffset -> Set pointer at off %s\n", int_to_hex(real_off).c_str());
 	// Set pointer
 	LARGE_INTEGER liDistanceToMove;
 	liDistanceToMove.QuadPart = real_off;
@@ -600,11 +600,11 @@ int NxStorage::ReadBufferAtOffset(BYTE *buffer, u64 offset, int length)
 	// Read buffer
 	DWORD bytesRead = 0;
 	if (!ReadFile(handle.h, buffer, length, &bytesRead, NULL)) {
-		if (DEBUG_MODE) printf("ReadBufferAtOffset -> ReadFile fails : %s\n", GetLastErrorAsString().c_str());
+		//if (DEBUG_MODE) printf("ReadBufferAtOffset -> ReadFile fails : %s\n", GetLastErrorAsString().c_str());
 		return -1;
 	}
 
-	if (DEBUG_MODE) printf("ReadBufferAtOffset ends, %d bytes read\n", bytesRead);
+	//if (DEBUG_MODE) printf("ReadBufferAtOffset ends, %d bytes read\n", bytesRead);
 	return bytesRead;
 }
 
@@ -634,7 +634,7 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 
 		// Set crypto if restoring decrypted partition file to RAWNAND
 		encrypt = false;
-		if(type == RAWNAND && NULL != partition && in->type == PARTITION && !in->isEncrypted)
+		if(crypto && type == RAWNAND && NULL != partition && in->type == PARTITION && !in->isEncrypted)
 		{
 			// Restoring from decrypted file and keyset missing
 			if(!in->crypto && (	strcmp(partition, "PRODINFO") == 0  || 
@@ -846,49 +846,45 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 
 int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite, HCRYPTHASH* hHash)
 {	
+	DWORD toRead = DEFAULT_BUFF_SIZE;
+
 	// First iteration
 	if (handle.readAmount == 0)
 	{
+		do_crypto = false;
+
 		// Default input is self object path
 		wcscpy(handle.path, pathLPWSTR);
 		//handle.path = this->pathLPWSTR;
 
-		/*
+		if (out->crypto)
+			handle.encrypt = true;
+		else if (crypto)
+			handle.decrypt = true;
 
-		TODO
+		if (handle.decrypt && !isEncrypted)
+			return ERR_CRYPTO_NOT_ENCRYPTED;
 
-		// Init crypto
-		if (isEncrypted && crypto)
-		{
-			if (bad_crypto)
-				return ERROR_DECRYPTION_FAILED;
+		if (handle.decrypt && bad_crypto)
+			return ERROR_DECRYPTION_FAILED;
 
-			// Partition specified of partition file
-			if (NULL != partition && strlen(partitionName) > 0)
-			{
-				if (setCrypto(NULL != partition ? partition : partitionName) > 0)
-					p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
-				else
-					return ERR_CRYPTO_KEY_MISSING;
-			}
-			else if (type == RAWNAND)
-			{
-
-			}
-
-		}
-		*/
+		if (handle.encrypt && isEncrypted)
+			return ERR_CRYPTO_ENCRYPTED_YET;
 
 		// Init crypto
-		if ((NULL != partition && strlen(partition) > 0 || type == PARTITION) && (isEncrypted || out->crypto) && crypto)
-		{
+		if ((NULL != partition && strlen(partition) > 0 || type == PARTITION) && ((isEncrypted && handle.decrypt) || (!isEncrypted && handle.encrypt)))
+		{			
             if(setCrypto(type == PARTITION ? partitionName : partition) > 0)
                 p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
             else
                 return ERR_CRYPTO_KEY_MISSING;
-			//printf("NxStorage::DumpToStorage - new xts_crypto() \n");
+
+			do_crypto = true;
 		}	
  
+		handle.readAmount = 0;
+		handle.block_num = 0;
+
 		// If partition specified
 		if (NULL != partition && strlen(partition) > 0)
 		{
@@ -923,6 +919,7 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		// No partition specified
 		else
 		{
+
 			handle.off_start = 0;
 			handle.off_end = this->size;
 			handle.off_max = this->size;
@@ -962,10 +959,13 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		handle_out = CreateFileW(out->pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 		if (handle_out == INVALID_HANDLE_VALUE)
 			return ERR_OUTPUT_HANDLE;
+	} 
+	else {
+		handle.block_num++;
 	}
 
 	// Switch to next splitted file
-	else if(isSplitted && handle.off_start + handle.readAmount >= handle.off_max && *writeAmount < *bytesToWrite)
+	if(handle.readAmount > 0 && isSplitted && handle.off_start + handle.readAmount >= handle.off_max && *writeAmount < *bytesToWrite)
 	{
 		NxSplitFile splitFile;
 		if (!GetSplitFile(&splitFile, handle.off_start + handle.readAmount))
@@ -980,6 +980,45 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		if (handle.h == INVALID_HANDLE_VALUE) return ERR_INPUT_HANDLE;
 	}
 
+	if (NULL == partition && type == RAWNAND && crypto)
+	{
+		// Read only 0x400 to get to PRODINFO (0x4400) next time
+		if (handle.readAmount == 0x4000)
+			toRead = 0x400;
+
+		// Iterate partitions
+		GptPartition *cur = firstPartion;
+		while (NULL != cur)
+		{			
+			// Current partition
+			if (handle.readAmount >= cur->lba_start * NX_EMMC_BLOCKSIZE && handle.readAmount <= cur->lba_end * NX_EMMC_BLOCKSIZE) {				
+				
+				// Do we need to use crypto ?
+				do_crypto = ((handle.encrypt && !cur->isEncrypted) || (handle.decrypt && cur->isEncrypted)) ? true : false;
+
+				if (do_crypto && handle.readAmount == cur->lba_start * NX_EMMC_BLOCKSIZE)
+				{
+					if (cur->bad_crypto)
+						return ERROR_DECRYPTION_FAILED;
+
+					if (setCrypto(cur->name) > 0)
+						p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
+					else
+						return ERR_CRYPTO_KEY_MISSING;
+
+					do_crypto = true;
+					handle.block_num = 0;
+				}
+				// Resize buffer if needed
+				if (handle.readAmount + CLUSTER_SIZE > (cur->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE))
+					toRead = (cur->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) - handle.readAmount;
+
+				break;
+			}
+			cur = cur->next;
+		}	
+	}
+
 	*bytesToWrite = bytesToRead;
 
 	if (*writeAmount >= *bytesToWrite)
@@ -988,7 +1027,7 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 	// Read
 	BYTE *buffer = new BYTE[DEFAULT_BUFF_SIZE];
 	DWORD bytesRead = 0, bytesWrite = 0, bytesWritten = 0;
-	if (!ReadFile(handle.h, buffer, DEFAULT_BUFF_SIZE, &bytesRead, NULL))
+	if (!ReadFile(handle.h, buffer, toRead, &bytesRead, NULL))
 	{
 		delete[] buffer;
 		return ERR_WHILE_COPY;
@@ -1001,19 +1040,14 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 	handle.readAmount += bytesRead;
 
 	// Decrypt
-	u64 block_num = handle.readAmount / DEFAULT_BUFF_SIZE - 1;
-	if(isEncrypted && crypto)
+	if(handle.decrypt && do_crypto)
 	{
-		p_crypto->decrypt(buffer, block_num);
-
-		// Validate first block
-		if(block_num == 0 && !ValidateDecryptBuf(buffer, type == PARTITION ? partitionName : partition))		
-			return ERR_DECRYPT_CONTENT;
+		p_crypto->decrypt(buffer, handle.block_num);
 	}
 	// Encrypt
-	else if (!isEncrypted && out->crypto)
-		p_crypto->encrypt(buffer, block_num);
-
+	else if (handle.encrypt && do_crypto)
+		p_crypto->encrypt(buffer, handle.block_num);
+	
 	// Write
 	BYTE *wbuffer = new BYTE[DEFAULT_BUFF_SIZE];
 	if (*readAmount > *bytesToWrite)
@@ -1029,7 +1063,7 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		}
 	} else {
 		// Copy read to write buffer
-		memcpy(wbuffer, &buffer[0], DEFAULT_BUFF_SIZE);
+		memcpy(wbuffer, &buffer[0], bytesRead);
 		bytesWrite = bytesRead;
 	}
 
@@ -1672,7 +1706,7 @@ int NxStorage::fat32_read(const char* partition)
 		return -1;
 
 	auto printEntry = [this](fat32_dir_entry *cur_entry, fs_attr fs, u64 root_addr) -> int {
-		if (!DEBUG_MODE)
+		//if (!DEBUG_MODE)
 			return 1;
 
 		char str_buff[20];

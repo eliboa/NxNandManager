@@ -155,6 +155,9 @@ struct NxHandle {
 	u64 off_end = 0;
 	u64 off_max = 0;
 	u64 readAmount = 0;
+	bool encrypt = false;
+	bool decrypt = false;
+	int block_num;
 };
 
 static MagicOffsets mgkOffArr[] =

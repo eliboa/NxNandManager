@@ -444,7 +444,8 @@ int main(int argc, char *argv[])
 
 	// Let's copy
 	u64 bytesToRead = nxdata.size, readAmount = 0, writeAmount = 0;
-	int rc, percent;
+	int rc;
+	int percent = -1;
 
 	// Restore to valid Nx Storage type
 	if (nxdataOut.type == RAWNAND || nxdataOut.type == BOOT0 || nxdataOut.type == BOOT1)
@@ -514,7 +515,7 @@ int main(int argc, char *argv[])
 		}
 
 		// Copy		
-		percent = 0;
+		percent = -1;
 		while (rc = nxdata.DumpToStorage(&nxdataOut, partition, &readAmount, &writeAmount, &bytesToRead, !BYPASS_MD5SUM ? &hHash : NULL))
 		{
 			if (rc < 0)
