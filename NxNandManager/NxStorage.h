@@ -281,6 +281,7 @@ public:
 	int fat32_read_attr(BYTE *cluster, fs_attr *fat32_attr);
 	std::string get_longfilename(BYTE *buffer, int offset, int length);
 	int prodinfo_read();
+	GptPartition* GetPartitionByName(const char * partition);
 
 private:
 	BOOL ParseGpt(unsigned char* gptHeader);

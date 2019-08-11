@@ -54,7 +54,7 @@ typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds 
 #define ERR_CRYPTO_GENERIC  	   -1021
 #define ERR_CRYPTO_NOT_ENCRYPTED   -1022
 #define ERR_CRYPTO_ENCRYPTED_YET   -1023
-
+#define ERR_CRYPTO_DECRYPTED_YET   -1024
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -79,7 +79,8 @@ static ErrorLabel ErrorLabelArr[] =
     { ERR_CRYPTO_KEY_MISSING, "Crypto error : key missing"},
 	{ ERROR_DECRYPTION_FAILED, "Decryption validation failed (wrong keys ?)"},
 	{ ERR_CRYPTO_NOT_ENCRYPTED, "Input file is not encrypted"},
-	{ ERR_CRYPTO_ENCRYPTED_YET, "Input file is already decrypted"}
+	{ ERR_CRYPTO_ENCRYPTED_YET, "Input file is already encrypted"},
+	{ ERR_CRYPTO_DECRYPTED_YET, "Input file is already decrypted"}
 };
 
 typedef struct KeySet KeySet;

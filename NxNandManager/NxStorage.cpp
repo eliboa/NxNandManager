@@ -436,6 +436,7 @@ void NxStorage::InitStorage()
 	}
 
 	CloseHandle(hStorage);
+	ClearHandles();
 }
 
 void::NxStorage::InitKeySet(KeySet *p_biskeys)
@@ -574,7 +575,7 @@ int NxStorage::ReadBufferAtOffset(BYTE *buffer, u64 offset, int length)
 		if (DEBUG_MODE) printf("ReadBufferAtOffset -> real_off is %s\n", int_to_hex(real_off).c_str());
 	}
 
-	if (DEBUG_MODE) printf("ReadBufferAtOffset -> Create new handle\n");
+	///if (DEBUG_MODE) printf("ReadBufferAtOffset -> Create new handle\n");
 
 	// Default input is self object path
 	if(!isSplitted) 
@@ -589,23 +590,27 @@ int NxStorage::ReadBufferAtOffset(BYTE *buffer, u64 offset, int length)
 	if (handle.h == INVALID_HANDLE_VALUE) 
 		return ERR_INPUT_HANDLE;
 
-	if (DEBUG_MODE) printf("ReadBufferAtOffset -> Set pointer at off %s\n", int_to_hex(real_off).c_str());
+	//if (DEBUG_MODE) printf("ReadBufferAtOffset -> Set pointer at off %s\n", int_to_hex(real_off).c_str());
 	// Set pointer
 	LARGE_INTEGER liDistanceToMove;
 	liDistanceToMove.QuadPart = real_off;
-	if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+	if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+		ClearHandles();
 		return ERR_INPUT_HANDLE;
+	}
 
 	if (DEBUG_MODE) printf("ReadBufferAtOffset -> ReadFile, length %s\n", int_to_hex(length).c_str());
 
 	// Read buffer
 	DWORD bytesRead = 0;
 	if (!ReadFile(handle.h, buffer, length, &bytesRead, NULL)) {
-		if (DEBUG_MODE) printf("ReadBufferAtOffset -> ReadFile fails : %s\n", GetLastErrorAsString().c_str());
+		//if (DEBUG_MODE) printf("ReadBufferAtOffset -> ReadFile fails : %s\n", GetLastErrorAsString().c_str());
+		ClearHandles();
 		return -1;
 	}
 
-	if (DEBUG_MODE) printf("ReadBufferAtOffset ends, %d bytes read\n", bytesRead);
+	//if (DEBUG_MODE) printf("ReadBufferAtOffset ends, %d bytes read\n", bytesRead);
+	ClearHandles();
 	return bytesRead;
 }
 
@@ -630,8 +635,7 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 	{
 		u64 out_off_start = 0;
 		handle.block_num = 0;
-		do_crypto = true;
-		handle.block_num = 0;
+		do_crypto = false;
 
 		*bytesToWrite = size;
 		// Restore to splitted dump not supported yet
@@ -641,12 +645,11 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 		if (crypto)
 			handle.encrypt = true;
 
-		if (handle.encrypt && isEncrypted)
-			return ERR_CRYPTO_ENCRYPTED_YET;
+		if (handle.encrypt && in->isEncrypted)
+			return ERR_CRYPTO_DECRYPTED_YET;
 
 
 		// Set crypto if restoring decrypted partition file to RAWNAND
-		encrypt = false;
 		if(crypto && type == RAWNAND && NULL != partition && in->type == PARTITION && !in->isEncrypted)
 		{
 			// Restoring from decrypted file and keyset missing
@@ -749,10 +752,16 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 			return ERR_IO_MISMATCH;
 
 		// Get handle for output
+		if(DEBUG_MODE) printf("Get handle for output path %ls\n", pathLPWSTR);
 		handle_out = CreateFileW(pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-		if (handle_out == INVALID_HANDLE_VALUE)
+		if (handle_out == INVALID_HANDLE_VALUE) {
+			if (DEBUG_MODE) printf("ERROR %s\n", GetLastErrorAsString().c_str());
+			
 			return ERR_OUTPUT_HANDLE;
-
+		}
+		
+		if (DEBUG_MODE) printf("2 - Get handle for output path %ls\n", pathLPWSTR);
+		
 		// Set pointer if needed
 		if(out_off_start > 0)
 		{
@@ -761,6 +770,8 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 			if (SetFilePointerEx(handle_out, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
 				return ERR_OUTPUT_HANDLE;
 		}
+
+		if (DEBUG_MODE) printf("3 - Get handle for output path %ls\n", pathLPWSTR);
 
 		// Get handle for input
 		handle.h = CreateFileW(&handle.path[0], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
@@ -800,15 +811,14 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 
 				if (do_crypto && handle.readAmount == (u64)cur->lba_start * NX_EMMC_BLOCKSIZE)
 				{
-					if (cur->bad_crypto)
-						return ERROR_DECRYPTION_FAILED;
+					if (DEBUG_MODE) printf("SWITCH TO %s (%s), offset %s, crypto_mode %s %s\n", cur->name, cur->isEncrypted ? "encrypted" : "decrypted",
+						int_to_hex(handle.readAmount).c_str(), handle.encrypt ? "encrypt" : "decrypt", cur->bad_crypto ? "BAD CRYPTO" : "");
 
 					if (setCrypto(cur->name) > 0)
 						p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
 					else
 						return ERR_CRYPTO_KEY_MISSING;
 
-					do_crypto = true;
 					handle.block_num = 0;
 
 				}
@@ -860,10 +870,9 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 
 
 	// Encrypt data
-	if(encrypt)
+	if(do_crypto)
 	{
-		u64 block_num = handle.readAmount / DEFAULT_BUFF_SIZE - 1;
-		p_crypto->encrypt(buffer, block_num);
+		p_crypto->encrypt(buffer, handle.block_num);
 	}
 
 	// Write
@@ -1082,8 +1091,6 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 					else
 						return ERR_CRYPTO_KEY_MISSING;
 
-
-					do_crypto = true;
 					handle.block_num = 0;					
 					
 				}
@@ -2026,8 +2033,10 @@ int NxStorage::prodinfo_read()
 	if (handle.off_start > 0)
 	{
 		liDistanceToMove.QuadPart = handle.off_start;
-		if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+		if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+			ClearHandles();
 			return ERR_INPUT_HANDLE;
+		}
 	}
 
 	BYTE *buffer = new BYTE[CLUSTER_SIZE];
@@ -2036,18 +2045,23 @@ int NxStorage::prodinfo_read()
 	if (DEBUG_MODE) printf("PRODINFO reading at offset %s \n", int_to_hex((int)handle.off_start).c_str());
 
 	// Read first cluster
-	if (!ReadFile(handle.h, buffer, CLUSTER_SIZE, &bytesRead, NULL))
+	if (!ReadFile(handle.h, buffer, CLUSTER_SIZE, &bytesRead, NULL)) {
+		ClearHandles();
 		return ERR_WHILE_COPY;
+	}
 
 	bool do_crypto = false;
 	if (!ValidateDecryptBuf(buffer, "PRODINFO"))
 	{
-		if (!crypto)
+		if (!crypto) {
+			ClearHandles();
 			return ERR_CRYPTO_KEY_MISSING;
-
+		}
 		int rc = setCrypto("PRODINFO");
-		if (rc <= 0)
+		if (rc <= 0) {
+			ClearHandles();
 			return rc;
+		}
 
 		p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
 
@@ -2055,6 +2069,7 @@ int NxStorage::prodinfo_read()
 
 		if (!ValidateDecryptBuf(buffer, "PRODINFO"))
 		{
+			ClearHandles();
 			delete p_crypto;
 			return ERR_DECRYPT_CONTENT;
 		}		
@@ -2068,4 +2083,19 @@ int NxStorage::prodinfo_read()
 
 	ClearHandles();
 	return 1;
+}
+
+GptPartition* NxStorage::GetPartitionByName(const char * partition)
+{
+	if (NULL == firstPartion)
+		return NULL;
+
+	GptPartition *cur = firstPartion;
+	while (NULL != cur)
+	{
+		if (strncmp(cur->name, partition, strlen(partition)) == 0)
+			return cur;
+		cur = cur->next;
+	}
+	return NULL;
 }
