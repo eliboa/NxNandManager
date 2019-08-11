@@ -196,7 +196,7 @@ static NxPartition partInfoArr[] =
 
 typedef struct NxSytemTitles NxSytemTitles;
 struct NxSytemTitles {
-	s8 fw_version[48];
+	const char fw_version[48];
 	const char nca_filename[40];
 };
 
@@ -298,6 +298,7 @@ public:
 	BOOL backupGPTfound;
 	DISK_GEOMETRY pdg;
 	GptPartition *firstPartion;
+	GptPartition *currentPartition;
 	int partCount;
 	BOOL autoRcm;
 	s8 partitionName[37];
