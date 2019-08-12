@@ -177,9 +177,10 @@ void Worker::dumpStorage(int mode)
 
 	}
 
-    if (mode != DUMP)
+    if (mode != DUMP) {
+        nxOutput->ClearHandles();
         nxOutput->InitStorage();
-
+    }
     SetThreadExecutionState(ES_CONTINUOUS);
 	sleep(1000);
 	return;

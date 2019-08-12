@@ -821,6 +821,11 @@ void MainWindow::on_fullrestore_button_clicked()
 		//New output storage
 		selected_io = new NxStorage(fileName.toUtf8().constData());
 
+        if(!selected_io->isEncrypted && input->isEncrypted && bKeyset && parseKeySetFile("keys.dat", &biskeys))
+        {
+            selected_io->InitKeySet(&biskeys);
+            input->InitKeySet(&biskeys);
+        }
 		// Open new thread to copy data
 		workThread = new Worker(this, selected_io, input , RESTORE, bypassMD5);
 		startWorkThread();
