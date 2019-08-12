@@ -229,7 +229,7 @@
     </rect>
    </property>
    <property name="toolTip">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;biskeydump format. &lt;br/&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;i.e &amp;quot;BIS KEY N (crypt): XXX...&amp;quot; &lt;br/&gt; or &amp;quot;BIS KEY N (tweak): XXX...&amp;quot;&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;biskeydump or lockipick format. &lt;br/&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;i.e &amp;quot;BIS KEY N (crypt): XXX...&amp;quot;  for 16-byte crypto/tweak&lt;br/&gt;or &amp;quot;bis_key_0N = XXX...&amp;quot; for 32-byte keys&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
    <property name="text">
     <string>Import keys from file</string>

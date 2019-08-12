@@ -45,6 +45,12 @@
       <height>311</height>
      </rect>
     </property>
+    <property name="editTriggers">
+     <set>QAbstractItemView::NoEditTriggers</set>
+    </property>
+    <property name="dragDropOverwriteMode">
+     <bool>false</bool>
+    </property>
     <property name="selectionMode">
      <enum>QAbstractItemView::SingleSelection</enum>
     </property>
@@ -699,16 +705,66 @@
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="actionOpen_file"/>
+    <addaction name="actionOpen_Drive"/>
+    <addaction name="separator"/>
+    <addaction name="actionSave_as_raw_dump"/>
+    <addaction name="actionDecrypt_Save_as"/>
+    <addaction name="actionEncrypt_and_Save_as"/>
+    <addaction name="actionRetore_from_file"/>
+    <addaction name="separator"/>
+    <addaction name="actionProperties"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
-     <string>Tools</string>
+     <string>Options</string>
     </property>
+    <addaction name="actionConfigure_keyset"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
+  <action name="actionOpen_file">
+   <property name="text">
+    <string>Open file</string>
+   </property>
+  </action>
+  <action name="actionOpen_Drive">
+   <property name="text">
+    <string>Open Drive</string>
+   </property>
+  </action>
+  <action name="actionProperties">
+   <property name="text">
+    <string>Properties</string>
+   </property>
+  </action>
+  <action name="actionConfigure_keyset">
+   <property name="text">
+    <string>Configure keyset</string>
+   </property>
+  </action>
+  <action name="actionSave_as_raw_dump">
+   <property name="text">
+    <string>Save as... (raw dump)</string>
+   </property>
+  </action>
+  <action name="actionDecrypt_Save_as">
+   <property name="text">
+    <string>Decrypt and Save as...</string>
+   </property>
+  </action>
+  <action name="actionEncrypt_and_Save_as">
+   <property name="text">
+    <string>Encrypt and Save as...</string>
+   </property>
+  </action>
+  <action name="actionRetore_from_file">
+   <property name="text">
+    <string>Restore from file...</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources>

@@ -302,7 +302,7 @@ int main(int argc, char *argv[])
 			if (curNxdata->type == RAWNAND) {
 				if (curNxdata->backupGPTfound)
 				{
-					printf("Backup GPT     : FOUND (offset 0x%s)\n", n2hexstr((u64)curNxdata->size - NX_EMMC_BLOCKSIZE, 8).c_str());
+					printf("Backup GPT     : FOUND (offset 0x%s)\n", n2hexstr((u64)curNxdata->size - NX_EMMC_BLOCKSIZE, 10).c_str());
 				} else {
 					printf("Backup GPT     : /!\\ Missing or invalid !!!\n");
 				}			
@@ -447,6 +447,9 @@ int main(int argc, char *argv[])
 	int rc;
 	int percent = -1;
 
+	// Prevent system from entering sleep mode
+	SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
+
 	// Restore to valid Nx Storage type
 	if (nxdataOut.type == RAWNAND || nxdataOut.type == BOOT0 || nxdataOut.type == BOOT1)
 	{
@@ -462,7 +465,8 @@ int main(int argc, char *argv[])
 			if (percent2 > percent)
 			{
 				percent = percent2;
-				printf("Restoring from input %s (type: %s%s%s) to output %s (type: %s%s%s)... (%d%%) \r",
+
+				printf("Restoring from input %s (type: %s%s%s) to output %s (type: %s%s%s)... (%d%%)\r",
 					   nxdata.isDrive ? "drive" : "file",
 					   nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
 					   nxdata.size != bytesToRead && NULL != partition ? partition : "",
@@ -522,11 +526,10 @@ int main(int argc, char *argv[])
 				break;
 
 			int percent2 = writeAmount * 100 / bytesToRead;
-
 			if (percent2 > percent)
 			{
 				percent = percent2;
-				printf("Copying from input %s (type: %s%s%s) to output %s... (%d%%) \r",
+				printf("Copying from input %s (type: %s%s%s) to output %s... (%d%%)\r",
 					   nxdata.isDrive ? "drive" : "file",
 					   nxdata.GetNxStorageTypeAsString(), nxdata.size != bytesToRead && NULL != partition ? ", partition: " : "",
 					   nxdata.size != bytesToRead && NULL != partition ? partition : "",
@@ -582,5 +585,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	SetThreadExecutionState(ES_CONTINUOUS);
 	exit(EXIT_SUCCESS);
 }

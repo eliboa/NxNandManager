@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+#QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -31,6 +31,7 @@ SOURCES += \
     mainwindow.cpp \
     main.cpp \
     NxStorage.cpp \
+    properties.cpp \
     utils.cpp \
     worker.cpp \
     opendrive.cpp \
@@ -41,6 +42,7 @@ HEADERS += \
     keyset.h \
     mainwindow.h \
     NxStorage.h \
+    properties.h \
     utils.h \
     types.h \
     NxNandManager.h \
@@ -51,7 +53,8 @@ HEADERS += \
 FORMS += \
     mainwindow.ui \
     opendrive.ui \
-    keyset.ui
+    keyset.ui \
+    properties.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -67,7 +70,14 @@ QT += winextras
 
 RC_FILE = NxNandManager.rc
 
-win32: LIBS += -L$$PWD/../../openssl-1.1.1c-win64-mingw/lib/ -lcrypto
+#win32: LIBS += -L$$PWD/../../openssl-1.1.1c-win64-mingw/lib/ -lcrypto
+#INCLUDEPATH += $$PWD/../../openssl-1.1.1c-win64-mingw/include
+#DEPENDPATH += $$PWD/../../openssl-1.1.1c-win64-mingw/include
+#win32: LIBS += -L$$PWD/../../openssl-1.1.1c-win32-mingw/lib -lcrypto
+#INCLUDEPATH += -L$$PWD/../../openssl-1.1.1c-win32-mingw/include
+#DEPENDPATH += -L$$PWD/../../openssl-1.1.1c-win32-mingw/include
 
-INCLUDEPATH += $$PWD/../../openssl-1.1.1c-win64-mingw/include
-DEPENDPATH += $$PWD/../../openssl-1.1.1c-win64-mingw/include
+win32: LIBS += -L$$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/lib/ -lcrypto
+
+INCLUDEPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/include
+DEPENDPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/include

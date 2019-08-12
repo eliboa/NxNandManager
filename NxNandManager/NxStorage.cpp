@@ -3,25 +3,13 @@
 NxStorage::NxStorage(const char* storage, KeySet *p_biskeys, bool debug_mode)
 {
 	DEBUG_MODE = debug_mode ? true : false;
+	bool crypto = false;
 	if (DEBUG_MODE) printf("NxStorage::NxStorage - path = %s\n", storage);
 	path = storage;
 	pathLPWSTR = NULL;
-	type = UNKNOWN;
-	size = 0, fileDiskTotalBytes = 0, fileDiskFreeBytes = 0;
-	isDrive = false, backupGPTfound = false, autoRcm = false, crypto = false, isEncrypted = false;
-	pdg = { 0 };
-	partCount = 0;
-	firstPartion = NULL;
-	currentPartition = NULL;
-	lastSplitFile = NULL;
-	partitionName[0] = '\0';
-	handle.h = NULL;
-	handle_out = NULL;
-	exFat_driver = false;
-	fw_detected = false;
-	bad_crypto = false;
-	memset(fw_version, 0, sizeof fw_version);
-	this->InitKeySet(p_biskeys);
+
+    this->InitKeySet(p_biskeys);
+
 	if (NULL != storage)
 	{
 		pathLPWSTR = convertCharArrayToLPWSTR(storage);
@@ -34,6 +22,23 @@ NxStorage::NxStorage(const char* storage, KeySet *p_biskeys, bool debug_mode)
 void NxStorage::InitStorage()
 {
 	if (DEBUG_MODE) printf("NxStorage::InitStorage - Initialize\n");
+
+	type = UNKNOWN;
+	size = 0, fileDiskTotalBytes = 0, fileDiskFreeBytes = 0;
+	isDrive = false, backupGPTfound = false, autoRcm = false, isEncrypted = false;
+	pdg = { 0 };
+	partCount = 0;
+	firstPartion = NULL;
+	curPartition = NULL;
+	lastSplitFile = NULL;
+	partitionName[0] = '\0';
+	handle.h = NULL;
+	handle_out = NULL;
+	exFat_driver = false;
+	fw_detected = false;
+	bad_crypto = false;
+	memset(fw_version, 0, sizeof fw_version);
+
 
 	HANDLE hDevice = INVALID_HANDLE_VALUE;
 	BOOL bResult = FALSE;
@@ -616,8 +621,15 @@ int NxStorage::ReadBufferAtOffset(BYTE *buffer, u64 offset, int length)
 
 void NxStorage::ClearHandles()
 {
-	CloseHandle(handle.h);
-	CloseHandle(handle_out);
+    DWORD lpdwFlags[100];
+    if(GetHandleInformation(handle.h, lpdwFlags))
+    {
+        CloseHandle(handle.h);
+    }
+    if(GetHandleInformation(handle_out, lpdwFlags))
+    {
+        CloseHandle(handle_out);
+    }
 	//handle.path.empty();
 	handle.off_end = 0;
 	handle.off_start = 0;
@@ -646,99 +658,176 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 			handle.encrypt = true;
 
 		if (handle.encrypt && in->isEncrypted)
-			return ERR_CRYPTO_DECRYPTED_YET;
-
-
-		// Set crypto if restoring decrypted partition file to RAWNAND
-		if(crypto && type == RAWNAND && NULL != partition && in->type == PARTITION && !in->isEncrypted)
-		{
-			// Restoring from decrypted file and keyset missing
-			if(!in->crypto && (	strcmp(partition, "PRODINFO") == 0  || 
-				strcmp(partition, "PRODINFOF") == 0 || strcmp(partition, "SAFE") == 0 || 
-				strcmp(partition, "USER") == 0 		|| strcmp(partition, "SYSTEM") == 0))
-				return ERR_RESTORE_CRYPTO_MISSING;
-			
-			else
-			{
-                if(setCrypto(in->partitionName) > 0)
-                    p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
-                else
-                    return ERR_CRYPTO_KEY_MISSING;
-
-				do_crypto = true;
-			}
-		} 
+			return ERR_CRYPTO_ENCRYPTED_YET;
 
 		// Default path is input object path
 		wcscpy(handle.path, in->pathLPWSTR);
-		// If partition specified
-		if (NULL != partition && strlen(partition) > 0)
+
+		// Restoring to RAWNAND
+		if (type == RAWNAND)
 		{
-			// Iterate GPT entry for output
-			GptPartition *part = firstPartion;
-			while (NULL != part)
+			// Restoring to a single partition
+			if (NULL != partition && strlen(partition) > 0)
 			{
-				if (strncmp(part->name, partition, strlen(partition)) == 0)
-				{
-					out_off_start = (u64)part->lba_start * NX_EMMC_BLOCKSIZE;
-					*bytesToWrite = ((u64)part->lba_end - (u64)part->lba_start + 1) * (int)NX_EMMC_BLOCKSIZE;
-					break;
-				}
-				part = part->next;
-			}
-
-			// No partition found
-			if(out_off_start <= 0)
-				return ERR_INVALID_PART;
-
-			bytesToRead = in->size;
-			if(in->type == RAWNAND)
-			{
-				// Iterate GPT entry for input
-				GptPartition *part = in->firstPartion;
-				while (NULL != part)
-				{
-					if (strncmp(part->name, partition, strlen(partition)) == 0)
-					{
-						handle.off_start = (u64)part->lba_start * NX_EMMC_BLOCKSIZE;
-						handle.off_end = (u64)part->lba_end * NX_EMMC_BLOCKSIZE;
-						handle.off_max = handle.off_end;
-						bytesToRead = ((u64)part->lba_end - (u64)part->lba_start + 1) * (int)NX_EMMC_BLOCKSIZE;
-						break;
-					}
-					part = part->next;
-				}
-
-				// No partition found
-				if(handle.off_end <= 0)
+				// Get partition in output
+				GptPartition* out_part = GetPartitionByName(partition);
+				if (NULL == out_part)
 					return ERR_INVALID_PART;
 
-				//Overwrite some values for splitted dump
-				if (in->isSplitted)
+				// Set offset to begin in output rawnand
+				out_off_start = (u64)out_part->lba_start * NX_EMMC_BLOCKSIZE;
+				*bytesToWrite = ((u64)out_part->lba_end - (u64)out_part->lba_start + 1) * (int)NX_EMMC_BLOCKSIZE;
+				bytesToRead = in->size;
+
+				// If input is a rawnand file 
+				if (in->type == RAWNAND) 
 				{
-					NxSplitFile splitFile;
-					if (!in->GetSplitFile(&splitFile, partition))
+					// Get partition in input
+					GptPartition* in_part = in->GetPartitionByName(partition);
+					if (NULL == in_part)
 						return ERR_INVALID_PART;
-					wcscpy(handle.path, splitFile.file_path);
-					handle.off_max = handle.off_start + (splitFile.size - handle.off_start);
+
+					// Set offset to begin in input rawnand
+					handle.off_start = (u64)in_part->lba_start * NX_EMMC_BLOCKSIZE;
+					handle.off_end = (u64)in_part->lba_end * NX_EMMC_BLOCKSIZE;
+					handle.off_max = handle.off_end;
+					bytesToRead = ((u64)in_part->lba_end - (u64)in_part->lba_start + 1) * (int)NX_EMMC_BLOCKSIZE;
+
+					// Overwrite some values for splitted dump
+					if (in->isSplitted)
+					{
+						NxSplitFile splitFile;
+						if (!in->GetSplitFile(&splitFile, partition))
+							return ERR_INVALID_PART;
+						wcscpy(handle.path, splitFile.file_path);
+						handle.off_max = handle.off_start + (splitFile.size - handle.off_start);
+					}
+
+					// Restoring from encrypted partition to decrypted partition
+					if (!out_part->isEncrypted && in_part->isEncrypted)
+					{
+						return ERR_RESTORE_CRYPTO_MISSIN2;
+						/*
+						if (in_part->bad_crypto)
+							return ERROR_DECRYPTION_FAILED;
+
+						handle.decrypt = true;
+						do_crypto = true;
+						*/
+					}
+
+					// Restoring from decrypted partition to encrypted partition
+					if (out_part->isEncrypted && !in_part->isEncrypted)
+					{
+						// If crypto missing, return error
+						if (!crypto)
+							return ERR_RESTORE_CRYPTO_MISSING;
+
+						handle.encrypt = true;
+						do_crypto = true;
+					}
+				}
+				
+				// If input is a PARTITION file
+				else if (in->type == PARTITION)
+				{
+
+					// Set offset to begin in input PARTITION
+					handle.off_start = 0;
+					handle.off_end = in->size;
+					handle.off_max = in->size;
+					bytesToRead = in->size;
+
+					// Restoring from encrypted partition to decrypted partition
+					if (!out_part->isEncrypted && in->isEncrypted)
+					{
+						//if (!in->crypto)
+							return ERR_RESTORE_CRYPTO_MISSIN2;
+						/*
+						if (in->bad_crypto)
+							return ERROR_DECRYPTION_FAILED;
+
+						handle.decrypt = true;
+						do_crypto = true;
+						*/
+					}
+
+					// Restoring from decrypted partition to encrypted partition
+					if (out_part->isEncrypted && !in->isEncrypted)
+					{
+						// If crypto missing, return error
+						if (!crypto)
+							return ERR_RESTORE_CRYPTO_MISSING;
+
+						handle.encrypt = true;
+						do_crypto = true;
+					}
+				}
+				else
+				{
+					return ERR_INVALID_PART;
+				}
+			
+				if (do_crypto)
+				{
+					if (setCrypto(partition) > 0)
+						p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
+					else
+						return ERR_CRYPTO_KEY_MISSING;
 				}
 			}
+			// Restoring to full nand
+			else
+			{
+				// input is encrypted but output is not
+				if (in->isEncrypted && !isEncrypted)
+				{
+					//if(!in->crypto)
+						return ERR_RESTORE_CRYPTO_MISSIN2;
+					/*
+					if (in->bad_crypto)
+						return ERROR_DECRYPTION_FAILED;
+
+					handle.decrypt = true;
+					do_crypto = true;
+					*/
+
+				}
+				// output is encrypted but input is not
+				if (isEncrypted && !in->isEncrypted)
+				{
+					if(!crypto)
+						return ERR_RESTORE_CRYPTO_MISSING;
+
+					handle.encrypt = true;
+					do_crypto = true;
+				}
+
+				// Set offset to begin in input rawnand
+				handle.off_start = 0;
+				handle.off_end = in->size;
+				handle.off_max = in->size;
+
+				// Overwrite some values for splitted dump
+				if (in->isSplitted) {
+					NxSplitFile *file = in->lastSplitFile, *first;
+					while (NULL != file)
+					{
+						first = file;
+						file = file->next;
+					}
+					handle.off_max = first->offset + first->size;
+				}
+				bytesToRead = in->size;
+			}
+			
 		}
-		// No partition specified
+		// Restoring to boot partitions
 		else
 		{
 			handle.off_start = 0;
 			handle.off_end = in->size;
 			handle.off_max = in->size;
-			if (in->isSplitted) {
-				NxSplitFile *file = in->lastSplitFile, *first;
-				while (NULL != file)
-				{
-					first = file;
-					file = file->next;
-				}
-				handle.off_max = first->offset + first->size;
-			}
 			bytesToRead = in->size;
 		}
 
@@ -752,16 +841,13 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 			return ERR_IO_MISMATCH;
 
 		// Get handle for output
-		if(DEBUG_MODE) printf("Get handle for output path %ls\n", pathLPWSTR);
 		handle_out = CreateFileW(pathLPWSTR, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 		if (handle_out == INVALID_HANDLE_VALUE) {
 			if (DEBUG_MODE) printf("ERROR %s\n", GetLastErrorAsString().c_str());
 			
 			return ERR_OUTPUT_HANDLE;
 		}
-		
-		if (DEBUG_MODE) printf("2 - Get handle for output path %ls\n", pathLPWSTR);
-		
+			
 		// Set pointer if needed
 		if(out_off_start > 0)
 		{
@@ -770,8 +856,6 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 			if (SetFilePointerEx(handle_out, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
 				return ERR_OUTPUT_HANDLE;
 		}
-
-		if (DEBUG_MODE) printf("3 - Get handle for output path %ls\n", pathLPWSTR);
 
 		// Get handle for input
 		handle.h = CreateFileW(&handle.path[0], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
@@ -791,8 +875,64 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 		handle.block_num++;
 	}
 
-	if (NULL == partition && in->type == RAWNAND && crypto)
+	if ((NULL == partition || strlen(partition) <= 0) && in->type == RAWNAND && crypto)
 	{
+		// Trick : Read only 0x400 to get to PRODINFO (0x4400) next time
+		if (handle.readAmount == 0x4000)
+			toRead = 0x400;
+
+		// First iteration
+		if (handle.readAmount == 0) {
+			nextPartition = in->firstPartion;
+			curPartition = NULL;
+			do_crypto = false;
+		}
+
+		// When current partition ends
+		if (do_crypto && NULL != curPartition && handle.readAmount >= ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE)) {
+			do_crypto = false;
+		}
+
+		// When next partition beggins
+		if (NULL != nextPartition && handle.readAmount == (u64)nextPartition->lba_start * NX_EMMC_BLOCKSIZE)
+		{
+			if (DEBUG_MODE)
+				printf("SWITCH TO %s, offset %s\n", nextPartition->name, int_to_hex(handle.readAmount).c_str());
+
+			// Set new current/next
+			curPartition = nextPartition;
+			nextPartition = curPartition->next;
+
+			// Do we need to use crypto ?
+			// Encrypt only native encrypted partitions
+			do_crypto = ((handle.encrypt && !curPartition->isEncrypted && (strcmp(curPartition->name, "PRODINFO") == 0 ||
+				strcmp(curPartition->name, "PRODINFOF") == 0 || strcmp(curPartition->name, "SAFE") == 0 ||
+				strcmp(curPartition->name, "USER") == 0 || strcmp(curPartition->name, "SYSTEM") == 0))) ? true : false;
+
+
+			if (do_crypto)
+			{
+
+				if (setCrypto(curPartition->name) > 0)
+					p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
+				else
+					return ERR_CRYPTO_KEY_MISSING;
+
+				if (DEBUG_MODE)
+					printf("DO CRYPTO for %s (%s), offset %s\n", curPartition->name, curPartition->isEncrypted ? "encrypted" : "decrypted", int_to_hex(handle.readAmount).c_str());
+
+				handle.block_num = 0;
+			}
+		}
+
+		// Resize buffer if needed before switching to next partition
+		if (NULL != curPartition && NULL != nextPartition && (u64)handle.readAmount + CLUSTER_SIZE > (u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) {
+			toRead = ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) - handle.readAmount;
+			if (DEBUG_MODE)
+				printf("RESIZE BUFFER, new size %s \n", int_to_hex(toRead).c_str());
+		}
+
+		/*
 		// Read only 0x400 to get to PRODINFO (0x4400) next time
 		if (handle.readAmount == 0x4000)
 			toRead = 0x400;
@@ -831,6 +971,7 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 
 			cur = cur->next;
 		}
+		*/
 	}
 	
 	// Switch to next splitted file
@@ -932,25 +1073,18 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		else if (crypto)
 			handle.decrypt = true;
 
-		if (handle.decrypt && !isEncrypted)
-			return ERR_CRYPTO_NOT_ENCRYPTED;
+        if(NULL == partition || strlen(partition) <= 0)
+        {
+            if (handle.decrypt && !isEncrypted)
+                return ERR_CRYPTO_NOT_ENCRYPTED;
+
+            if (handle.encrypt && isEncrypted)
+                return ERR_CRYPTO_ENCRYPTED_YET;
+        }
 
 		if (handle.decrypt && bad_crypto)
 			return ERROR_DECRYPTION_FAILED;
-
-		if (handle.encrypt && isEncrypted)
-			return ERR_CRYPTO_ENCRYPTED_YET;
-
-		// Init crypto
-		if ((NULL != partition && strlen(partition) > 0 || type == PARTITION) && ((isEncrypted && handle.decrypt) || (!isEncrypted && handle.encrypt)))
-		{			
-            if(setCrypto(type == PARTITION ? partitionName : partition) > 0)
-                p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
-            else
-                return ERR_CRYPTO_KEY_MISSING;
-
-			do_crypto = true;
-		}	
+			
  
 		handle.readAmount = 0;
 		handle.block_num = 0;
@@ -968,6 +1102,18 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 					handle.off_end = (u64)part->lba_end * NX_EMMC_BLOCKSIZE;
 					handle.off_max = handle.off_end;
 					bytesToRead = ((u64)part->lba_end - (u64)part->lba_start + 1) * (int)NX_EMMC_BLOCKSIZE;
+
+					// Init crypto
+					if ((part->isEncrypted && handle.decrypt) || (!part->isEncrypted && handle.encrypt))
+					{
+						if (setCrypto(partition) > 0)
+							p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
+						else
+							return ERR_CRYPTO_KEY_MISSING;
+
+						do_crypto = true;
+						if (DEBUG_MODE) printf("DO CRYPTO FOR %\n", type == PARTITION ? partitionName : partition);
+					}
 					break;
 				}
 				part = part->next;
@@ -989,6 +1135,17 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		// No partition specified
 		else
 		{
+			// Init crypto
+			if (type == PARTITION && ((isEncrypted && handle.decrypt) || (!isEncrypted && handle.encrypt)))
+			{
+				if (setCrypto(partitionName) > 0)
+					p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), DEFAULT_BUFF_SIZE);
+				else
+					return ERR_CRYPTO_KEY_MISSING;
+
+				do_crypto = true;
+				if (DEBUG_MODE) printf("DO CRYPTO FOR %\n", type == PARTITION ? partitionName : partition);
+			}
 
 			handle.off_start = 0;
 			handle.off_end = this->size;
@@ -1050,60 +1207,66 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		if (handle.h == INVALID_HANDLE_VALUE) return ERR_INPUT_HANDLE;
 	}
 
-	if (NULL == partition && type == RAWNAND && crypto)
+    if ((NULL == partition || strlen(partition) == 0) && type == RAWNAND && crypto)
 	{
-		// Read only 0x400 to get to PRODINFO (0x4400) next time
+		// Trick : Read only 0x400 to get to PRODINFO (0x4400) next time
 		if (handle.readAmount == 0x4000)
 			toRead = 0x400;
 
+		// First iteration
+		if (handle.readAmount == 0) {
+			nextPartition = firstPartion;
+			curPartition = NULL;
+			do_crypto = false;
+		}
 
-		// Iterate partitions
-		GptPartition *cur = firstPartion;
-		while (NULL != cur)
-		{			
-			// Current partition
-			if (handle.readAmount >= (u64)cur->lba_start * NX_EMMC_BLOCKSIZE && handle.readAmount <= (u64)cur->lba_end * NX_EMMC_BLOCKSIZE) 
-			{
+		// When current partition ends
+		if (do_crypto && NULL != curPartition && handle.readAmount >= ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE)) {
+			do_crypto = false;
+		}		
 
-				// Do we need to use crypto ?
-				do_crypto = ((handle.encrypt && !cur->isEncrypted) || (handle.decrypt && cur->isEncrypted)) ? true : false;
+		// When next partition beggins
+		if (NULL != nextPartition && handle.readAmount == (u64)nextPartition->lba_start * NX_EMMC_BLOCKSIZE)
+		{
+			if (DEBUG_MODE)
+				printf("SWITCH TO %s, offset %s\n", nextPartition->name, int_to_hex(handle.readAmount).c_str());
+			
+			// Set new current/next
+			curPartition = nextPartition;
+			nextPartition = curPartition->next;
+			
+			// Do we need to use crypto ?
+			// Encrypt only native encrypted partitions
+			do_crypto = ((handle.encrypt && !curPartition->isEncrypted && (strcmp(curPartition->name, "PRODINFO") == 0 ||
+						  strcmp(curPartition->name, "PRODINFOF") == 0 || strcmp(curPartition->name, "SAFE") == 0 ||
+						  strcmp(curPartition->name, "USER") == 0 || strcmp(curPartition->name, "SYSTEM") == 0))
+						  || (handle.decrypt && curPartition->isEncrypted)) ? true : false;
 
-				// Do not encrypt non native encrypted partitions nor encrypted partitios
-				if (do_crypto && handle.encrypt && (cur->isEncrypted || (strcmp(cur->name, "PRODINFO") != 0 &&
-					strcmp(cur->name, "PRODINFOF") != 0 && strcmp(cur->name, "SAFE") != 0 &&
-					strcmp(cur->name, "USER") != 0 && strcmp(cur->name, "SYSTEM") != 0)))
-				{
-					do_crypto = false;
-					break;
-				}
+			if (do_crypto)
+			{				
+				if (handle.decrypt && curPartition->bad_crypto)
+					return ERROR_DECRYPTION_FAILED;
 
-				if (do_crypto && handle.readAmount == (u64)cur->lba_start * NX_EMMC_BLOCKSIZE)
-				{							
-					if(DEBUG_MODE) printf("SWITCH TO %s (%s), offset %s, crypto_mode %s %s\n", cur->name, cur->isEncrypted ? "encrypted" : "decrypted",
-						int_to_hex(handle.readAmount).c_str(), handle.encrypt ? "encrypt" : "decrypt", cur->bad_crypto ? "BAD CRYPTO" : "");
+				if (setCrypto(curPartition->name) > 0)
+					p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
+				else
+					return ERR_CRYPTO_KEY_MISSING;
 
-					if (handle.decrypt && cur->bad_crypto)
-						return ERROR_DECRYPTION_FAILED;
+				if (DEBUG_MODE) 
+					printf("DO CRYPTO for %s (%s), offset %s\n", curPartition->name, curPartition->isEncrypted ? "encrypted" : "decrypted", int_to_hex(handle.readAmount).c_str());
 
-
-					if (setCrypto(cur->name) > 0)
-						p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
-					else
-						return ERR_CRYPTO_KEY_MISSING;
-
-					handle.block_num = 0;					
-					
-				}
-				// Resize buffer if needed
-				if (do_crypto && (u64)handle.readAmount + CLUSTER_SIZE > (u64)cur->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE)
-					toRead = ((u64)cur->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) - handle.readAmount;
-
-				break;
+				handle.block_num = 0;
 			}
-			cur = cur->next;
-		}	
-	}
+		}
 
+		// Resize buffer if needed before switching to next partition
+		if (NULL != curPartition && NULL != nextPartition && (u64)handle.readAmount + CLUSTER_SIZE > (u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) {
+			toRead = ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) - handle.readAmount;
+			if (DEBUG_MODE)
+				printf("RESIZE BUFFER, new size %s \n", int_to_hex(toRead).c_str());
+		}
+	}
+	
 	*bytesToWrite = bytesToRead;
 
 	if (*writeAmount >= *bytesToWrite)
@@ -1558,9 +1721,10 @@ bool NxStorage::ValidateDecryptBuf(unsigned char *buf, const char* partition)
 
 int NxStorage::fat32_read(const char* partition)
 {
+	ClearHandles();
+
 	if (DEBUG_MODE) printf("FAT32 read partition %s\n", partition ? partition : partitionName);
 
-	ClearHandles();
 	do_crypto = false;
 
 	// If partition specified
@@ -1888,7 +2052,7 @@ int NxStorage::fat32_read(const char* partition)
 		}
 	}
 
-	   	// Check form firmware version in journal
+	// Check form firmware version in journal
 	if (journal_report_off > 0 && (search_fmw || strlen(serial_number) <= 3 ) && readCluster(buffer, journal_report_off) > 0)
 	{
 		if (DEBUG_MODE) printf("Searching patterns in JOURNAL at offset %s\n", int_to_hex(journal_report_off).c_str());
@@ -2059,7 +2223,6 @@ int NxStorage::prodinfo_read()
 		}
 		int rc = setCrypto("PRODINFO");
 		if (rc <= 0) {
-			ClearHandles();
 			return rc;
 		}
 
@@ -2069,8 +2232,8 @@ int NxStorage::prodinfo_read()
 
 		if (!ValidateDecryptBuf(buffer, "PRODINFO"))
 		{
-			ClearHandles();
 			delete p_crypto;
+			ClearHandles();
 			return ERR_DECRYPT_CONTENT;
 		}		
 		do_crypto = true;

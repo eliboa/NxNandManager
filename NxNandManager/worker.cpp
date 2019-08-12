@@ -79,7 +79,11 @@ void Worker::dumpStorage(int mode)
 
 
 	int percent = 0;
-	// Dump
+
+    // Prevent system from entering sleep mode
+    SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
+
+    // Dump
 	if (mode == DUMP)
 	{
 		while (rc = nxInput->DumpToStorage(nxOutput, partition.toUtf8().constData(), &readAmount, &writeAmount, &bytesToRead, !bypassMD5 ? &hHash : NULL))
@@ -90,6 +94,7 @@ void Worker::dumpStorage(int mode)
 			if (bCanceled)
 			{
 				nxInput->ClearHandles();
+                SetThreadExecutionState(ES_CONTINUOUS);
 				return;
 			}
 
@@ -100,9 +105,11 @@ void Worker::dumpStorage(int mode)
 				emit sendProgress(percent, &writeAmount);
 			}
 		}
+
 	}
 	// restore
 	else {
+
 		while (rc = nxOutput->RestoreFromStorage(nxInput, partition.toUtf8().constData(), &readAmount, &writeAmount, &bytesToRead))
 		{
 			if (rc < 0)
@@ -111,6 +118,7 @@ void Worker::dumpStorage(int mode)
 			if (bCanceled)
 			{
 				nxInput->ClearHandles();
+                SetThreadExecutionState(ES_CONTINUOUS);
 				return;
 			}
 
@@ -124,11 +132,13 @@ void Worker::dumpStorage(int mode)
 	}
 
 	if (rc != NO_MORE_BYTES_TO_COPY) {
+        SetThreadExecutionState(ES_CONTINUOUS);
 		emit error(rc);
 		return;
 	}
 	else if (writeAmount != bytesToRead)
 	{
+        SetThreadExecutionState(ES_CONTINUOUS);
 		char buff[256];
 		sprintf_s(buff, 256, "ERROR : %I64d bytes to read but %I64d bytes written", bytesToRead, writeAmount);
 		emit error(0, QString(buff));
@@ -161,11 +171,16 @@ void Worker::dumpStorage(int mode)
 		md5hashOut = BuildChecksum(hHash_out);
 		if (md5hash != md5hashOut)
 		{
+            SetThreadExecutionState(ES_CONTINUOUS);
 			emit error(ERR_MD5_COMPARE);
 		}
 
 	}
 
+    if (mode != DUMP)
+        nxOutput->InitStorage();
+
+    SetThreadExecutionState(ES_CONTINUOUS);
 	sleep(1000);
 	return;
 }

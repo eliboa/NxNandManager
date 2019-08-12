@@ -164,10 +164,12 @@ void throwException(int rc, const char* errorStr)
 			}
 		}
 	}
+	SetThreadExecutionState(ES_CONTINUOUS);
 	exit(rc);
 }
 void throwException(const char* errorStr)
 {
+	SetThreadExecutionState(ES_CONTINUOUS);
 	if(NULL != errorStr) printf("%s\n", errorStr);
 	exit(EXIT_FAILURE);
 }
@@ -390,13 +392,23 @@ std::string trim(const std::string& s)
 
 int parseKeySetFile(const char *keyset_file, KeySet* biskeys)
 {
+
     int num_keys = 0;
 	ifstream readFile(keyset_file);
 	string readout;
 	std::string delimiter = ":";
 	std::string value = "";
 	if (readFile.is_open())
-	{						
+	{			
+		memset(biskeys->crypt0, 0, 33);
+		memset(biskeys->tweak0, 0, 33);
+		memset(biskeys->crypt1, 0, 33);
+		memset(biskeys->tweak1, 0, 33);
+		memset(biskeys->crypt2, 0, 33);
+		memset(biskeys->tweak2, 0, 33);
+		memset(biskeys->crypt3, 0, 33);
+		memset(biskeys->tweak3, 0, 33);
+
 		while (getline(readFile, readout)) {
 			value.clear();
 			if (readout.find("BIS KEY 0 (crypt)") != std::string::npos) {						

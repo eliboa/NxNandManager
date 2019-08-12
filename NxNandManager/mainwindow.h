@@ -11,6 +11,7 @@
 #include "worker.h"
 #include "opendrive.h"
 #include "keyset.h"
+#include "properties.h"
 
 #define DUMP	102
 #define RESTORE 103
@@ -39,6 +40,7 @@ private:
 	Ui::MainWindow *ui;
     OpenDrive* openDriveDialog;
     KeySetDialog* keysetDialog;
+    Properties* PropertiesDialog;
 	NxStorage* input;
 	NxStorage* selected_io;
 	bool m_ready;
@@ -68,9 +70,11 @@ protected:
 private slots:
 	void open();
 	void openDrive();
+    void Properties();
     void openKeySet();
     void dumpPartition(int crypto_mode=NULL);
     void dumpDecPartition();
+    void dumpEncPartition();
 	void restorePartition();
 	void toggleAutoRCM();
     void on_rawdump_button_clicked(int crypto_mode=NULL);

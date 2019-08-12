@@ -55,6 +55,7 @@ typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds 
 #define ERR_CRYPTO_NOT_ENCRYPTED   -1022
 #define ERR_CRYPTO_ENCRYPTED_YET   -1023
 #define ERR_CRYPTO_DECRYPTED_YET   -1024
+#define ERR_RESTORE_CRYPTO_MISSIN2 -1024
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -75,7 +76,8 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_IO_MISMATCH, "Input type/size doesn't match output size/type"},
 	{ ERR_INVALID_INPUT, "Input is not a valid NX storage"},
 	{ ERR_DECRYPT_CONTENT, "Failed to validate decrypted content (wrong keys ?)" },
-    { ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted content to encrypted partition and keyset missing to encrypt data"},
+    { ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted input to encrypted output and keyset missing to encrypt data"},
+	{ ERR_RESTORE_CRYPTO_MISSIN2, "Trying to restore encrypted input to decrypted output (decrypt content to restore first)"},
     { ERR_CRYPTO_KEY_MISSING, "Crypto error : key missing"},
 	{ ERROR_DECRYPTION_FAILED, "Decryption validation failed (wrong keys ?)"},
 	{ ERR_CRYPTO_NOT_ENCRYPTED, "Input file is not encrypted"},

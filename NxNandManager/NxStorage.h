@@ -12,6 +12,7 @@
 #include "xts_crypto.h"
 #include "Shlwapi.h"
 #include <string>
+#include <handleapi.h>
 
 
 using namespace std;
@@ -299,7 +300,8 @@ public:
 	BOOL backupGPTfound;
 	DISK_GEOMETRY pdg;
 	GptPartition *firstPartion;
-	GptPartition *currentPartition;
+	GptPartition *curPartition;
+	GptPartition *nextPartition;
 	int partCount;
 	BOOL autoRcm;
 	s8 partitionName[37];

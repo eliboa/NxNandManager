@@ -3,13 +3,29 @@
 
 #include <QMainWindow>
 #include <QObject>
-#include <QWidget>
+#include <QDialog>
+#include <QtWidgets>
+#include "utils.h"
+#include "NxStorage.h"
 
-class Properties : public QObject
+QT_BEGIN_NAMESPACE
+class QAction;
+class QMenu;
+
+namespace Ui {
+    class DialogProperties;
+}
+
+class Properties : public QDialog
 {
     Q_OBJECT
 public:
-    explicit Properties(QObject *parent = nullptr);
+    explicit Properties(NxStorage *input);
+    ~Properties();
+    Ui::DialogProperties *ui;
+
+private:
+    NxStorage *input;
 
 signals:
 
