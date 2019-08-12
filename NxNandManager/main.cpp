@@ -272,7 +272,7 @@ int main(int argc, char *argv[])
 			printf("Encrypted      : %s%s\n", curNxdata->isEncrypted ? "Yes" : "No", 
 				curNxdata->type != RAWNAND && curNxdata->isEncrypted && curNxdata->bad_crypto ? "  !!! DECRYPTION FAILED !!!" : "");
 			if (curNxdata->type == BOOT0) printf("AutoRCM        : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
-			printf("Size	       : %s\n", GetReadableSize(curNxdata->size).c_str());
+			printf("Size           : %s\n", GetReadableSize(curNxdata->size).c_str());
 			if(curNxdata->type == BOOT0)
 				printf("Bootloader ver.: %d\n", static_cast<int>(curNxdata->bootloader_ver));
 			if(curNxdata->fw_detected)
