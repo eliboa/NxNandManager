@@ -271,9 +271,27 @@ int main(int argc, char *argv[])
 		if ((nxdata.type == PARTITION && NULL != nxdata.partitionName && strcmp(nxdata.partitionName, "PRODINFO") == 0)
 			|| nxdata.type == RAWNAND)
 		{
-			if (AskYesNoQuestion("Incognito will wipe out console unique id's and cert's from CAL0.\n"
-				"Make sure you have a backup of PRODINFO partition in case you want to restore CAL0 in the future.\n"
-				"Do you want to make a backup of PRODINFO now ?"))
+			if (!FORCE)
+			{
+				if (AskYesNoQuestion("Incognito will wipe out console unique id's and cert's from CAL0.\n"
+					"Make sure you have a backup of PRODINFO partition in case you want to restore CAL0 in the future.\n"
+					"Do you want to make a backup of PRODINFO now ?"))
+				{
+					NxStorage nxBackup("PRODINFO.backup", NULL);
+					while (rc = nxdata.DumpToStorage(&nxBackup, nxdata.type == RAWNAND ? "PRODINFO" : NULL, &readAmount, &writeAmount, &bytesToRead, NULL))
+					{
+						if (rc < 0)
+							break;
+					}
+					if (rc != NO_MORE_BYTES_TO_COPY)
+					{
+						throwException(rc);
+					}
+					printf("\"PRODINFO.backup\" file created in application directory\n");
+
+				}
+			}
+			else
 			{
 				NxStorage nxBackup("PRODINFO.backup", NULL);
 				while (rc = nxdata.DumpToStorage(&nxBackup, nxdata.type == RAWNAND ? "PRODINFO" : NULL, &readAmount, &writeAmount, &bytesToRead, NULL))
