@@ -13,6 +13,7 @@
 #include "Shlwapi.h"
 #include <string>
 #include <handleapi.h>
+#include <openssl/sha.h>
 
 
 using namespace std;
@@ -267,6 +268,7 @@ public:
 	BOOL GetSplitFile(NxSplitFile* pFile, const char* partition);
 	BOOL GetSplitFile(NxSplitFile* pFile, u64 offset);
 	int ReadBufferAtOffset(BYTE *buffer, u64 offset, int length = CLUSTER_SIZE);
+	int WriteBufferAtOffset(BYTE *buffer, u64 offset, int length = CLUSTER_SIZE);
 	int DumpToStorage(NxStorage *out, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite, HCRYPTHASH* hHash = NULL);
 	int RestoreFromStorage(NxStorage *in, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite);
 	const char* GetNxStorageTypeAsString();
@@ -283,6 +285,7 @@ public:
 	std::string get_longfilename(BYTE *buffer, int offset, int length);
 	int prodinfo_read();
 	GptPartition* GetPartitionByName(const char * partition);
+	int Incognito();
 
 private:
 	BOOL ParseGpt(unsigned char* gptHeader);

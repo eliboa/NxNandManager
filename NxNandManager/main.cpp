@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 	std::setlocale(LC_ALL, "en_US.utf8");
     printf("[ NxNandManager v2.0 ]\n\n");
 	const char *input = NULL, *output = NULL, *partition = NULL, *keyset = NULL;
-	BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE;
+	BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE;
 	int io_num = 1;
 
 	// Arguments, controls & usage
@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
 	const char KEYSET_ARGUMENT[] = "-keyset";
 	const char DECRYPT_ARGUMENT[] = "-d";
 	const char ENCRYPT_ARGUMENT[] = "-e";
+	const char INCOGNITO_ARGUMENT[] = "--incognito";
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -152,7 +153,11 @@ int main(int argc, char *argv[])
 		} else if (strncmp(currArg, ENCRYPT_ARGUMENT, array_countof(ENCRYPT_ARGUMENT) - 1) == 0)
 		{
 			encrypt = TRUE;
-		} else {
+		} else if (strncmp(currArg, INCOGNITO_ARGUMENT, array_countof(INCOGNITO_ARGUMENT) - 1) == 0)
+		{
+			incognito = TRUE;
+		}
+		else {
 			printf("Argument (%s) is not allowed.\n\n", currArg);
 			PrintUsage();
 		}
@@ -170,7 +175,7 @@ int main(int argc, char *argv[])
 		exit(EXIT_SUCCESS);
 	}
 
-	if (NULL == input || (NULL == output && !info && !setAutoRCM ))
+	if (NULL == input || (NULL == output && !info && !setAutoRCM && !incognito ))
 	{
 		PrintUsage();
 	}
@@ -221,6 +226,9 @@ int main(int argc, char *argv[])
 	NxStorage nxdataOut(output, (do_crypto && encrypt) ? &biskeys : NULL, DEBUG_MODE);
 	printf("                      \r");
 
+	u64 bytesToRead = nxdata.size, readAmount = 0, writeAmount = 0;
+	int rc;
+
 	if (nxdata.type == INVALID)
 	{
 		if (nxdata.isDrive)
@@ -253,6 +261,40 @@ int main(int argc, char *argv[])
 			info = TRUE;
 			nxdata.InitStorage();
 		}
+	}
+
+	if (incognito)
+	{
+		if ((nxdata.type == PARTITION && NULL != nxdata.partitionName && strcmp(nxdata.partitionName, "PRODINFO") == 0)
+			|| nxdata.type == RAWNAND)
+		{
+			if (AskYesNoQuestion("Incognito will wipe console unique id's and cert's from CAL0.\n"
+				"Make sure you have a backup of PRODINFO partition in case you want to restore CAL0 in the future.\n"
+				"Do you want to make a backup of PRODINFO now ?"))
+			{
+				NxStorage nxBackup("PRODINFO.backup", NULL);
+				while (rc = nxdata.DumpToStorage(&nxBackup, nxdata.type == RAWNAND ? "PRODINFO" : NULL, &readAmount, &writeAmount, &bytesToRead, NULL))
+				{
+					if (rc < 0)
+						break;
+				}
+				if (rc != NO_MORE_BYTES_TO_COPY)
+				{
+					throwException(rc);
+				}
+				printf("\"PRODINFO.backup\" file was created in application directory\n");
+
+			}
+			int rc = nxdata.Incognito();
+			if (rc < 0)
+				throwException(rc);
+			else
+				printf("Incognito successfully applied\n");
+
+			exit(EXIT_SUCCESS);
+		}
+		else
+			throwException("Incognito can only be applied to input types \"RAWNAND\" or \"PARTITION PRODINFO\"\n");
 	}
 
 	// --info option specified
@@ -442,9 +484,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	// Let's copy
-	u64 bytesToRead = nxdata.size, readAmount = 0, writeAmount = 0;
-	int rc;
+	// Let's copy	
 	int percent = -1;
 
 	// Prevent system from entering sleep mode

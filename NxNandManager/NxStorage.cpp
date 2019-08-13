@@ -619,6 +619,61 @@ int NxStorage::ReadBufferAtOffset(BYTE *buffer, u64 offset, int length)
 	return bytesRead;
 }
 
+int NxStorage::WriteBufferAtOffset(BYTE *buffer, u64 offset, int length)
+{
+	//if (DEBUG_MODE) printf("ReadBufferAtOffset off %s\n", int_to_hex(offset).c_str());
+	// Get real offset (in case of splitted files)
+	u64 real_off = offset;
+	NxSplitFile file;
+	if (isSplitted)
+	{
+		if (!GetSplitFile(&file, offset))
+			return -2;
+
+		real_off = offset - file.offset;
+		if (DEBUG_MODE) printf("ReadBufferAtOffset -> real_off is %s\n", int_to_hex(real_off).c_str());
+	}
+
+	///if (DEBUG_MODE) printf("ReadBufferAtOffset -> Create new handle\n");
+
+	// Default input is self object path
+	if (!isSplitted)
+		wcscpy(handle.path, pathLPWSTR);
+
+	// Overwrite path for splitted file
+	else if (wcscmp(handle.path, file.file_path) != 0)
+		wcscpy(handle.path, file.file_path);
+
+	// Get new handle
+	handle.h = CreateFileW(&handle.path[0], GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	if (handle.h == INVALID_HANDLE_VALUE)
+		return ERR_OUTPUT_HANDLE;
+
+	//if (DEBUG_MODE) printf("ReadBufferAtOffset -> Set pointer at off %s\n", int_to_hex(real_off).c_str());
+	// Set pointer
+	LARGE_INTEGER liDistanceToMove;
+	liDistanceToMove.QuadPart = real_off;
+	if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+		ClearHandles();
+		return ERR_OUTPUT_HANDLE;
+	}
+
+	if (DEBUG_MODE) printf("WriteBufferAtOffset -> WriteFile, length %s\n", int_to_hex(length).c_str());
+
+	// Read buffer
+	DWORD bytesRead = 0;
+	if (!WriteFile(handle.h, buffer, length, &bytesRead, NULL))
+	{
+		//if (DEBUG_MODE) printf("ReadBufferAtOffset -> ReadFile fails : %s\n", GetLastErrorAsString().c_str());
+		ClearHandles();
+		return -1;
+	}
+
+	//if (DEBUG_MODE) printf("ReadBufferAtOffset ends, %d bytes read\n", bytesRead);
+	ClearHandles();
+	return bytesRead;
+}
+
 void NxStorage::ClearHandles()
 {
     DWORD lpdwFlags[100];
@@ -635,6 +690,8 @@ void NxStorage::ClearHandles()
 	handle.off_start = 0;
 	handle.readAmount = 0;
 	handle.off_max = 0;
+	handle.decrypt = false;
+	handle.encrypt = false;
 	bytesToRead = 0;
 }
 
@@ -2261,4 +2318,143 @@ GptPartition* NxStorage::GetPartitionByName(const char * partition)
 		cur = cur->next;
 	}
 	return NULL;
+}
+
+int NxStorage::Incognito()
+{
+	u64 off_start;
+	GptPartition* cal0 = NULL;
+	int block_num = 0;
+	do_crypto = false;
+
+	if (type == PARTITION && NULL != partitionName && strcmp(partitionName, "PRODINFO") == 0)
+	{
+		off_start = 0;
+	}
+	else if (type == RAWNAND)
+	{
+		cal0 = GetPartitionByName("PRODINFO");
+		if (NULL == cal0)
+			return -1;
+
+		off_start = (u64)cal0->lba_start * NX_EMMC_BLOCKSIZE;
+	}
+	else
+	{
+		return -1;
+	}
+
+	ClearHandles();
+	BYTE buf1[CLUSTER_SIZE];
+
+	// Read first cluster
+	if (ReadBufferAtOffset(buf1, off_start) <= 0)
+		return -1;
+
+	if (!ValidateDecryptBuf(buf1, "PRODINFO"))
+	{
+		if (!crypto)
+			return ERR_CRYPTO_KEY_MISSING;
+
+		if ((NULL == cal0 && bad_crypto) || (NULL != cal0 && cal0->bad_crypto))
+			return ERROR_DECRYPTION_FAILED;
+
+		if (setCrypto("PRODINFO") > 0)
+			p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
+		else
+			return ERR_CRYPTO_KEY_MISSING;
+
+		p_crypto->decrypt(buf1, block_num);
+
+		if (!ValidateDecryptBuf(buf1, "PRODINFO"))
+			return ERROR_DECRYPTION_FAILED;
+
+		do_crypto = true;
+
+	}
+
+	// Read cal0 data size
+	uint32_t calib_data_size;
+	memcpy(&calib_data_size, &buf1[0x08], 0x04);
+		
+	// Set new buffer for cal0 data
+	BYTE *buffer = new BYTE[calib_data_size + 0x40];
+
+	// Copy first cluster
+	int buf_size = CLUSTER_SIZE;
+	memcpy(&buffer[0], buf1, buf_size);		
+
+	// Copy next cluster until calib data size is reached
+	while (buf_size < (calib_data_size + 0x40))
+	{
+		if (ReadBufferAtOffset(buf1, off_start + buf_size) <= 0)
+			return -1;
+
+		block_num++;
+		if(do_crypto)
+			p_crypto->decrypt(buf1, block_num);
+
+		memcpy(&buffer[buf_size], buf1, CLUSTER_SIZE);
+		buf_size += CLUSTER_SIZE;
+	}
+
+	uint32_t cert_size;
+	memcpy(&cert_size, &buffer[0x0AD0], 0x04);
+		
+
+	if (DEBUG_MODE) printf("CAL0, wiping out S/N, client cert, private key, device id, device cert & device key (incognito)\n");
+
+	memset(&buffer[0x0AE0], 0, 0x800);  // client cert
+	memset(&buffer[0x3AE0], 0, 0x130);  // private key
+	memset(&buffer[0x35E1], 0, 0x006);  // deviceId
+	memset(&buffer[0x36E1], 0, 0x006);  // deviceId
+	memset(&buffer[0x02B0], 0, 0x180);  // device cert
+	memset(&buffer[0x3D70], 0, 0x240);  // device cert
+	memset(&buffer[0x3FC0], 0, 0x240);  // device key
+
+	const char junkSerial[] = "XAW00000000000";
+	memcpy(&buffer[0x0250], junkSerial, strlen(junkSerial));
+
+	// Generate new SHA256 hash for wiped cert		
+	unsigned char *cert = new unsigned char[cert_size];
+	memcpy(cert, &buffer[0x0AE0], cert_size);
+	unsigned char hash[0x20];
+	SHA256_CTX sha256;
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, cert, cert_size);
+	SHA256_Final(hash, &sha256);
+	// Write new hash
+	memcpy(&buffer[0x12E0], &hash[0], 0x20);
+	if (DEBUG_MODE) printf("cert new hash is %s\n", hexStr(hash, 0x20).c_str());
+
+	// Generate new SHA256 hash for calibration data
+	unsigned char *calib_data = new unsigned char[calib_data_size];
+	memcpy(calib_data, &buffer[0x040], calib_data_size);
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, calib_data, calib_data_size);
+	SHA256_Final(hash, &sha256);
+	memcpy(&buffer[0x20], &hash[0], 0x20);
+	if(DEBUG_MODE) printf("cal0 new hash is %s\n", hexStr(hash, 0x20).c_str());
+
+
+	// Write cal0
+	int num_buff = (calib_data_size + 0x40) / CLUSTER_SIZE;
+	block_num = 0;
+	for (int i = 0; i < num_buff; i++)
+	{	
+		memcpy(buf1, &buffer[i * CLUSTER_SIZE], CLUSTER_SIZE);
+
+		if (do_crypto)
+			p_crypto->encrypt(buf1, block_num);
+
+		if (WriteBufferAtOffset(buf1, off_start + (i * CLUSTER_SIZE)) <= 0)
+			return -1;
+
+		block_num++;
+	}
+
+	if (DEBUG_MODE) printf("Write cal0 (%d clusters)\n", num_buff);
+
+	return 1;
+
 }
