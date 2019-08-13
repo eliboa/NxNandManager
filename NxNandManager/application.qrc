@@ -13,5 +13,6 @@
         <file>images/keyset.png</file>
         <file>images/decrypt.png</file>
         <file>images/restore.png</file>
+        <file>images/incognito.png</file>
     </qresource>
 </RCC>
