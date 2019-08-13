@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-std=c++11 -Wall -fexceptions -DUNICODE -D_UNICODE -DWIN32_LEAN_AND_MEAN
+CFLAGS=-std=c++11 -fexceptions -DUNICODE -D_UNICODE -DWIN32_LEAN_AND_MEAN
 EXEC_NAME=NxNandManager.exe
 INCLUDES=
 LIBS=-static -lcrypto -lwsock32 -lws2_32

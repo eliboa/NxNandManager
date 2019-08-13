@@ -70,14 +70,10 @@ QT += winextras
 
 RC_FILE = NxNandManager.rc
 
-#win32: LIBS += -L$$PWD/../../openssl-1.1.1c-win64-mingw/lib/ -lcrypto
-#INCLUDEPATH += $$PWD/../../openssl-1.1.1c-win64-mingw/include
-#DEPENDPATH += $$PWD/../../openssl-1.1.1c-win64-mingw/include
-#win32: LIBS += -L$$PWD/../../openssl-1.1.1c-win32-mingw/lib -lcrypto
-#INCLUDEPATH += -L$$PWD/../../openssl-1.1.1c-win32-mingw/include
-#DEPENDPATH += -L$$PWD/../../openssl-1.1.1c-win32-mingw/include
+#LIBS += -L$$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/lib/ -lcrypto
+#INCLUDEPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/include
+#DEPENDPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/include
 
-win32: LIBS += -L$$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/lib/ -lcrypto
-
+LIBS += -L$$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/lib/ -lcrypto
 INCLUDEPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/include
 DEPENDPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/include

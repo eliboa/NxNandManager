@@ -156,7 +156,7 @@ void MainWindow::incognito()
 
     QMessageBox msgBox;
     msgBox.setIcon(QMessageBox::Icon::Warning);
-    msgBox.setText("Incognito will wipe out console unique id's and cert's from CAL0");
+    msgBox.setText("Incognito will wipe out console unique id's and certificates from CAL0");
     msgBox.setInformativeText("WARNING : Make sure you have a backup of PRODINFO partition in case you want to restore CAL0 in the future.\n"
                               "\nDo you already have a backup and do you want to apply incognito now ?");
     msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
@@ -200,9 +200,14 @@ void MainWindow::on_rawdump_button_clicked(int crypto_mode)
     else {
         ext.append(".bin");
     }
-    QString fileName = fd.getSaveFileName(this, "Save as", save_filename + ext);
+
+    QSettings MySettings;
+    QString fileName = fd.getSaveFileName(this, "Save as", "default_dir\\" + save_filename + ext);
 	if (!fileName.isEmpty())
 	{
+        QDir CurrentDir;
+        MySettings.setValue("default_dir", CurrentDir.absoluteFilePath(fileName));
+
         bool do_crypto = false;
         if(crypto_mode && bKeyset && parseKeySetFile("keys.dat", &biskeys))
         {
@@ -256,15 +261,15 @@ void MainWindow::dumpPartition(int crypto_mode)
                 ext.append(".dec");
         }
 
-		// Create new file dialog
+		// Create new file dialog        
 		QFileDialog fd(this);
 		fd.setAcceptMode(QFileDialog::AcceptSave); // Ask overwrite
-
-
-
-        QString fileName = fd.getSaveFileName(this, "Save as", cur_partition + ext); // Default filename is partition name
+        QSettings MySettings;
+        QString fileName = fd.getSaveFileName(this, "Save as", "default_dir\\" + cur_partition + ext); // Default filename is partition name
 		if (!fileName.isEmpty())
 		{
+            QDir CurrentDir;
+            MySettings.setValue("default_dir", CurrentDir.absoluteFilePath(fileName));
 
             bool do_crypto = false;
             if(crypto_mode && bKeyset && parseKeySetFile("keys.dat", &biskeys))
@@ -430,6 +435,8 @@ void MainWindow::inputSet(NxStorage *storage)
     ui->menuFile->actions().at(5)->setDisabled(true);
     ui->menuFile->actions().at(4)->setDisabled(true);
     ui->menuFile->actions().at(3)->setDisabled(true);
+    ui->menuTools->actions().at(1)->setDisabled(true);
+    ui->menuTools->actions().at(2)->setDisabled(true);
 
     //createActions();
 	initButtons();
@@ -514,16 +521,13 @@ void MainWindow::inputSet(NxStorage *storage)
 		ui->partition_table->setItem(0, 1, new QTableWidgetItem(GetReadableSize(input->size).c_str()));
         ui->partition_table->setItem(0, 2, new QTableWidgetItem(input->isEncrypted ? "Yes" : "No"));
 
-        /*
+
 		if(input->type == BOOT0)
 		{
-            ui->partition_table->setItem(0, 2, new QTableWidgetItem("No"));
-			QAction *autoRcmAction = new QAction(input->autoRcm ? tr("&Disable autoRCM") : tr("&Enable autoRCM"), this);
-			autoRcmAction->setStatusTip(tr("Toggle autoRCM"));
-			connect(autoRcmAction, &QAction::triggered, this, &MainWindow::toggleAutoRCM);
-            ui->menuTools->addAction(autoRcmAction);
+            //ui->partition_table->setItem(0, 2, new QTableWidgetItem("No"));
+            ui->menuTools->actions().at(2)->setEnabled(true);
 		}
-        */
+
 
 	}
 
@@ -807,6 +811,12 @@ void MainWindow::createActions()
     ui->menuTools->actions().at(1)->setStatusTip(tr("Wipe all console unique id's from CAL0"));
     ui->menuTools->actions().at(1)->setDisabled(true);
     connect(ui->menuTools->actions().at(1), &QAction::triggered, this, &MainWindow::incognito);
+
+    // Toggle autoRCM
+    ui->menuTools->actions().at(2)->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_A));
+    ui->menuTools->actions().at(2)->setStatusTip(tr("Enable/Disable autoRCM (BOOT0 only)"));
+    ui->menuTools->actions().at(2)->setDisabled(true);
+    connect(ui->menuTools->actions().at(2), &QAction::triggered, this, &MainWindow::toggleAutoRCM);
 }
 
 void MainWindow::timer1000()

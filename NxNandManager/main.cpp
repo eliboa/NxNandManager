@@ -5,6 +5,7 @@ int startGUI(int argc, char *argv[])
 #if defined(ENABLE_GUI)
 	QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 	QApplication a(argc, argv);
+    a.setApplicationName("NxNandManager");
 	MainWindow w;
 	a.setStyleSheet("QMessageBox {messagebox-text-interaction-flags: 12;}");
 	w.show();
@@ -44,7 +45,7 @@ int main(int argc, char *argv[])
 			"  --info            Display information about input/output (depends on NAND type):\n"
 			"                    NAND type, partitions, encryption, autoRCM status... \n"
 			"                    ...more info when -keyset provided: firmware ver., S/N, last boot date\n\n"
-			"  --incognito       Wipe all console unique id's and cert's from CAL0 (a.k.a incognito)\n"
+			"  --incognito       Wipe all console unique id's and certificates from CAL0 (a.k.a incognito)\n"
 			"                    Only apply to input type RAWNAND or PRODINFO partition\n"
 			"  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
 			"  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n\n"
@@ -284,7 +285,7 @@ int main(int argc, char *argv[])
 				{
 					throwException(rc);
 				}
-				printf("\"PRODINFO.backup\" file was created in application directory\n");
+				printf("\"PRODINFO.backup\" file created in application directory\n");
 
 			}
 			int rc = nxdata.Incognito();

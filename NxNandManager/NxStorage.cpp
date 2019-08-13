@@ -989,46 +989,6 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 				printf("RESIZE BUFFER, new size %s \n", int_to_hex(toRead).c_str());
 		}
 
-		/*
-		// Read only 0x400 to get to PRODINFO (0x4400) next time
-		if (handle.readAmount == 0x4000)
-			toRead = 0x400;
-
-		// Iterate partitions
-		GptPartition *cur = in->firstPartion;
-		while (NULL != cur)
-		{
-
-			// Current partition
-			if (handle.readAmount >= (u64)cur->lba_start * NX_EMMC_BLOCKSIZE && handle.readAmount <= (u64)cur->lba_end * NX_EMMC_BLOCKSIZE)
-			{
-				// Do we need to use crypto ?
-				do_crypto = (handle.encrypt && !cur->isEncrypted && (strcmp(cur->name, "PRODINFO") == 0 || strcmp(cur->name, "PRODINFOF") == 0 || strcmp(cur->name, "SAFE") == 0 ||
-					strcmp(cur->name, "SYSTEM") == 0 || strcmp(cur->name, "USER") == 0)) ? true : false;
-
-				if (do_crypto && handle.readAmount == (u64)cur->lba_start * NX_EMMC_BLOCKSIZE)
-				{
-					if (DEBUG_MODE) printf("SWITCH TO %s (%s), offset %s, crypto_mode %s %s\n", cur->name, cur->isEncrypted ? "encrypted" : "decrypted",
-						int_to_hex(handle.readAmount).c_str(), handle.encrypt ? "encrypt" : "decrypt", cur->bad_crypto ? "BAD CRYPTO" : "");
-
-					if (setCrypto(cur->name) > 0)
-						p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
-					else
-						return ERR_CRYPTO_KEY_MISSING;
-
-					handle.block_num = 0;
-
-				}
-				// Resize buffer if needed
-				if (do_crypto && (u64)handle.readAmount + CLUSTER_SIZE > (u64)cur->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE)
-					toRead = ((u64)cur->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) - handle.readAmount;
-
-				break;
-			}
-
-			cur = cur->next;
-		}
-		*/
 	}
 	
 	// Switch to next splitted file

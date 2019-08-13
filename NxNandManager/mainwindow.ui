@@ -721,6 +721,7 @@
     </property>
     <addaction name="actionConfigure_keyset"/>
     <addaction name="actionIncognito"/>
+    <addaction name="actionToogle_autoRCM_BOOT0"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -769,6 +770,11 @@
   <action name="actionIncognito">
    <property name="text">
     <string>Incognito</string>
+   </property>
+  </action>
+  <action name="actionToogle_autoRCM_BOOT0">
+   <property name="text">
+    <string>Toggle autoRCM (BOOT0)</string>
    </property>
   </action>
  </widget>
