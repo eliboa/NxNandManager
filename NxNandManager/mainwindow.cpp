@@ -146,6 +146,38 @@ void MainWindow::openKeySet()
     keysetDialog->exec();
 }
 
+void MainWindow::incognito()
+{
+    if(workInProgress)
+    {
+        error(ERR_WORK_RUNNING);
+        return;
+    }
+
+    QMessageBox msgBox;
+    msgBox.setIcon(QMessageBox::Icon::Warning);
+    msgBox.setText("Incognito will wipe out console unique id's and cert's from CAL0");
+    msgBox.setInformativeText("WARNING : Make sure you have a backup of PRODINFO partition in case you want to restore CAL0 in the future.\n"
+                              "\nDo you already have a backup and do you want to apply incognito now ?");
+    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    msgBox.setDefaultButton(QMessageBox::No);
+    int ret = msgBox.exec();
+
+    if(ret == QMessageBox::Yes)
+    {
+        if(bKeyset && parseKeySetFile("keys.dat", &biskeys) >= 2)
+            input->InitKeySet(&biskeys);
+        ret = input->Incognito();
+        if(ret < 0)
+            error(ret);
+        else
+            QMessageBox::information(nullptr,"Incognito","Incognito successfully applied.");
+
+        input->InitStorage();
+    }
+
+}
+
 void MainWindow::on_rawdump_button_clicked(int crypto_mode)
 {
 	if(workInProgress)
@@ -437,6 +469,12 @@ void MainWindow::inputSet(NxStorage *storage)
     // Properties menu
     ui->menuFile->actions().at(8)->setEnabled(true);
 
+    // Incognito menu
+    if(input->type == RAWNAND || (NULL != input->partitionName && strcmp(input->partitionName, "PRODINFO") == 0))
+    {
+        ui->menuTools->actions().at(1)->setEnabled(true);
+    }
+
     // List partitions for RAWNAND
 	if(input->type == RAWNAND && nullptr != input->firstPartion)
 	{
@@ -598,7 +636,7 @@ void MainWindow::error(int err, QString label)
 {
 	if(err != ERR_WORK_RUNNING)
 	{
-		endWorkThread();
+        if(workInProgress) endWorkThread();
 		ui->progressBar->setFormat("");
 		ui->progressBar->setValue(0);
 		if(label != nullptr)
@@ -719,7 +757,7 @@ void MainWindow::createActions()
 
     // Save as
     const QIcon dumpIcon = QIcon::fromTheme("document-open", QIcon(":/images/save.png"));
-    ui->menuFile->actions().at(3)->setIcon(openDIcon);
+    ui->menuFile->actions().at(3)->setIcon(dumpIcon);
     ui->menuFile->actions().at(3)->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_S));
     ui->menuFile->actions().at(3)->setStatusTip(tr("Dump as file..."));
     connect(ui->menuFile->actions().at(3), &QAction::triggered, this, &MainWindow::on_rawdump_button_clicked);
@@ -761,6 +799,14 @@ void MainWindow::createActions()
     ui->menuTools->actions().at(0)->setShortcut(QKeySequence(Qt::CTRL +  Qt::Key_K));
     ui->menuTools->actions().at(0)->setStatusTip(tr("Configure keyset"));
     connect(ui->menuTools->actions().at(0), &QAction::triggered, this, &MainWindow::openKeySet);
+
+    // Incognito
+    const QIcon incoIcon = QIcon::fromTheme("document-open", QIcon(":/images/incognito.png"));
+    ui->menuTools->actions().at(1)->setIcon(incoIcon);
+    ui->menuTools->actions().at(1)->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_I));
+    ui->menuTools->actions().at(1)->setStatusTip(tr("Wipe all console unique id's from CAL0"));
+    ui->menuTools->actions().at(1)->setDisabled(true);
+    connect(ui->menuTools->actions().at(1), &QAction::triggered, this, &MainWindow::incognito);
 }
 
 void MainWindow::timer1000()

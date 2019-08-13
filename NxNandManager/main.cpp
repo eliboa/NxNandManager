@@ -268,7 +268,7 @@ int main(int argc, char *argv[])
 		if ((nxdata.type == PARTITION && NULL != nxdata.partitionName && strcmp(nxdata.partitionName, "PRODINFO") == 0)
 			|| nxdata.type == RAWNAND)
 		{
-			if (AskYesNoQuestion("Incognito will wipe console unique id's and cert's from CAL0.\n"
+			if (AskYesNoQuestion("Incognito will wipe out console unique id's and cert's from CAL0.\n"
 				"Make sure you have a backup of PRODINFO partition in case you want to restore CAL0 in the future.\n"
 				"Do you want to make a backup of PRODINFO now ?"))
 			{

@@ -720,6 +720,7 @@
      <string>Options</string>
     </property>
     <addaction name="actionConfigure_keyset"/>
+    <addaction name="actionIncognito"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -763,6 +764,11 @@
   <action name="actionRetore_from_file">
    <property name="text">
     <string>Restore from file...</string>
+   </property>
+  </action>
+  <action name="actionIncognito">
+   <property name="text">
+    <string>Incognito</string>
    </property>
   </action>
  </widget>

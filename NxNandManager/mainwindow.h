@@ -72,6 +72,7 @@ private slots:
 	void openDrive();
     void Properties();
     void openKeySet();
+    void incognito();
     void dumpPartition(int crypto_mode=NULL);
     void dumpDecPartition();
     void dumpEncPartition();

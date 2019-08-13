@@ -78,7 +78,7 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_DECRYPT_CONTENT, "Failed to validate decrypted content (wrong keys ?)" },
     { ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted input to encrypted output and keyset missing to encrypt data"},
 	{ ERR_RESTORE_CRYPTO_MISSIN2, "Trying to restore encrypted input to decrypted output (decrypt content to restore first)"},
-    { ERR_CRYPTO_KEY_MISSING, "Crypto error : key missing"},
+    { ERR_CRYPTO_KEY_MISSING, "Trying to decrypt/encrypt content but some keys are missing (configure keyset)"},
 	{ ERROR_DECRYPTION_FAILED, "Decryption validation failed (wrong keys ?)"},
 	{ ERR_CRYPTO_NOT_ENCRYPTED, "Input file is not encrypted"},
 	{ ERR_CRYPTO_ENCRYPTED_YET, "Input file is already encrypted"},
