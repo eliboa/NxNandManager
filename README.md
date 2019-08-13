@@ -3,7 +3,7 @@
 NxNandManager is a command line (and GUI) utility for Windows 7 & 10,
 the primary purpose of which is to copy, decrypt and encrypt Nintendo Switch content (full NAND or specific partition) from/to a file or physical drive.
 
-![Png](http://laumonier.org/NxNandManager_v2.0.png)   
+![Png](http://laumonier.org/NxNandManager_v2.0_2.png)   
 
 ## Features   
 - Full NAND backup & restore (BOOT0, BOOT1, RAWNAND)   
