@@ -65,24 +65,24 @@ struct ErrorLabel {
 
 static ErrorLabel ErrorLabelArr[] =
 {
-	{ ERR_WORK_RUNNING, "Work already in process" },
-	{ ERR_INPUT_HANDLE, "Failed to get handle to input file/disk" },
-	{ ERR_OUTPUT_HANDLE, "Failed to get handle to output file/disk" },
-	{ ERR_NO_SPACE_LEFT, "Output disk : not enough space !" },
-	{ ERR_CRYPTO_MD5, "Crypto provider error"},
-	{ ERR_MD5_COMPARE, "Data integrity error : checksums are differents.\nAn error must have occurred during the copy"},
-	{ ERR_RESTORE_TO_SPLIT, "Restore to splitted dump is not supported"},
-	{ ERR_WHILE_COPY, "An error occured during copy"},
-	{ ERR_IO_MISMATCH, "Input type/size doesn't match output size/type"},
-	{ ERR_INVALID_INPUT, "Input is not a valid NX storage"},
-	{ ERR_DECRYPT_CONTENT, "Failed to validate decrypted content (wrong keys ?)" },
-    { ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted input to encrypted output and keyset missing to encrypt data"},
-	{ ERR_RESTORE_CRYPTO_MISSIN2, "Trying to restore encrypted input to decrypted output (decrypt content to restore first)"},
-    { ERR_CRYPTO_KEY_MISSING, "Trying to decrypt/encrypt content but some keys are missing (configure keyset)"},
-	{ ERROR_DECRYPTION_FAILED, "Decryption validation failed (wrong keys ?)"},
-	{ ERR_CRYPTO_NOT_ENCRYPTED, "Input file is not encrypted"},
-	{ ERR_CRYPTO_ENCRYPTED_YET, "Input file is already encrypted"},
-	{ ERR_CRYPTO_DECRYPTED_YET, "Input file is already decrypted"}
+	{ ERR_WORK_RUNNING, "Work already in process\n"},
+	{ ERR_INPUT_HANDLE, "Failed to get handle to input file/disk\n"},
+	{ ERR_OUTPUT_HANDLE, "Failed to get handle to output file/disk\n"},
+	{ ERR_NO_SPACE_LEFT, "Output disk : not enough space !\n"},
+	{ ERR_CRYPTO_MD5, "Crypto provider error\n"},
+	{ ERR_MD5_COMPARE, "Data integrity error : checksums are differents.\nAn error must have occurred during the copy\n"},
+	{ ERR_RESTORE_TO_SPLIT, "Restore to splitted dump is not supported\n"},
+	{ ERR_WHILE_COPY, "An error occured during copy\n"},
+	{ ERR_IO_MISMATCH, "Input type/size doesn't match output size/type\n"},
+	{ ERR_INVALID_INPUT, "Input is not a valid NX storage\n"},
+	{ ERR_DECRYPT_CONTENT, "Failed to validate decrypted content (wrong keys ?)\n\n"},
+    { ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted input to encrypted output and keyset missing to encrypt data\n"},
+	{ ERR_RESTORE_CRYPTO_MISSIN2, "Trying to restore encrypted input to decrypted output (decrypt content to restore first)\n"},
+    { ERR_CRYPTO_KEY_MISSING, "Trying to decrypt/encrypt content but some keys are missing (configure keyset)\n"},
+	{ ERROR_DECRYPTION_FAILED, "Decryption validation failed (wrong keys ?)\n"},
+	{ ERR_CRYPTO_NOT_ENCRYPTED, "Input file is not encrypted\n"},
+	{ ERR_CRYPTO_ENCRYPTED_YET, "Input file is already encrypted\n"},
+	{ ERR_CRYPTO_DECRYPTED_YET, "Input file is already decrypted\n"}
 };
 
 typedef struct KeySet KeySet;
