@@ -269,8 +269,11 @@ void NxStorage::InitStorage()
 
 		// Explode file path as wide strings
 		wstring Lfilename(this->pathLPWSTR);
-		wstring extension(get_extension(Lfilename));
+        wstring extension(get_extension(Lfilename));
 		wstring basename(remove_extension(Lfilename));
+
+        if(extension.compare(basename) == 0 )
+            extension.erase();
 
 		// Look for an integer in path extension
 		int f_number, f_digits, f_type = 0;
@@ -334,6 +337,8 @@ void NxStorage::InitStorage()
 
 				s_size += splitfile->size;
 
+				CloseHandle(hFile);
+
 				// Format path to next file
 				char new_number[10];
 				sprintf_s(new_number, 10, mask.c_str(), ++i);
@@ -351,13 +356,14 @@ void NxStorage::InitStorage()
 				size = s_size;
 				if(raw_size == s_size)
 				{
+					hFile = CreateFileW(&lastSplitFile->file_path[0], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 					// Look for backup GPT in last split file (mandatory for splitted dump)
 					LARGE_INTEGER liDistanceToMove;
 					liDistanceToMove.QuadPart = lastSplitFile->size - NX_EMMC_BLOCKSIZE;
 					DWORD dwPtr = SetFilePointerEx(hFile, liDistanceToMove, NULL, FILE_BEGIN);
 					if (dwPtr != INVALID_SET_FILE_POINTER)
 					{
-						BYTE buffGpt[NX_EMMC_BLOCKSIZE];
+						BYTE buffGpt[NX_EMMC_BLOCKSIZE];                        
 						ReadFile(hFile, buffGpt, NX_EMMC_BLOCKSIZE, &bytesRead, NULL);
 						if (0 != bytesRead)
 						{
@@ -368,6 +374,7 @@ void NxStorage::InitStorage()
 								type = RAWNAND;
 							}
 						}
+						CloseHandle(hFile);
 					}
 				}
 			}
@@ -646,8 +653,11 @@ int NxStorage::WriteBufferAtOffset(BYTE *buffer, u64 offset, int length)
 
 	// Get new handle
 	handle.h = CreateFileW(&handle.path[0], GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-	if (handle.h == INVALID_HANDLE_VALUE)
-		return ERR_OUTPUT_HANDLE;
+    if (handle.h == INVALID_HANDLE_VALUE) {
+        std::string errorstr = GetLastErrorAsString();
+		return ERR_OUTPUT_HANDLE;        
+    }
+
 
 	//if (DEBUG_MODE) printf("ReadBufferAtOffset -> Set pointer at off %s\n", int_to_hex(real_off).c_str());
 	// Set pointer

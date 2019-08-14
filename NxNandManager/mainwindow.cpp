@@ -579,7 +579,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
             GptPartition *partition = input->GetPartitionByName(item->text().toUtf8().constData());
             if(NULL != partition && partition->isEncrypted && !partition->bad_crypto)
             {                
-                const QIcon encIcon = QIcon::fromTheme("document-open", QIcon(":/images/encrypt.png"));
+                const QIcon encIcon = QIcon::fromTheme("document-open", QIcon(":/images/decrypt.png"));
                 QAction* dumpDecAction = new QAction(encIcon, "Decrypt && dump to file...");
                 dumpDecAction->setStatusTip(tr("Save as new file"));
                 if(!bKeyset)
@@ -591,7 +591,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
                      strcmp(partition->name, "PRODINFOF") == 0 || strcmp(partition->name, "SAFE") == 0 ||
                      strcmp(partition->name, "SYSTEM") == 0 || strcmp(partition->name, "USER") == 0))
             {
-                const QIcon decIcon = QIcon::fromTheme("document-open", QIcon(":/images/decrypt.png"));
+                const QIcon decIcon = QIcon::fromTheme("document-open", QIcon(":/images/encrypt.png"));
                 QAction* dumpEncAction = new QAction(decIcon, "Encrypt && dump to file...");
                 dumpEncAction->setStatusTip(tr("Save as new file"));
                 if(!bKeyset)

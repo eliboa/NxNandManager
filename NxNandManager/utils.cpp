@@ -160,7 +160,7 @@ void throwException(int rc, const char* errorStr)
 		{
 			if(ErrorLabelArr[i].error == rc)
 			{
-				printf("ERROR: %s", ErrorLabelArr[i].label);
+				printf("ERROR: %s\n", ErrorLabelArr[i].label);
 			}
 		}
 	}
