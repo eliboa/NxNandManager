@@ -776,7 +776,7 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 						return ERR_RESTORE_CRYPTO_MISSIN2;
 						/*
 						if (in_part->bad_crypto)
-							return ERROR_DECRYPTION_FAILED;
+							return ERROR_DECRYPT_FAILED;
 
 						handle.decrypt = true;
 						do_crypto = true;
@@ -812,7 +812,7 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 							return ERR_RESTORE_CRYPTO_MISSIN2;
 						/*
 						if (in->bad_crypto)
-							return ERROR_DECRYPTION_FAILED;
+							return ERROR_DECRYPT_FAILED;
 
 						handle.decrypt = true;
 						do_crypto = true;
@@ -853,7 +853,7 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 						return ERR_RESTORE_CRYPTO_MISSIN2;
 					/*
 					if (in->bad_crypto)
-						return ERROR_DECRYPTION_FAILED;
+						return ERROR_DECRYPT_FAILED;
 
 					handle.decrypt = true;
 					do_crypto = true;
@@ -1110,7 +1110,7 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
         }
 
 		if (handle.decrypt && bad_crypto)
-			return ERROR_DECRYPTION_FAILED;
+			return ERROR_DECRYPT_FAILED;
 			
  
 		handle.readAmount = 0;
@@ -1272,7 +1272,7 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 			if (do_crypto)
 			{				
 				if (handle.decrypt && curPartition->bad_crypto)
-					return ERROR_DECRYPTION_FAILED;
+					return ERROR_DECRYPT_FAILED;
 
 				if (setCrypto(curPartition->name) > 0)
 					p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
@@ -2327,7 +2327,7 @@ int NxStorage::Incognito()
 			return ERR_CRYPTO_KEY_MISSING;
 
 		if ((NULL == cal0 && bad_crypto) || (NULL != cal0 && cal0->bad_crypto))
-			return ERROR_DECRYPTION_FAILED;
+			return ERROR_DECRYPT_FAILED;
 
 		if (setCrypto("PRODINFO") > 0)
 			p_crypto = new xts_crypto(key_crypto.data(), key_tweak.data(), CLUSTER_SIZE);
@@ -2337,7 +2337,7 @@ int NxStorage::Incognito()
 		p_crypto->decrypt(buf1, block_num);
 
 		if (!ValidateDecryptBuf(buf1, "PRODINFO"))
-			return ERROR_DECRYPTION_FAILED;
+			return ERROR_DECRYPT_FAILED;
 
 		do_crypto = true;
 
