@@ -204,6 +204,7 @@ struct NxSytemTitles {
 
 
 static NxSytemTitles sytemTitlesArr[] = {
+	{ "9.0.0", "a6af05b33f8f903aab90c8b0fcbcc6a4.nca"},
 	{ "8.1.0", "7eedb7006ad855ec567114be601b2a9d.nca"},
 	{ "8.0.1", "6c5426d27c40288302ad616307867eba.nca"},
 	{ "8.0.0", "4fe7b4abcea4a0bcc50975c1a926efcb.nca"}, 
@@ -232,8 +233,8 @@ static NxSytemTitles sytemTitlesArr[] = {
 };
 
 static NxSytemTitles sytemExFatTitlesArr[] = {
+	{"9.0.0", "3b444768f8a36d0ddd85635199f9676f.nca" },
 	{"8.1.0", "96f4b8b729ade072cc661d9700955258.nca" },
-	{"6.0.0", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
 	{"8.0.1", "b2708136b24bbe206e502578000b1998.nca" }, 
 	{"8.0.0", "b2708136b24bbe206e502578000b1998.nca" },
 	{"7.0.1", "02a2cbfd48b2f2f3a6cec378d20a5eff.nca" },
@@ -241,6 +242,7 @@ static NxSytemTitles sytemExFatTitlesArr[] = {
 	{"6.2.0", "97cb7dc89421decc0340aec7abf8e33b.nca" },
 	{"6.1.0", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
 	{"6.0.1", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
+	{"6.0.0", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
 	{"6.0.0 (pre-release)", "711b5fc83a1f07d443dfc36ba606033b.nca" },
 	{"5.1.0", "c9e500edc7bb0fde52eab246028ef84c.nca" },
 	{"5.0.2", "432f5cc48e6c1b88de2bc882204f03a1.nca" },
