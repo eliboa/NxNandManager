@@ -1982,7 +1982,7 @@ int NxStorage::fat32_read(const char* partition)
 		return -1;
 
 	auto printEntry = [this](fat32_dir_entry *cur_entry, fs_attr fs, u64 root_addr) -> int {
-        if (!DEBUG_MODE)
+        //if (!DEBUG_MODE)
 			return 1;
 
 		char str_buff[20];
@@ -2048,7 +2048,7 @@ int NxStorage::fat32_read(const char* partition)
 
 
 	// Check for firmare version in play report
-	bool search_fmw = FALSE;
+    bool search_fmw = FALSE, report_based_fwm = FALSE;
     if (play_report_off > 0 && readCluster(buffer, play_report_off) > 0)
 	{
 		search_fmw = true;
@@ -2070,6 +2070,7 @@ int NxStorage::fat32_read(const char* partition)
 					if(DEBUG_MODE) printf("Newer firmware version found in PLAY REPORTS (%s) \n", fwv);
 					memcpy(fw_version, fwv, 5);		
 					fw_detected = true;
+                    report_based_fwm = true;
 				}					
 			}
 
@@ -2081,7 +2082,7 @@ int NxStorage::fat32_read(const char* partition)
 
 	// Check form firmware version in journal
 	if (journal_report_off > 0 && (search_fmw || strlen(serial_number) <= 3 ) && readCluster(buffer, journal_report_off) > 0)
-	{
+	{        
 		if (DEBUG_MODE) printf("Searching patterns in JOURNAL at offset %s\n", int_to_hex(journal_report_off).c_str());
 
 		u64 cur_off = journal_report_off + CLUSTER_SIZE;
@@ -2103,6 +2104,7 @@ int NxStorage::fat32_read(const char* partition)
 						if (DEBUG_MODE) printf("Newer firmware version found in JOURNAL (%s) \n", fwv);
 						memcpy(fw_version, fwv, 5);
 						fw_detected = true;
+                        report_based_fwm = true;
 					}
 				}
 			}
@@ -2125,7 +2127,7 @@ int NxStorage::fat32_read(const char* partition)
 		}
 	}
 
-	if (fw_detected && search_fmw)
+    if (report_based_fwm && search_fmw)
 		strcat(fw_version, " (or higher)");
 
 	if (NULL != p_crypto)
