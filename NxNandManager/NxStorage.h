@@ -177,6 +177,7 @@ static MagicOffsets mgkOffArr[] =
 	{ 0x40AF8,"504B3131", 4, BOOT1, 7},
 	{ 0x40ADC,"504B3131", 4, BOOT1, 8},
 	{ 0x40ACC,"504B3131", 4, BOOT1, 8.1},
+	{ 0x40AC0,"504B3131", 4, BOOT1, 9},
 	// RAWNAND -> Look for GPT partition
 	{ 0x200, "4546492050415254", 8, RAWNAND, 0 }
 };
@@ -203,7 +204,7 @@ struct NxSytemTitles {
 };
 
 
-static NxSytemTitles sytemTitlesArr[] = {
+static NxSytemTitles sytemTitlesArr[] = {	
 	{ "9.0.0", "a6af05b33f8f903aab90c8b0fcbcc6a4.nca"},
 	{ "8.1.0", "7eedb7006ad855ec567114be601b2a9d.nca"},
 	{ "8.0.1", "6c5426d27c40288302ad616307867eba.nca"},
@@ -229,7 +230,7 @@ static NxSytemTitles sytemTitlesArr[] = {
 	{ "2.2.0", "7f90353dff2d7ce69e19e07ebc0d5489.nca"},
 	{ "2.1.0", "e9b3e75fce00e52fe646156634d229b4.nca"},
 	{ "2.0.0", "7a1f79f8184d4b9bae1755090278f52c.nca"},
-	{ "1.0.0", "117f7b9c7da3e8cef02340596af206b3.nca"} 
+	{ "1.0.0", "a1b287e07f8455e8192f13d0e45a2aaf.nca"} 
 };
 
 static NxSytemTitles sytemExFatTitlesArr[] = {

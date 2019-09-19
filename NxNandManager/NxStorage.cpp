@@ -1982,7 +1982,7 @@ int NxStorage::fat32_read(const char* partition)
 		return -1;
 
 	auto printEntry = [this](fat32_dir_entry *cur_entry, fs_attr fs, u64 root_addr) -> int {
-		//if (!DEBUG_MODE)
+        if (!DEBUG_MODE)
 			return 1;
 
 		char str_buff[20];
@@ -2049,7 +2049,7 @@ int NxStorage::fat32_read(const char* partition)
 
 	// Check for firmare version in play report
 	bool search_fmw = FALSE;
-	if (play_report_off > 0 && strlen(fw_version) < 1 && readCluster(buffer, play_report_off) > 0)
+    if (play_report_off > 0 && readCluster(buffer, play_report_off) > 0)
 	{
 		search_fmw = true;
 
