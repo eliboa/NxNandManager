@@ -2269,7 +2269,16 @@ int NxStorage::prodinfo_read()
 	}	
 
 	memcpy(&serial_number, &buffer[0x250], 18);
-	
+	memset(&deviceId, 0x00, 21);
+	memcpy(&deviceId, &buffer[0x544], 20);
+	memset(&wlanMacAddress, 0x00, 7);
+	memcpy(&wlanMacAddress, &buffer[0x210], 6);	
+
+	if (DEBUG_MODE) {
+		printf("PRODINFO device id %s \n", deviceId);
+		printf("PRODINFO wlanMacAddress %s \n", hexStr(reinterpret_cast<unsigned char*>(wlanMacAddress), 6).c_str());
+	}
+
 	if (NULL != p_crypto)
 		delete p_crypto;
 

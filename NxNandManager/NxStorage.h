@@ -337,6 +337,9 @@ public:
 	u64 journal_report_off_end = 0;
 	u64 play_report_off = 0;
 	u64 play_report_off_end = 0;
+	s8 deviceId[21] = { 0 };
+	s8 wlanMacAddress[7] = { 0 };
+
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);
