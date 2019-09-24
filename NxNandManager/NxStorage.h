@@ -185,6 +185,7 @@ static MagicOffsets mgkOffArr[] =
 static NxPartition partInfoArr[] =
 {
 	{ "PRODINFO",			    0x003FBC00  },
+	{ "CAL0",			        0x003FBC00  },
 	{ "PRODINFOF",			    0x00400000  },
 	{ "BCPKG2-1-Normal-Main",   0x00800000  },
 	{ "BCPKG2-2-Normal-Sub",	0x00800000  },

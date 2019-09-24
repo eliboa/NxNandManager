@@ -2080,7 +2080,7 @@ int NxStorage::fat32_read(const char* partition)
 		}
 	}
 
-	// Check form firmware version in journal
+	// Check for firmware version in journal
 	if (journal_report_off > 0 && (search_fmw || strlen(serial_number) <= 3 ) && readCluster(buffer, journal_report_off) > 0)
 	{        
 		if (DEBUG_MODE) printf("Searching patterns in JOURNAL at offset %s\n", int_to_hex(journal_report_off).c_str());
