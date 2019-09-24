@@ -178,13 +178,14 @@ static MagicOffsets mgkOffArr[] =
 	{ 0x40ADC,"504B3131", 4, BOOT1, 8},
 	{ 0x40ACC,"504B3131", 4, BOOT1, 8.1},
 	{ 0x40AC0,"504B3131", 4, BOOT1, 9},
-	// RAWNAND -> Look for GPT partition
+	// RAWNAND -> Look for GPT partition 
 	{ 0x200, "4546492050415254", 8, RAWNAND, 0 }
 };
 
 static NxPartition partInfoArr[] =
 {
 	{ "PRODINFO",			    0x003FBC00  },
+	{ "CAL0",			        0x003FBC00  },
 	{ "PRODINFOF",			    0x00400000  },
 	{ "BCPKG2-1-Normal-Main",   0x00800000  },
 	{ "BCPKG2-2-Normal-Sub",	0x00800000  },
@@ -337,6 +338,9 @@ public:
 	u64 journal_report_off_end = 0;
 	u64 play_report_off = 0;
 	u64 play_report_off_end = 0;
+	s8 deviceId[21] = { 0 };
+	s8 wlanMacAddress[7] = { 0 };
+
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);

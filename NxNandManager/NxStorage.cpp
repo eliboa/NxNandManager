@@ -122,7 +122,8 @@ void NxStorage::InitStorage()
 	DWORD bytesRead = 0;
 	BYTE buff[0x200];
 	BYTE sbuff[0x200];
-	// Look for for magic offset
+
+	// Look for magic offset
 	for (int i=0; i < (int)array_countof(mgkOffArr); i++)
 	{
 		if(DEBUG_MODE)
@@ -145,17 +146,45 @@ void NxStorage::InitStorage()
 		}
 	}
 
+	// Dynamic search for PK11 magic (BOOT1)
+	if(type == UNKNOWN && size == 0x400000)
+	{
+		DWORD readamount = 0;
+		while (readamount < size) 
+		{
+			DWORD dwPtr = SetFilePointer(hStorage, readamount, NULL, FILE_BEGIN);
+			if (dwPtr == INVALID_SET_FILE_POINTER)
+				break;
+			
+			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
+			readamount += 0x200;
+
+			std::string haystack(buff, buff + 0x200);
+			std::size_t n;
+			n = haystack.find("PK11");
+
+			// Found needle in a haystack
+			if (n != std::string::npos) {
+				type = BOOT1;
+				break;
+			}
+		}
+	}
+	
 	// Try to identify partition files (comparing file name & file size)
 	// -> this is pretty shitty but we'll just stick with this for now)
 	if (type == UNKNOWN)
 	{
 		for (int i = 0; i < (int)array_countof(partInfoArr); i++)
 		{
-			std::string basename = base_name(std::string(path));
+			std::string basename = base_name(std::string(path));			
 			basename = remove_extension(basename);
-			if (strncmp(partInfoArr[i].name, basename.c_str(), strlen(basename.c_str())) == 0 && partInfoArr[i].size == size)
+			std::transform(basename.begin(), basename.end(),basename.begin(), ::toupper);
+            if (strncmp(partInfoArr[i].name, basename.c_str(), strlen(basename.c_str())) == 0 && partInfoArr[i].size == size)
 			{
 				strcpy_s(partitionName, partInfoArr[i].name);
+				if(strcmp(partitionName, "CAL0")  == 0)
+					strcpy_s(partitionName, "PRODINFO");
 				type = PARTITION;
 				break;
 			}
@@ -2080,7 +2109,7 @@ int NxStorage::fat32_read(const char* partition)
 		}
 	}
 
-	// Check form firmware version in journal
+	// Check for firmware version in journal
 	if (journal_report_off > 0 && (search_fmw || strlen(serial_number) <= 3 ) && readCluster(buffer, journal_report_off) > 0)
 	{        
 		if (DEBUG_MODE) printf("Searching patterns in JOURNAL at offset %s\n", int_to_hex(journal_report_off).c_str());
@@ -2269,7 +2298,16 @@ int NxStorage::prodinfo_read()
 	}	
 
 	memcpy(&serial_number, &buffer[0x250], 18);
-	
+	memset(&deviceId, 0x00, 21);
+	memcpy(&deviceId, &buffer[0x544], 20);
+	memset(&wlanMacAddress, 0x00, 7);
+	memcpy(&wlanMacAddress, &buffer[0x210], 6);	
+
+	if (DEBUG_MODE) {
+		printf("PRODINFO device id %s \n", deviceId);
+		printf("PRODINFO wlanMacAddress %s \n", hexStr(reinterpret_cast<unsigned char*>(wlanMacAddress), 6).c_str());
+	}
+
 	if (NULL != p_crypto)
 		delete p_crypto;
 

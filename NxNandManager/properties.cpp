@@ -103,6 +103,22 @@ Properties::Properties(NxStorage *in) :
         i++;
     }
 
+    if (strlen(input->deviceId) > 0)
+    {
+        ui->PropertiesTable->setRowCount(i+1);
+        ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Device Id"));
+        ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->deviceId));
+        i++;
+    }
+
+    if (strlen(input->wlanMacAddress) > 0)
+    {
+        ui->PropertiesTable->setRowCount(i+1);
+        ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("MAC Address"));
+        ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(hexStr(reinterpret_cast<unsigned char*>(input->wlanMacAddress), 6).c_str()));
+        i++;
+    }
+
     if (input->type == RAWNAND)
     {
         ui->PropertiesTable->setRowCount(i+1);

@@ -9,7 +9,7 @@ the primary purpose of which is to copy, decrypt and encrypt Nintendo Switch con
 - Full NAND backup & restore (BOOT0, BOOT1, RAWNAND)   
 - Copy from/to specific partition (RAWNAND)    
 - NAND decryption/encryption using bis keys    
-- Option to wipe all console unique id's and certificates (a.k.a Incognito)   
+- Option to wipe all console unique ids and certificates (a.k.a Incognito)   
 - Display useful information about NAND file/drive (Firmware ver., exFat driver, S/N, etc.)   
 - Enable/Disable auto RCM (BOOT0)  
 
@@ -32,7 +32,7 @@ Set the first split file as input
 
 ## CLI Usage
 
-```NxNandManager.exe [--list] [--info] [--enable_autoRCM] [--disable_autoRCM] -i inputFilename|\\.\PhysicalDriveX [-o outputFilename|\\.\PhysicalDriveX] [-part=nxPartitionName] [lFlags]```
+```NxNandManager.exe [--list] -i inputFilename|\\.\PhysicalDriveX [-o outputFilename|\\.\PhysicalDriveX] [-part=nxPartitionName]  [--info] [--enable_autoRCM] [--disable_autoRCM] [--incognito] [lFlags]```
 
 Arguments | Description 
 --------- | -----------
@@ -45,7 +45,7 @@ Arguments | Description
 --gui | Launch graphical user interface (optional) 
 --info | Display information about input/output (depends on NAND type): <br/>NAND type, partitions, encryption, autoRCM status...<br />...more info when -keyset provided: firmware ver., S/N, last boot date
 --list | List compatible physical drives`
---incognito | Wipe all console unique id's and certificates from CAL0 (a.k.a incognito)<br />Only apply to input type RAWNAND or PRODINFO partition
+--incognito | Wipe all console unique ids and certificates from CAL0 (a.k.a incognito)<br />Only apply to input type RAWNAND or PRODINFO partition
 --enable_autoRCM | Enable auto RCM. -i must point to a valid BOOT0 file/drive 
 --disable_autoRCM | Disable auto RCM. -i must point to a valid BOOT0 file/drive
 
@@ -97,23 +97,44 @@ or
 - Copy specific partition from partition file :  
 ```.\NxNandManager.exe -i "C:\Users\Public\NAND dump\BCPKG2-1-Normal-Main" -o "C:\Users\Public\NAND dump\rawnand2.bin" -part=BCPKG2-1-Normal-Main```  
 
-### Decryption / Encryption
+### NAND decryption/encryption (AES-XTS)
 
-- Decrypt full rawnand :   
+NxNandManager can decrypt or encrypt NAND file/drive (rawnand or encrypted partition file "PRODINFO", "SAFE", "SYSTEM", etc).   
+A keyset file containing biskeys must be provided.
+
+Use ```-d``` argument to decrypt, ```-e``` to encrypt. 
+
+Keys can be provided by the ```-keyset``` argument to the keyset filename.   
+The program can parse keyset files made with biskeydump or lockpick :
+```
+   BIS Key 0 (crypt): <16-byte hex key>
+   BIS Key 0 (tweak): <16-byte hex key>
+   ...
+```
+or
+```
+   bis_key_00 = <32-byte hex key>
+   bis_key_01 = <32-byte hex key>
+   ...
+```
+
+When -keyset and --info arguments are provided, the program can also retrieve some useful information, such as firmware version, exFat driver, last boot time, etc.   
+
+#### Examples
+Decrypt full rawnand :   
 ```NxNandManager.exe -i rawnand.bin -o rawnand.dec -d -keyset keys.dat```
 
-- Decrypt single partition file :   
+Decrypt single partition file :   
 ```NxNandManager.exe -i PRODINFO -o PRODINFO.dec -d -keyset keys.dat```
 
-- Encrypt single partition file :   
+Encrypt single partition file :   
 ```NxNandManager.exe -i PRODINFO.dec -o PRODINFO.enc -e -keyset keys.dat```
 
-- Decrypt & restore single partition file to physical drive   
+Decrypt & restore single partition file to physical drive   
 ```NxNandManager.exe -i PRODINFO.dec -o \\.\PhysicalDrive3 -part=PRODINFO -e -keyset keys.dat```
 
-- Encrypt & restore full rawnand   
+Encrypt & restore full rawnand   
 ```NxNandManager.exe -i rawnand.dec -o \\.\PhysicalDrive3 -e -keyset keys.dat```
-
 
 ## Build
 

@@ -507,9 +507,10 @@ void MainWindow::inputSet(NxStorage *storage)
 	{
 		ui->partition_table->setRowCount(1);
 		if(input->type == PARTITION) {
-			wstring ws(input->pathLPWSTR);
-			std::string basename = base_name(string(ws.begin(), ws.end()));
-			ui->partition_table->setItem(0, 0, new QTableWidgetItem(basename.c_str()));
+            //wstring ws(input->pathLPWSTR);
+            //std::string basename = base_name(string(ws.begin(), ws.end()));
+            //ui->partition_table->setItem(0, 0, new QTableWidgetItem(basename.c_str()));
+            ui->partition_table->setItem(0, 0, new QTableWidgetItem(input->partitionName));
 		} else {
 			char name[128];
 			if(input->type == BOOT0)
