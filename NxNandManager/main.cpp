@@ -19,7 +19,7 @@ int startGUI(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	std::setlocale(LC_ALL, "en_US.utf8");
-    printf("[ NxNandManager v2.0 ]\n\n");
+    printf("[ NxNandManager v2.0.2 ]\n\n");
 	const char *input = NULL, *output = NULL, *partition = NULL, *keyset = NULL;
 	BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE;
 	int io_num = 1;
