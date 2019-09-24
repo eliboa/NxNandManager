@@ -122,7 +122,8 @@ void NxStorage::InitStorage()
 	DWORD bytesRead = 0;
 	BYTE buff[0x200];
 	BYTE sbuff[0x200];
-	// Look for for magic offset
+
+	// Look for magic offset
 	for (int i=0; i < (int)array_countof(mgkOffArr); i++)
 	{
 		if(DEBUG_MODE)
@@ -145,17 +146,45 @@ void NxStorage::InitStorage()
 		}
 	}
 
+	// Dynamic search for PK11 magic (BOOT1)
+	if(type == UNKNOWN && size == 0x400000)
+	{
+		DWORD readamount = 0;
+		while (readamount < size) 
+		{
+			DWORD dwPtr = SetFilePointer(hStorage, readamount, NULL, FILE_BEGIN);
+			if (dwPtr == INVALID_SET_FILE_POINTER)
+				break;
+			
+			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
+			readamount += 0x200;
+
+			std::string haystack(buff, buff + 0x200);
+			std::size_t n;
+			n = haystack.find("PK11");
+
+			// Found needle in a haystack
+			if (n != std::string::npos) {
+				type = BOOT1;
+				break;
+			}
+		}
+	}
+	
 	// Try to identify partition files (comparing file name & file size)
 	// -> this is pretty shitty but we'll just stick with this for now)
 	if (type == UNKNOWN)
 	{
 		for (int i = 0; i < (int)array_countof(partInfoArr); i++)
 		{
-			std::string basename = base_name(std::string(path));
+			std::string basename = base_name(std::string(path));			
 			basename = remove_extension(basename);
-			if (strncmp(partInfoArr[i].name, basename.c_str(), strlen(basename.c_str())) == 0 && partInfoArr[i].size == size)
+			std::transform(basename.begin(), basename.end(),basename.begin(), ::toupper);
+            if (strncmp(partInfoArr[i].name, basename.c_str(), strlen(basename.c_str())) == 0 && partInfoArr[i].size == size)
 			{
 				strcpy_s(partitionName, partInfoArr[i].name);
+				if(strcmp(partitionName, "CAL0")  == 0)
+					strcpy_s(partitionName, "PRODINFO");
 				type = PARTITION;
 				break;
 			}
