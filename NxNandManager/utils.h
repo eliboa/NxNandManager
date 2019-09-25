@@ -16,6 +16,10 @@
 #include <wchar.h>
 #include <algorithm>
 #include <sstream>
+#include <tchar.h>
+#include "DiskSector.h"
+#include "partitionmanager.h"
+
 
 typedef std::chrono::duration< double > double_prec_seconds;
 typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds > timepoint_t;
@@ -98,6 +102,7 @@ struct KeySet {
 	char tweak3[33];
 };
 
+
 wchar_t *convertCharArrayToLPCWSTR(const char* charArray);
 LPWSTR convertCharArrayToLPWSTR(const char* charArray);
 u64 GetFilePointerEx (HANDLE hFile);
@@ -139,8 +144,10 @@ std::string int_to_hex(T i)
 {
 	std::stringstream stream;
 	stream << "0x"
-		<< std::setfill('0') << std::setw(sizeof(T) * 2)
+		<< std::setfill('0') //<< std::setw(sizeof(T) * 2)
+		<< std::uppercase
 		<< std::hex << i;
+
 	return stream.str();
 }
 

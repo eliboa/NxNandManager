@@ -173,7 +173,7 @@ void NxStorage::InitStorage()
 	
 	// Try to identify partition files (comparing file name & file size)
 	// -> this is pretty shitty but we'll just stick with this for now)
-	if (type == UNKNOWN)
+	if (!isDrive && type == UNKNOWN)
 	{
 		for (int i = 0; i < (int)array_countof(partInfoArr); i++)
 		{
@@ -190,6 +190,60 @@ void NxStorage::InitStorage()
 			}
 		}
 	}
+
+	// EmuMMC hidden partition
+	if (isDrive && type == UNKNOWN)
+	{
+		CloseHandle(hStorage);		
+		DiskSector ds;
+		CPartitionManager pm;
+		pm.m_bIncludeExtendedPartitionDefinitions = true;
+		std::string spath(path);
+		std::size_t n = spath.find("PhysicalDrive");
+		if (n != std::string::npos) {
+			std::string volume = spath.substr(n+13);
+			
+			int vol = std::stoi(volume);
+			
+			if (ds.OpenPhysicalDrive(vol) && pm.ReadPartitionTable(vol, 0)) {
+				// Iterate partitions
+				size_t nbPartsTotal = 0, nbParts = pm.partlist.size();
+				for (size_t i = 0; i < nbParts; i++)
+				{
+					partition_info &pi = pm.partlist[i];
+
+					// Offset must be in range
+					if (pi.lba_start + 0x8002 > pi.lba_end)
+						continue;
+
+					// Look for BOOT0 at offset pi.lba_start + 0x8002 + 0x130
+					unsigned char buff[DEFAULT_BUFF_SIZE] = { 0 };
+					ULONGLONG sector = pi.lba_start + 0x8002;					
+					ds.ReadSector(sector, &buff);
+
+					// BOOT0 FOUND
+					if (hexStr(&buff[0x130], 12) == "010021000E00000009000000") {						
+						size = (pi.lba_end - pi.lba_start) * NX_EMMC_BLOCKSIZE;
+						mmc.lba_start = pi.lba_start;
+						mmc.lba_end = pi.lba_end;
+						mmc.boot0_lba_start = pi.lba_start + 0x8000;
+						mmc.boot1_lba_start = mmc.boot0_lba_start + 0x2000;
+						mmc.rawnand_lba_start = mmc.boot1_lba_start + 0x2000;									
+
+						if(DEBUG_MODE) printf("RAWMMC FOUND, BOOT0 starts at sector %llu, BOOT1 at %llu, RAWNAND at %llu\n", 
+							mmc.boot0_lba_start, mmc.boot1_lba_start, mmc.rawnand_lba_start);
+
+						type = RAWMMC;
+						break;
+					}
+				}
+
+				ds.Close();
+			}
+		}
+		hStorage = CreateFileW(pathLPWSTR, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	}
+
 
 	// Partition crypto validation
 	if(type == PARTITION)
@@ -232,11 +286,17 @@ void NxStorage::InitStorage()
 	}
 
 	// Detect autoRCM & bootloader version
-	if (type == BOOT0)
+	if (type == BOOT0 || type == RAWMMC)
 	{
-		DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
+		LARGE_INTEGER liDistanceToMove;
+		liDistanceToMove.QuadPart = 0x200;
+		if (type == RAWMMC)
+			liDistanceToMove.QuadPart += mmc.boot0_lba_start * NX_EMMC_BLOCKSIZE;
+
+		DWORD dwPtr = SetFilePointerEx(hStorage, liDistanceToMove, NULL, FILE_BEGIN);
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{
+			// Get autoRCM state
 			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
 			if (0 != bytesRead)
 			{
@@ -244,7 +304,8 @@ void NxStorage::InitStorage()
 				else autoRcm = FALSE;
 			}
 			// Get bootloader version
-			SetFilePointer(hStorage, 0x2200, NULL, FILE_BEGIN);
+			liDistanceToMove.QuadPart += 0x2000;
+			SetFilePointerEx(hStorage, liDistanceToMove, NULL, FILE_BEGIN);
 			ReadFile(hStorage, buff, 0x200, &bytesRead, NULL);
 			if (0 != bytesRead)
 			{
@@ -255,35 +316,96 @@ void NxStorage::InitStorage()
 	}
 
 	// RAWNAND Init
-	if (type == RAWNAND)
-	{
+	if (type == RAWNAND || type == RAWMMC)
+	{		
+		bool was_mmc = false;
+		u64 last_sector = 0;
+		LARGE_INTEGER liDistanceToMove;
+		liDistanceToMove.QuadPart = 0x200;
+		if (type == RAWMMC) {
+			was_mmc = true;
+			liDistanceToMove.QuadPart += mmc.rawnand_lba_start * NX_EMMC_BLOCKSIZE;
+		}
+
 		// Read & parse GPT
-		DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
+		DWORD dwPtr = SetFilePointerEx(hStorage, liDistanceToMove, NULL, FILE_BEGIN);
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{
 			BYTE buffGpt[0x4200];
 			ReadFile(hStorage, buffGpt, 0x4200, &bytesRead, NULL);
 			if (0 != bytesRead)
 			{
-				type = UNKNOWN; // Reset type, we'll look for real Nx partitions when parsing GPT
+
+				//if (DEBUG_MODE) printf("GPT BUFFER \n%s\n", hexStr(buffGpt, 512).c_str());
+
+				type = UNKNOWN; // Reset type, we'll look for real Nx partitions when parsing GPT								
 				this->ParseGpt(buffGpt);
+
+				// If NAND type was RAWMMC
+				if (type == RAWNAND && was_mmc) {
+					type = RAWMMC;
+				}
+
+				// Get last sector & set real offsets for GPP
+				GptPartition *cur = firstPartion;
+				while (NULL != cur)
+				{
+					if (type == RAWMMC)
+					{
+						cur->lba_start += mmc.rawnand_lba_start;
+						cur->lba_end += mmc.rawnand_lba_start;
+					}
+					if(last_sector < cur->lba_end) last_sector = cur->lba_end;
+					cur = cur->next;
+				}
+
+				if (type == RAWMMC)
+				{
+					// Add BOOT1 partition
+					GptPartition *part2 = (GptPartition *)malloc(sizeof(GptPartition));
+					part2->isEncrypted = false;
+					part2->lba_start = mmc.boot1_lba_start;
+					part2->lba_end = mmc.boot1_lba_start + 0x2000;
+					memset(part2->name, 0, 36);
+					memcpy(part2->name, "BOOT1", 5);
+					part2->next = firstPartion;
+
+					// Add BOOT0 partition
+					GptPartition *part1 = (GptPartition *)malloc(sizeof(GptPartition));
+					part1->isEncrypted = false;
+					part1->lba_start = mmc.boot0_lba_start;
+					part1->lba_end = mmc.boot0_lba_start + 0x2000;
+					memset(part1->name, 0, 36);
+					memcpy(part1->name, "BOOT0", 5);
+					part1->next = part2;
+					firstPartion = part1;
+
+				}
+
+					//printf("mmc boot0 lba start %I64d, part start %I64d\n", mmc.boot0_lba_start, part1->lba_start);
+				
 			}
 		}
 
-		// Look for backup GPT
-		LARGE_INTEGER liDistanceToMove;
+		// Look for backup GPT		
 		liDistanceToMove.QuadPart = size - NX_EMMC_BLOCKSIZE;
+		//if (type == RAWMMC)
+		liDistanceToMove.QuadPart = last_sector * NX_EMMC_BLOCKSIZE + 0x20400000;
+		//liDistanceToMove.QuadPart = mmc.rawnand_lba_start * NX_EMMC_BLOCKSIZE + 0x747BFFE00;
+			
+		if (DEBUG_MODE) printf("Looking for backup GPT at offset %s, sector %s\n", n2hexstr(liDistanceToMove.QuadPart, 10).c_str(), n2hexstr(liDistanceToMove.QuadPart / NX_EMMC_BLOCKSIZE, 10).c_str());
+
 		DWORD dwPtr2 = SetFilePointerEx(hStorage, liDistanceToMove, NULL, FILE_BEGIN);
 		if (dwPtr2 != INVALID_SET_FILE_POINTER)
 		{
-			BYTE buffGpt[NX_EMMC_BLOCKSIZE];
+			unsigned char buffGpt[NX_EMMC_BLOCKSIZE];
 			ReadFile(hStorage, buffGpt, NX_EMMC_BLOCKSIZE, &bytesRead, NULL);
 			if (0 != bytesRead)
 			{
-				GptHeader *hdr = (GptHeader *)buffGpt;
-				if (hdr->num_part_ents > 0)
+				if(hexStr(&buffGpt[0], 8) == "4546492050415254")
 				{
-					backupGPTfound = TRUE;
+					//if (DEBUG_MODE) printf("BACKUP GPT BUFFER \n%s\n", hexStr(buffGpt, 512).c_str());
+					backupGPTfound = TRUE;					
 				}
 			}
 		}
@@ -392,12 +514,13 @@ void NxStorage::InitStorage()
 					DWORD dwPtr = SetFilePointerEx(hFile, liDistanceToMove, NULL, FILE_BEGIN);
 					if (dwPtr != INVALID_SET_FILE_POINTER)
 					{
-						BYTE buffGpt[NX_EMMC_BLOCKSIZE];                        
+						unsigned char buffGpt[NX_EMMC_BLOCKSIZE];                        
 						ReadFile(hFile, buffGpt, NX_EMMC_BLOCKSIZE, &bytesRead, NULL);
 						if (0 != bytesRead)
 						{
-							GptHeader *hdr = (GptHeader *)buffGpt;
-							if (hdr->num_part_ents > 0)
+							//GptHeader *hdr = (GptHeader *)buffGpt;
+							//if (hdr->num_part_ents > 0)
+							if (hexStr(&buffGpt[0], 8) == "4546492050415254")
 							{
 								backupGPTfound = TRUE;
 								type = RAWNAND;
@@ -418,7 +541,7 @@ void NxStorage::InitStorage()
 		prodinfo_read();
 
 	// RAWNAND crypto validation & init operations
-	if (type == RAWNAND)
+	if (type == RAWNAND || type == RAWMMC)
 	{
 		BYTE buffer[CLUSTER_SIZE];
 
@@ -760,7 +883,7 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 		wcscpy(handle.path, in->pathLPWSTR);
 
 		// Restoring to RAWNAND
-		if (type == RAWNAND)
+		if (type == RAWNAND || type == RAWMMC)
 		{
 			// Restoring to a single partition
 			if (NULL != partition && strlen(partition) > 0)
@@ -776,7 +899,7 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 				bytesToRead = in->size;
 
 				// If input is a rawnand file 
-				if (in->type == RAWNAND) 
+				if (in->type == RAWNAND || in->type == RAWMMC)
 				{
 					// Get partition in input
 					GptPartition* in_part = in->GetPartitionByName(partition);
@@ -971,10 +1094,10 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 		handle.block_num++;
 	}
 
-	if ((NULL == partition || strlen(partition) <= 0) && in->type == RAWNAND && crypto)
+	if ((NULL == partition || strlen(partition) <= 0) && (in->type == RAWNAND || in->type == RAWMMC) && crypto)
 	{
 		// Trick : Read only 0x400 to get to PRODINFO (0x4400) next time
-		if (handle.readAmount == 0x4000)
+		if ((in->type == RAWNAND && handle.readAmount == 0x4000) || (in->type == RAWMMC && handle.readAmount == (in->mmc.rawnand_lba_start - in->mmc.lba_start) * NX_EMMC_BLOCKSIZE + 0x4000))
 			toRead = 0x400;
 
 		// First iteration
@@ -1204,8 +1327,12 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 			}
 
 			handle.off_start = 0;
+			if (type == RAWMMC)
+				handle.off_start = mmc.lba_start * NX_EMMC_BLOCKSIZE;
+
 			handle.off_end = this->size;
 			handle.off_max = this->size;
+
 			if (isSplitted) {
 				NxSplitFile *file = lastSplitFile, *first;
 				while (NULL != file)
@@ -1263,10 +1390,11 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 		if (handle.h == INVALID_HANDLE_VALUE) return ERR_INPUT_HANDLE;
 	}
 
-    if ((NULL == partition || strlen(partition) == 0) && type == RAWNAND && crypto)
+    if ((NULL == partition || strlen(partition) == 0) && (type == RAWNAND || type == RAWMMC) && crypto)
 	{
 		// Trick : Read only 0x400 to get to PRODINFO (0x4400) next time
 		if (handle.readAmount == 0x4000)
+			if ((type == RAWNAND && handle.readAmount == 0x4000) || (type == RAWMMC && handle.readAmount == (mmc.rawnand_lba_start - mmc.lba_start) * NX_EMMC_BLOCKSIZE + 0x4000))
 			toRead = 0x400;
 
 		// First iteration
@@ -1630,7 +1758,6 @@ std::string NxStorage::GetMD5Hash(const char* partition)
 
 const char* NxStorage::GetNxStorageTypeAsString()
 {
-	std::string buffStr;
 	switch (type)
 	{
 	case BOOT0:
@@ -1647,6 +1774,9 @@ const char* NxStorage::GetNxStorageTypeAsString()
 		break;
 	case PARTITION:
 		return "PARTITION";
+		break;
+	case RAWMMC:
+		return "MMC PARTITION";
 		break;
 	default:
 		return "UNKNOWN";
@@ -2211,7 +2341,7 @@ int NxStorage::prodinfo_read()
 	ClearHandles();
 
 	if(DEBUG_MODE) printf("PRODINFO read\n");
-	if(type == RAWNAND)
+	if(type == RAWNAND || type == RAWMMC)
 	{
 		if (DEBUG_MODE) printf("prodinfo_read, type RAWNAND\n");
 		// Iterate GPT entry
@@ -2257,6 +2387,7 @@ int NxStorage::prodinfo_read()
 		liDistanceToMove.QuadPart = handle.off_start;
 		if (SetFilePointerEx(handle.h, liDistanceToMove, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
 			ClearHandles();
+			if (DEBUG_MODE) printf("ERROR while setting pointer to PRODINFO at offset %s \n", int_to_hex((int)handle.off_start).c_str());
 			return ERR_INPUT_HANDLE;
 		}
 	}

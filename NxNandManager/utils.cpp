@@ -173,6 +173,102 @@ void throwException(const char* errorStr)
 	if(NULL != errorStr) printf("%s\n", errorStr);
 	exit(EXIT_FAILURE);
 }
+
+
+void PrintDosDeviceNames(LPTSTR szVolume)
+{
+	int    nStrLen;
+	DWORD  dwBuffLen;
+	LPTSTR szDrive;
+	LPTSTR szBuffer = NULL;
+	TCHAR  szVolumeName[MAX_PATH];
+
+	// Get all logical drive strings
+	dwBuffLen = GetLogicalDriveStrings(0, szBuffer);
+	szBuffer = (LPTSTR)malloc(dwBuffLen * sizeof(TCHAR));
+	GetLogicalDriveStrings(dwBuffLen, szBuffer);
+	szDrive = szBuffer;
+
+	_tprintf(_T("Dos drive names: "));
+
+	nStrLen = (int)_tcslen(szDrive);
+
+	// Get the unique volume name for each logical drive string.  If the volume
+	// drive string matches the passed in volume, print out the Dos drive name
+	while (nStrLen)
+	{
+		if (GetVolumeNameForVolumeMountPoint(szDrive, szVolumeName, MAX_PATH))
+		{
+			if (_tcsicmp(szVolume, szVolumeName) == 0)
+			{
+				_tprintf(_T("%s "), szDrive);
+			}
+		}
+		szDrive += nStrLen + 1;
+		nStrLen = (int)_tcslen(szDrive);
+	}
+
+	_tprintf(_T("\n"));
+	if (szBuffer) free(szBuffer);
+}
+void PrintMountPoint(LPTSTR szVolume, LPTSTR szMountPoint)
+{
+	TCHAR szMountPointPath[MAX_PATH];
+	TCHAR szVolumeName[MAX_PATH];
+
+	_tprintf(_T("  * Mount point: "));
+
+	// Print out the mount point
+	_tprintf(_T("%s\n"), szMountPoint);
+	_tprintf(_T("                     ...is a mount point for...\n"));
+
+	// Append the mount point name to the unique volume name to get the
+	// complete path name for the mount point
+	_tcscpy_s(szMountPointPath, MAX_PATH, szVolume);
+	_tcscat_s(szMountPointPath, MAX_PATH, szMountPoint);
+
+	// Get and print the unique volume name for the volume mounted at the
+	// mount point
+	if (!GetVolumeNameForVolumeMountPoint(szMountPointPath, szVolumeName, MAX_PATH))
+	{
+		_tprintf(_T("GetVolumeNameForVolumeMountPoint failed.  Error = %d\n"), GetLastError());
+	}
+	else
+	{
+		_tprintf(_T("                 %s\n"), szVolumeName);
+	}
+}
+void EnumMountPoints(LPTSTR szVolume)
+{
+	HANDLE hFindMountPoint;
+	TCHAR  szMountPoint[MAX_PATH];
+
+
+	// Find and print the first mount point.
+	hFindMountPoint = FindFirstVolumeMountPoint(szVolume, szMountPoint, MAX_PATH);
+
+	// If a mount point was found, print it out, if there is not even
+	// one mount point, just print "None" and return.
+	if (hFindMountPoint != INVALID_HANDLE_VALUE)
+	{
+		PrintMountPoint(szVolume, szMountPoint);
+	}
+	else
+	{
+		_tprintf(_T("No mount points.\n"));
+		return;
+	}
+
+	// Find and print the rest of the mount points
+	while (FindNextVolumeMountPoint(hFindMountPoint, szMountPoint, MAX_PATH))
+	{
+		PrintMountPoint(szVolume, szMountPoint);
+	}
+
+	FindVolumeMountPointClose(hFindMountPoint);
+}
+
+
 // Concatenate every compatible physical disk n� in a string
 std::string ListPhysicalDrives(BOOL noError)
 {
@@ -181,8 +277,55 @@ std::string ListPhysicalDrives(BOOL noError)
 
 	for (int drive = 0; drive < 26; drive++)
 	{
+
+		DiskSector ds;
+		CPartitionManager m_pm;
+
+		char driveName0[256];
+		sprintf_s(driveName0, 256, "PhysicalDrive%d", drive);
 		char driveName[256];
 		sprintf_s(driveName, 256, "\\\\.\\PhysicalDrive%d", drive);
+
+		if (!ds.OpenPhysicalDrive(drive))
+			continue;
+
+		ULONGLONG diskLength;
+		if (!ds.GetDiskLength(diskLength)) {
+			ds.Close();
+			continue;
+		}
+
+		m_pm.m_bIncludeExtendedPartitionDefinitions = true;
+
+		bool found = false;
+		// Read MBR
+		if (m_pm.ReadPartitionTable(drive, 0)) {
+
+			// Iterate partitions
+			size_t nbPartsTotal = 0, nbParts = m_pm.partlist.size();
+			for (size_t i = 0; i < nbParts; i++)
+			{
+				partition_info &pi = m_pm.partlist[i];
+
+				// Offset must be in range
+				if (pi.lba_start + 0x8002 > pi.lba_end)
+					continue;
+
+				// Look for BOOT0 at offset pi.lba_start + 0x8002 + 0x130
+				unsigned char buff[512] = { 0 };
+				ds.ReadSector(pi.lba_start + 0x8002, &buff);
+				if (hexStr(&buff[0x130], 12) == "010021000E00000009000000") {
+					std::string s = std::to_string(drive);
+					compatibleDrives.append("\\\\.\\PhysicalDrive" + s + "\n");
+					num_drive++;
+					found = true;
+				}
+			}
+		}
+		ds.Close();
+
+		if (found)
+			continue;
 
 		HANDLE hPhysicalDriveIOCTL = 0;
 		hPhysicalDriveIOCTL = CreateFileW(convertCharArrayToLPWSTR(driveName), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
@@ -201,6 +344,8 @@ std::string ListPhysicalDrives(BOOL noError)
 
 		memset(local_buffer, 0, sizeof(local_buffer));
 
+		
+
 		if (DeviceIoControl(hPhysicalDriveIOCTL, IOCTL_STORAGE_QUERY_PROPERTY, &query,
 							sizeof(query), &local_buffer[0], sizeof(local_buffer), &cbBytesReturned, NULL))
 		{
@@ -218,9 +363,11 @@ std::string ListPhysicalDrives(BOOL noError)
 				std::string s = std::to_string(drive);
 				compatibleDrives.append("\\\\.\\PhysicalDrive" + s + "\n");
 				num_drive++;
-			}
+			}			
+			
 		}
 	}
+	
 	//compatibleDrives[num_drive] = '\0';
 	if (num_drive == 0)
 	{

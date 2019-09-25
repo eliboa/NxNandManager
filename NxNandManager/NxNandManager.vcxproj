@@ -141,10 +141,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DiskSector.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mainwindow.cpp" />
     <ClCompile Include="NxStorage.cpp" />
     <ClCompile Include="opendrive.cpp" />
+    <ClCompile Include="partitionmanager.cpp" />
     <ClCompile Include="utils.cpp" />
     <ClCompile Include="worker.cpp" />
     <ClCompile Include="xts_crypto.cpp" />
@@ -190,8 +192,10 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DiskSector.h" />
     <ClInclude Include="NxNandManager.h" />
     <ClInclude Include="NxStorage.h" />
+    <ClInclude Include="partitionmanager.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="xts_crypto.h" />

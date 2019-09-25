@@ -25,6 +25,7 @@ using namespace std;
 #define BOOT1	 1002
 #define RAWNAND	  1003
 #define PARTITION 1005
+#define RAWMMC   1006
 #define UNKNOWN   1004
 #define NX_GPT_FIRST_LBA 1
 #define NX_GPT_NUM_BLOCKS 33
@@ -160,6 +161,15 @@ struct NxHandle {
 	bool encrypt = false;
 	bool decrypt = false;
 	int block_num;
+};
+
+typedef struct NxMMC NxMMC;
+struct NxMMC {
+	u64 lba_start;
+	u64 lba_end;
+	u64 boot0_lba_start;
+	u64 boot1_lba_start;
+	u64 rawnand_lba_start;
 };
 
 static MagicOffsets mgkOffArr[] =
@@ -318,6 +328,7 @@ public:
 	HCRYPTPROV h_Prov = 0;
 	HCRYPTHASH h_Hash = 0;
 	NxHandle handle;
+	NxMMC mmc;
 	HANDLE handle_out;
 	u64 bytesToRead;
 	u64 bytesAmount;

@@ -331,17 +331,21 @@ int main(int argc, char *argv[])
 			printf("NAND type      : %s%s%s%s\n", curNxdata->GetNxStorageTypeAsString(),
 				curNxdata->type == PARTITION ? " " : "", curNxdata->type == PARTITION ? curNxdata->partitionName : "",
 				curNxdata->isSplitted ? " (splitted dump)" : "");
-			printf("File/Disk      : %s\n", curNxdata->isDrive ? "Disk" : "File");
+			printf("File/Disk      : %s", curNxdata->isDrive ? "Disk" : "File");
+			if (curNxdata->type == RAWMMC) 
+				printf(" (%s - %s)\n", int_to_hex(u64(curNxdata->mmc.lba_start * NX_EMMC_BLOCKSIZE)).c_str(), int_to_hex(u64(curNxdata->mmc.lba_end * NX_EMMC_BLOCKSIZE)).c_str());
+			else
+				printf("\n");
 			printf("Encrypted      : %s%s\n", curNxdata->isEncrypted ? "Yes" : "No", 
 				curNxdata->type != RAWNAND && curNxdata->isEncrypted && curNxdata->bad_crypto ? "  !!! DECRYPTION FAILED !!!" : "");
-			if (curNxdata->type == BOOT0) printf("AutoRCM        : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
+			if (curNxdata->type == BOOT0 || curNxdata->type == RAWMMC) printf("AutoRCM        : %s\n", curNxdata->autoRcm ? "ENABLED" : "DISABLED");
 			printf("Size           : %s\n", GetReadableSize(curNxdata->size).c_str());
 			if(curNxdata->type == BOOT0)
 				printf("Bootloader ver.: %d\n", static_cast<int>(curNxdata->bootloader_ver));
 			if(curNxdata->fw_detected)
 			{
 				printf("Firmware ver.  : %s\n", curNxdata->fw_version);
-				if(curNxdata->type == RAWNAND || strcmp(curNxdata->partitionName, "SYSTEM") == 0) printf("ExFat driver   : %s\n", curNxdata->exFat_driver ? "Detected" : "Undetected");
+				if(curNxdata->type == RAWNAND || curNxdata->type == RAWMMC || strcmp(curNxdata->partitionName, "SYSTEM") == 0) printf("ExFat driver   : %s\n", curNxdata->exFat_driver ? "Detected" : "Undetected");
 			}
 			if (strlen(curNxdata->last_boot) > 0)
 				printf("Last boot      : %s\n", curNxdata->last_boot);
@@ -362,13 +366,19 @@ int main(int argc, char *argv[])
 				while (NULL != cur)
 				{
 					u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;														 
-					printf("%s%02d %s  (%s%s)%s\n", i == 1 ? "\nPartitions     : \n                 " : "                 ", ++i, cur->name,
+					printf("%s%02d %s  (%s%s)%s", i == 1 ? "\nPartitions     : \n                 " : "                 ", ++i, cur->name,
 						GetReadableSize(size).c_str(), cur->isEncrypted ? " encrypted" : "", cur->isEncrypted && cur->bad_crypto ? "  !!! DECRYPTION FAILED !!!" : "");
 
+					if (DEBUG_MODE)
+					{
+						printf(" [sectors %I32d -> %I32d]", cur->lba_start, cur->lba_end);
+					}
+
+					printf("\n");
 					cur = cur->next;
 				}
 			}
-			if (curNxdata->type == RAWNAND) {
+			if (curNxdata->type == RAWNAND || curNxdata->type == RAWMMC) {
 				if (curNxdata->backupGPTfound)
 				{
 					printf("Backup GPT     : FOUND (offset 0x%s)\n", n2hexstr((u64)curNxdata->size - NX_EMMC_BLOCKSIZE, 10).c_str());
