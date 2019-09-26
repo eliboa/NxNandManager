@@ -388,10 +388,7 @@ void NxStorage::InitStorage()
 		}
 
 		// Look for backup GPT		
-		liDistanceToMove.QuadPart = size - NX_EMMC_BLOCKSIZE;
-		//if (type == RAWMMC)
 		liDistanceToMove.QuadPart = last_sector * NX_EMMC_BLOCKSIZE + 0x20400000;
-		//liDistanceToMove.QuadPart = mmc.rawnand_lba_start * NX_EMMC_BLOCKSIZE + 0x747BFFE00;
 			
 		if (DEBUG_MODE) printf("Looking for backup GPT at offset %s, sector %s\n", n2hexstr(liDistanceToMove.QuadPart, 10).c_str(), n2hexstr(liDistanceToMove.QuadPart / NX_EMMC_BLOCKSIZE, 10).c_str());
 
@@ -404,7 +401,6 @@ void NxStorage::InitStorage()
 			{
 				if(hexStr(&buffGpt[0], 8) == "4546492050415254")
 				{
-					//if (DEBUG_MODE) printf("BACKUP GPT BUFFER \n%s\n", hexStr(buffGpt, 512).c_str());
 					backupGPTfound = TRUE;					
 				}
 			}
