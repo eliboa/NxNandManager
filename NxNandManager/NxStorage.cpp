@@ -365,7 +365,7 @@ void NxStorage::InitStorage()
 					GptPartition *part2 = (GptPartition *)malloc(sizeof(GptPartition));
 					part2->isEncrypted = false;
 					part2->lba_start = mmc.boot1_lba_start;
-					part2->lba_end = mmc.boot1_lba_start + 0x2000;
+					part2->lba_end = mmc.boot1_lba_start + 0x2000 - 1;
 					memset(part2->name, 0, 36);
 					memcpy(part2->name, "BOOT1", 5);
 					part2->next = firstPartion;
@@ -374,7 +374,7 @@ void NxStorage::InitStorage()
 					GptPartition *part1 = (GptPartition *)malloc(sizeof(GptPartition));
 					part1->isEncrypted = false;
 					part1->lba_start = mmc.boot0_lba_start;
-					part1->lba_end = mmc.boot0_lba_start + 0x2000;
+					part1->lba_end = mmc.boot0_lba_start + 0x2000 - 1;
 					memset(part1->name, 0, 36);
 					memcpy(part1->name, "BOOT0", 5);
 					part1->next = part2;
