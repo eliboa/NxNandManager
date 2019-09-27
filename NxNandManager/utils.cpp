@@ -222,7 +222,7 @@ std::string ListPhysicalDrives(BOOL noError)
 				ds.ReadSector(pi.lba_start + 0x8002, &buff);
 				if (hexStr(&buff[0x130], 12) == "010021000E00000009000000") {
 					std::string s = std::to_string(drive);
-					compatibleDrives.append("\\\\.\\PhysicalDrive" + s + "\n");
+					compatibleDrives.append("\\\\.\\PhysicalDrive" + s + " [ " + GetReadableSize(diskLength) + " - MMC Partition detected]\n");
 					num_drive++;
 					found = true;
 				}
@@ -265,7 +265,7 @@ std::string ListPhysicalDrives(BOOL noError)
 			if (strncmp(vendorId, VID, array_countof(VID) - 1) == 0 && strncmp(productId, PID, array_countof(PID) - 1) == 0)
 			{
 				std::string s = std::to_string(drive);
-				compatibleDrives.append("\\\\.\\PhysicalDrive" + s + "\n");
+				compatibleDrives.append("\\\\.\\PhysicalDrive" + s + " [ " + GetReadableSize(diskLength) + " - Memloader drive]\n");
 				num_drive++;
 			}			
 			
