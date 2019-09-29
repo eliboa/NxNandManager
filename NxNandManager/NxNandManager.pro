@@ -26,11 +26,13 @@ CONFIG += c++11
 CONFIG += console
 
 SOURCES += \
+    DiskSector.cpp \
     hex_string.cpp \
     keyset.cpp \
     mainwindow.cpp \
     main.cpp \
     NxStorage.cpp \
+    partitionmanager.cpp \
     properties.cpp \
     utils.cpp \
     worker.cpp \
@@ -38,10 +40,12 @@ SOURCES += \
     xts_crypto.cpp
 
 HEADERS += \
+    DiskSector.h \
     hex_string.h \
     keyset.h \
     mainwindow.h \
     NxStorage.h \
+    partitionmanager.h \
     properties.h \
     utils.h \
     types.h \
@@ -70,10 +74,10 @@ QT += winextras
 
 RC_FILE = NxNandManager.rc
 
-#LIBS += -L$$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/lib/ -lcrypto
-#INCLUDEPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/include
-#DEPENDPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/include
+LIBS += -L$$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/lib/ -lcrypto
+INCLUDEPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/include
+DEPENDPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/include
 
-LIBS += -L$$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/lib/ -lcrypto
-INCLUDEPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/include
-DEPENDPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/include
+#LIBS += -L$$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/lib/ -lcrypto
+#INCLUDEPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/include
+#DEPENDPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/include

@@ -57,7 +57,7 @@ Properties::Properties(NxStorage *in) :
     ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(GetReadableSize(input->size).c_str()));
     i++;
 
-    if(input->type == BOOT0)
+    if(input->type == BOOT0 || input->type == RAWMMC)
     {
         ui->PropertiesTable->setRowCount(i+1);
         ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Auto RCM"));

@@ -2,7 +2,8 @@
 
 NxStorage::NxStorage(const char* storage, KeySet *p_biskeys, bool debug_mode)
 {
-	DEBUG_MODE = debug_mode ? true : false;
+    DEBUG_MODE = debug_mode ? true : false;
+    //DEBUG_MODE = true;
 	bool crypto = false;
 	if (DEBUG_MODE) printf("NxStorage::NxStorage - path = %s\n", storage);
 	path = storage;
@@ -132,6 +133,7 @@ void NxStorage::InitStorage()
 		}
 		u64 ptrReadOffset = (int)(mgkOffArr[i].offset / NX_EMMC_BLOCKSIZE) * NX_EMMC_BLOCKSIZE;
 		u64 ptrInBuffOffset = mgkOffArr[i].offset % NX_EMMC_BLOCKSIZE;
+
 		DWORD dwPtr = SetFilePointer(hStorage, ptrReadOffset, NULL, FILE_BEGIN);
 		if (dwPtr != INVALID_SET_FILE_POINTER)
 		{
@@ -191,15 +193,29 @@ void NxStorage::InitStorage()
 		}
 	}
 
+	// FULL EMMC
+	if (type == RAWMMC)
+	{
+		mmc.lba_start = 0;
+		mmc.lba_end = size / NX_EMMC_BLOCKSIZE;
+		mmc.boot0_lba_start = 0x8000;
+		mmc.boot1_lba_start = mmc.boot0_lba_start + 0x2000;
+		mmc.rawnand_lba_start = mmc.boot1_lba_start + 0x2000;
+	}
+
 	// EmuMMC hidden partition
 	if (isDrive && type == UNKNOWN)
-	{
+    {
 		CloseHandle(hStorage);		
 		DiskSector ds;
 		CPartitionManager pm;
 		pm.m_bIncludeExtendedPartitionDefinitions = true;
-		std::string spath(path);
-		std::size_t n = spath.find("PhysicalDrive");
+
+		wstring ws(pathLPWSTR);
+		std::string spath = string(ws.begin(), ws.end());
+		//std::string spath(pathLPWSTR);
+		for (auto & c : spath) c = toupper(c);
+		std::size_t n = spath.find("PHYSICALDRIVE");
 		if (n != std::string::npos) {
 			std::string volume = spath.substr(n+13);
 			
@@ -237,10 +253,10 @@ void NxStorage::InitStorage()
 						break;
 					}
 				}
-
-				ds.Close();
 			}
 		}
+		ds.Close();
+		pm.Close();
 		hStorage = CreateFileW(pathLPWSTR, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 	}
 
@@ -1020,6 +1036,9 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 
 				// Set offset to begin in input rawnand
 				handle.off_start = 0;
+				if (type == RAWMMC && in->type == RAWNAND)
+					handle.off_start = mmc.rawnand_lba_start * NX_EMMC_BLOCKSIZE;
+
 				handle.off_end = in->size;
 				handle.off_max = in->size;
 
@@ -1093,8 +1112,10 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 	if ((NULL == partition || strlen(partition) <= 0) && (in->type == RAWNAND || in->type == RAWMMC) && crypto)
 	{
 		// Trick : Read only 0x400 to get to PRODINFO (0x4400) next time
+		/*
 		if ((in->type == RAWNAND && handle.readAmount == 0x4000) || (in->type == RAWMMC && handle.readAmount == (in->mmc.rawnand_lba_start - in->mmc.lba_start) * NX_EMMC_BLOCKSIZE + 0x4000))
 			toRead = 0x400;
+		*/
 
 		// First iteration
 		if (handle.readAmount == 0) {
@@ -1104,12 +1125,12 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 		}
 
 		// When current partition ends
-		if (do_crypto && NULL != curPartition && handle.readAmount >= ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE)) {
+		if (do_crypto && NULL != curPartition && handle.off_start + handle.readAmount >= ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE)) {
 			do_crypto = false;
 		}
 
 		// When next partition beggins
-		if (NULL != nextPartition && handle.readAmount == (u64)nextPartition->lba_start * NX_EMMC_BLOCKSIZE)
+		if (NULL != nextPartition && handle.off_start + handle.readAmount == (u64)nextPartition->lba_start * NX_EMMC_BLOCKSIZE)
 		{
 			if (DEBUG_MODE)
 				printf("SWITCH TO %s, offset %s\n", nextPartition->name, int_to_hex(handle.readAmount).c_str());
@@ -1141,8 +1162,18 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 		}
 
 		// Resize buffer if needed before switching to next partition
+		/*
 		if (NULL != curPartition && NULL != nextPartition && (u64)handle.readAmount + CLUSTER_SIZE > (u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) {
 			toRead = ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) - handle.readAmount;
+			if (DEBUG_MODE)
+				printf("RESIZE BUFFER, new size %s \n", int_to_hex(toRead).c_str());
+		}
+		*/
+
+		// Resize buffer to reach next partition next time 
+		if (NULL != nextPartition && handle.off_start + handle.readAmount + toRead > (u64)nextPartition->lba_start * NX_EMMC_BLOCKSIZE)
+		{
+			toRead = (u64)nextPartition->lba_start * NX_EMMC_BLOCKSIZE - handle.off_start - handle.readAmount;
 			if (DEBUG_MODE)
 				printf("RESIZE BUFFER, new size %s \n", int_to_hex(toRead).c_str());
 		}
@@ -1232,6 +1263,7 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 
 int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmount, u64* writeAmount, u64* bytesToWrite, HCRYPTHASH* hHash)
 {	
+
 	DWORD toRead = DEFAULT_BUFF_SIZE;
 
 	// First iteration
@@ -1389,9 +1421,10 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
     if ((NULL == partition || strlen(partition) == 0) && (type == RAWNAND || type == RAWMMC) && crypto)
 	{
 		// Trick : Read only 0x400 to get to PRODINFO (0x4400) next time
-		if (handle.readAmount == 0x4000)
-			if ((type == RAWNAND && handle.readAmount == 0x4000) || (type == RAWMMC && handle.readAmount == (mmc.rawnand_lba_start - mmc.lba_start) * NX_EMMC_BLOCKSIZE + 0x4000))
+		/*
+		if (handle.readAmount == 0x4000 && type == RAWNAND)
 			toRead = 0x400;
+		*/
 
 		// First iteration
 		if (handle.readAmount == 0) {
@@ -1400,13 +1433,14 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 			do_crypto = false;
 		}
 
+
 		// When current partition ends
-		if (do_crypto && NULL != curPartition && handle.readAmount >= ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE)) {
+		if (do_crypto && NULL != curPartition && handle.off_start + handle.readAmount >= ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE)) {
 			do_crypto = false;
 		}		
 
 		// When next partition beggins
-		if (NULL != nextPartition && handle.readAmount == (u64)nextPartition->lba_start * NX_EMMC_BLOCKSIZE)
+		if (NULL != nextPartition && handle.off_start + handle.readAmount == (u64)nextPartition->lba_start * NX_EMMC_BLOCKSIZE)
 		{
 			if (DEBUG_MODE)
 				printf("SWITCH TO %s, offset %s\n", nextPartition->name, int_to_hex(handle.readAmount).c_str());
@@ -1439,12 +1473,21 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 			}
 		}
 
-		// Resize buffer if needed before switching to next partition
-		if (NULL != curPartition && NULL != nextPartition && (u64)handle.readAmount + CLUSTER_SIZE > (u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) {
-			toRead = ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) - handle.readAmount;
+		// Resize buffer to reach next partition next time 
+		if (NULL != nextPartition && handle.off_start + handle.readAmount + toRead > (u64)nextPartition->lba_start * NX_EMMC_BLOCKSIZE)
+		{
+			toRead = (u64)nextPartition->lba_start * NX_EMMC_BLOCKSIZE - handle.off_start - handle.readAmount;
 			if (DEBUG_MODE)
 				printf("RESIZE BUFFER, new size %s \n", int_to_hex(toRead).c_str());
 		}
+		/*
+		// Resize buffer if needed before switching to next partition
+		if (NULL != curPartition && NULL != nextPartition && (u64)handle.off_start + handle.readAmount + CLUSTER_SIZE > (u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) {
+			toRead = ((u64)curPartition->lba_end * NX_EMMC_BLOCKSIZE + NX_EMMC_BLOCKSIZE) - handle.off_start - handle.readAmount;
+			if (DEBUG_MODE)
+				printf("RESIZE BUFFER, new size %s \n", int_to_hex(toRead).c_str());
+		}
+		*/
 	}
 	
 	*bytesToWrite = bytesToRead;
@@ -1772,7 +1815,7 @@ const char* NxStorage::GetNxStorageTypeAsString()
 		return "PARTITION";
 		break;
 	case RAWMMC:
-		return "MMC PARTITION";
+		return "FULL EMMC";
 		break;
 	default:
 		return "UNKNOWN";

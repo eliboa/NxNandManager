@@ -38,6 +38,15 @@
     <ClCompile Include="worker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="xts_crypto.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DiskSector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="partitionmanager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="mainwindow.h">
@@ -70,6 +79,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="xts_crypto.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DiskSector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="partitionmanager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

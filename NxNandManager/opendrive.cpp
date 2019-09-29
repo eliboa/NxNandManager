@@ -35,8 +35,8 @@ OpenDrive::~OpenDrive()
 }
 
 void OpenDrive::on_listWidget_itemDoubleClicked(QListWidgetItem *item)
-{
-    emit finished(item->text());
+{    
+    emit finished(item->text().left(item->text().indexOf(" ")));
     close();
 }
 
@@ -48,7 +48,8 @@ bool keyEnterReceiver::eventFilter(QObject* obj, QEvent* event)
             OpenDrive *parent = (OpenDrive *) obj;
             if(parent->ui->listWidget->selectedItems().count() > 0)
             {
-                emit parent->finished(parent->ui->listWidget->selectedItems().first()->text());
+                QString item = parent->ui->listWidget->selectedItems().first()->text();
+                emit parent->finished(item.left(item.indexOf(" ")));
                 parent->close();
             }
 

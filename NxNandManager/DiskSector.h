@@ -1,8 +1,10 @@
 #ifndef __DISKSECTOR_02172004__INC__
 #define __DISKSECTOR_02172004__INC__
+typedef unsigned long long int u64;
 
 #include <windows.h>
 #include <WinIoCtl.h>
+
 
 class DiskSectorRW
 {

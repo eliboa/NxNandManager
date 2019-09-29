@@ -8,6 +8,7 @@
 #include <QMainWindow>
 #include <QThread>
 #include <QFile>
+#include <QMessageBox>
 #include "NxStorage.h"
 
 class Worker : public QThread {

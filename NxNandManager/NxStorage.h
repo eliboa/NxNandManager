@@ -15,7 +15,6 @@
 #include <handleapi.h>
 #include <openssl/sha.h>
 
-
 using namespace std;
 
 #define BUFSIZE   0x4000
@@ -33,7 +32,9 @@ using namespace std;
 #define GPT_PART_NAME_LEN 36
 #define DEFAULT_BUFF_SIZE 0x4000
 #define CLUSTER_SIZE 0x4000
-
+#define CRYPTO_NONE 0
+#define CRYPTO_ENCRYPT 1
+#define CRYPTO_DECRYPT 2
 
 typedef unsigned char u8;
 typedef unsigned short u16;
@@ -157,6 +158,7 @@ struct NxHandle {
 	u64 off_start = 0;
 	u64 off_end = 0;
 	u64 off_max = 0;
+	u64 size = 0;
 	u64 readAmount = 0;
 	bool encrypt = false;
 	bool decrypt = false;
@@ -189,7 +191,8 @@ static MagicOffsets mgkOffArr[] =
 	{ 0x40ACC,"504B3131", 4, BOOT1, 8.1},
 	{ 0x40AC0,"504B3131", 4, BOOT1, 9},
 	// RAWNAND -> Look for GPT partition 
-	{ 0x200, "4546492050415254", 8, RAWNAND, 0 }
+	{ 0x200, "4546492050415254", 8, RAWNAND, 0 },
+	{ 0x1000530, "010021000E00000009000000", 12, RAWMMC, 0}
 };
 
 static NxPartition partInfoArr[] =

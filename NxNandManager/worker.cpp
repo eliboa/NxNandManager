@@ -34,6 +34,7 @@ void Worker::run()
         KeySet biskeys;
         QFile kfile("keys.dat");
         if (kfile.exists() && parseKeySetFile("keys.dat", &biskeys) >= 2) {
+
             storage = new NxStorage(file.toUtf8().constData(), &biskeys);
             storage->InitKeySet();
         } else {

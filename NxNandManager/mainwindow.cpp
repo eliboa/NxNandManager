@@ -359,10 +359,10 @@ void MainWindow::restorePartition()
             selected_io->InitKeySet();
 
             // Restoring to RAWNAND : key set provided & file to restore is not encrypted
-            if(input->type == RAWNAND && bKeyset && !selected_io->isEncrypted)
+            if((input->type == RAWNAND || input->type == RAWMMC) && bKeyset && !selected_io->isEncrypted)
             {
                 // Only try to encrypt native encrypted partitions or full rawnand
-                if(selected_io->type == RAWNAND || (selected_io->type == PARTITION && (QString(selected_io->partitionName) == "PRODINFO" || QString(selected_io->partitionName) == "PRODINFOF" ||
+                if(selected_io->type == RAWNAND || selected_io->type == RAWMMC|| (selected_io->type == PARTITION && (QString(selected_io->partitionName) == "PRODINFO" || QString(selected_io->partitionName) == "PRODINFOF" ||
                    QString(selected_io->partitionName) == "SAFE" || QString(selected_io->partitionName) == "SYSTEM" || QString(selected_io->partitionName) == "USER")))
                 {
                     input->InitKeySet(&biskeys);
@@ -402,7 +402,7 @@ void MainWindow::initButtons()
 		ui->rawdump_button->setEnabled(false);
 		ui->fullrestore_button->setEnabled(false);
 	}
-	if(input->type == RAWNAND && nullptr != input->firstPartion)
+    if((input->type == RAWNAND || input->type == RAWMMC) && nullptr != input->firstPartion)
 	{
 		ui->rawdump_button->setEnabled(true);
 		if(!input->isSplitted) ui->fullrestore_button->setEnabled(true);
@@ -462,7 +462,7 @@ void MainWindow::inputSet(NxStorage *storage)
 
     // Encrypt & save as menu
     if(!input->isEncrypted && bKeyset) {
-        if(input->type == RAWNAND || input->type == BOOT0 || input->type == BOOT1 || (strlen(input->partitionName) > 0 &&
+        if(input->type == RAWNAND || input->type == RAWMMC || input->type == BOOT0 || input->type == BOOT1 || (strlen(input->partitionName) > 0 &&
             (strcmp(input->partitionName, "PRODINFO") == 0 || strcmp(input->partitionName, "PRODINFOF") == 0 ||
              strcmp(input->partitionName, "SAFE") == 0 || strcmp(input->partitionName, "SYSTEM") == 0 ||
              strcmp(input->partitionName, "USER") == 0)))
@@ -470,35 +470,37 @@ void MainWindow::inputSet(NxStorage *storage)
             ui->menuFile->actions().at(5)->setEnabled(true);
     }
     // Restore from file
-    if(input->type == RAWNAND && !input->isSplitted)
+    if((input->type == RAWNAND || input->type == RAWMMC) && !input->isSplitted)
         ui->menuFile->actions().at(6)->setEnabled(true);
 
     // Properties menu
     ui->menuFile->actions().at(8)->setEnabled(true);
 
     // Incognito menu
-    if(input->type == RAWNAND || (NULL != input->partitionName && strcmp(input->partitionName, "PRODINFO") == 0))
+    if(input->type == RAWNAND || input->type == RAWMMC || (NULL != input->partitionName && strcmp(input->partitionName, "PRODINFO") == 0))
     {
         ui->menuTools->actions().at(1)->setEnabled(true);
     }
 
-    // List partitions for RAWNAND
-	if(input->type == RAWNAND && nullptr != input->firstPartion)
+    // List partitions for RAWNAND & RAWMMC
+    if((input->type == RAWNAND || input->type == RAWMMC) && nullptr != input->firstPartion)
 	{
-		int i = 0;
+
+        int i = 0;
 		GptPartition *cur = input->firstPartion;
 		while (nullptr != cur)
 		{
+
 			ui->partition_table->setRowCount(i+1);
-			ui->partition_table->setItem(i, 0, new QTableWidgetItem(cur->name));
+            ui->partition_table->setItem(i, 0, new QTableWidgetItem(QString(cur->name)));
 			u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
 			QString qSize = QString::number(size);
 			ui->partition_table->setItem(i, 1, new QTableWidgetItem(GetReadableSize(size).c_str()));
             ui->partition_table->setItem(i, 2, new QTableWidgetItem(cur->isEncrypted ? "Yes" : "No"));
 			cur = cur->next;
 			i++;
-		}
 
+		}
 		ui->partition_table->setStatusTip(tr("Right-click on partition to dump/restore to/from file."));
 
 	}
@@ -565,7 +567,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 		ui->partition_table->removeAction(action);
 	}
 
-	if(input->type == RAWNAND && nullptr != input->firstPartion)
+    if((input->type == RAWNAND || input->type == RAWMMC)&& nullptr != input->firstPartion)
 	{
 		ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
 		const QIcon dumpIcon = QIcon::fromTheme("document-open", QIcon(":/images/save.png"));
@@ -627,7 +629,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 }
 
 void MainWindow::driveSet(QString drive)
-{
+{    
 	ui->progressBar->setFormat("Analysing input... please wait.");
 	ui->progressBar->setValue(100);
 	qApp->processEvents();
