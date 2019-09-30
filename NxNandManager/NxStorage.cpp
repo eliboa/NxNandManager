@@ -203,12 +203,13 @@ void NxStorage::InitStorage()
 		mmc.rawnand_lba_start = mmc.boot1_lba_start + 0x2000;
 	}
 
-	// EmuMMC hidden partition
+	// EmuMMC & TX emuNAND partition
 	if (isDrive && type == UNKNOWN)
     {
 		CloseHandle(hStorage);		
 		DiskSector ds;
 		CPartitionManager pm;
+		unsigned char buff[NX_EMMC_BLOCKSIZE] = { 0 };
 		pm.m_bIncludeExtendedPartitionDefinitions = true;
 
 		wstring ws(pathLPWSTR);
@@ -221,36 +222,57 @@ void NxStorage::InitStorage()
 			
 			int vol = std::stoi(volume);
 			
-			if (ds.OpenPhysicalDrive(vol) && pm.ReadPartitionTable(vol, 0)) {
-				// Iterate partitions
-				size_t nbPartsTotal = 0, nbParts = pm.partlist.size();
-				for (size_t i = 0; i < nbParts; i++)
-				{
-					partition_info &pi = pm.partlist[i];
+			if (ds.OpenPhysicalDrive(vol)) {
 
-					// Offset must be in range
-					if (pi.lba_start + 0x8002 > pi.lba_end)
-						continue;
+				// Look for TX hidden partition
+				bool TXNand = false;
+				ds.ReadSector(1, &buff);				
+				if (hexStr(&buff[0], 6) == "54584E414E44") {
+					mmc.lba_start = 0;
+					mmc.boot0_lba_start = 2;
+					mmc.boot1_lba_start = mmc.boot0_lba_start + 0x2000;
+					mmc.rawnand_lba_start = mmc.boot1_lba_start + 0x2000;
+					TXNand = true;
+				}
+				if (pm.ReadPartitionTable(vol, 0)) {
+					// Iterate partitions
+					size_t nbPartsTotal = 0, nbParts = pm.partlist.size();
+					for (size_t i = 0; i < nbParts; i++)
+					{
+						partition_info &pi = pm.partlist[i];
 
-					// Look for BOOT0 at offset pi.lba_start + 0x8002 + 0x130
-					unsigned char buff[DEFAULT_BUFF_SIZE] = { 0 };
-					ULONGLONG sector = pi.lba_start + 0x8002;					
-					ds.ReadSector(sector, &buff);
+						// Set size for TX NAND
+						if (TXNand && i == 0) {
+							mmc.lba_end = pi.lba_start - 1;
+							size = (mmc.lba_end - mmc.lba_start + 1) * NX_EMMC_BLOCKSIZE;
 
-					// BOOT0 FOUND
-					if (hexStr(&buff[0x130], 12) == "010021000E00000009000000") {						
-						size = (pi.lba_end - pi.lba_start) * NX_EMMC_BLOCKSIZE;
-						mmc.lba_start = pi.lba_start;
-						mmc.lba_end = pi.lba_end;
-						mmc.boot0_lba_start = pi.lba_start + 0x8000;
-						mmc.boot1_lba_start = mmc.boot0_lba_start + 0x2000;
-						mmc.rawnand_lba_start = mmc.boot1_lba_start + 0x2000;									
+							type = RAWMMC;
+							break;
+						}
+						
+						// Offset must be in range
+						if (pi.lba_start + 0x8002 > pi.lba_end)
+							continue;
 
-						if(DEBUG_MODE) printf("RAWMMC FOUND, BOOT0 starts at sector %llu, BOOT1 at %llu, RAWNAND at %llu\n", 
-							mmc.boot0_lba_start, mmc.boot1_lba_start, mmc.rawnand_lba_start);
+						// Look for BOOT0 at offset pi.lba_start + 0x8002 + 0x130						
+						ULONGLONG sector = pi.lba_start + 0x8002;
+						ds.ReadSector(sector, &buff);
 
-						type = RAWMMC;
-						break;
+						// BOOT0 FOUND
+						if (hexStr(&buff[0x130], 12) == "010021000E00000009000000") {
+							size = (pi.lba_end - pi.lba_start + 1) * NX_EMMC_BLOCKSIZE;
+							mmc.lba_start = pi.lba_start;
+							mmc.lba_end = pi.lba_end;
+							mmc.boot0_lba_start = pi.lba_start + 0x8000;
+							mmc.boot1_lba_start = mmc.boot0_lba_start + 0x2000;
+							mmc.rawnand_lba_start = mmc.boot1_lba_start + 0x2000;
+
+							if (DEBUG_MODE) printf("RAWMMC FOUND, BOOT0 starts at sector %llu, BOOT1 at %llu, RAWNAND at %llu\n",
+								mmc.boot0_lba_start, mmc.boot1_lba_start, mmc.rawnand_lba_start);
+
+							type = RAWMMC;
+							break;
+						}
 					}
 				}
 			}
@@ -1842,7 +1864,7 @@ u64 NxStorage::IsValidPartition(const char * part_name, u64 part_size)
 
 bool NxStorage::setAutoRCM(bool enable)
 {
-	if (type != BOOT0)
+	if (type != BOOT0 && type != RAWMMC)
 		return false;
 
 	HANDLE hStorage;
@@ -1851,7 +1873,12 @@ bool NxStorage::setAutoRCM(bool enable)
 	if (hStorage == INVALID_HANDLE_VALUE)
 		return false;
 
-	DWORD dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
+	u64 offset = 0;
+	if (type == RAWMMC)
+		offset = mmc.boot0_lba_start * NX_EMMC_BLOCKSIZE;
+	offset += 0x200;
+
+	DWORD dwPtr = SetFilePointer(hStorage, offset, NULL, FILE_BEGIN);
 	if (dwPtr != INVALID_SET_FILE_POINTER)
 	{
 		DWORD bytesRead = 0;
@@ -1875,7 +1902,7 @@ bool NxStorage::setAutoRCM(bool enable)
 		}
 
 
-		dwPtr = SetFilePointer(hStorage, 0x200, NULL, FILE_BEGIN);
+		dwPtr = SetFilePointer(hStorage, offset, NULL, FILE_BEGIN);
 		if (dwPtr == INVALID_SET_FILE_POINTER)
 		{
 			CloseHandle(hStorage);
@@ -2511,7 +2538,7 @@ int NxStorage::Incognito()
 	{
 		off_start = 0;
 	}
-	else if (type == RAWNAND)
+	else if (type == RAWNAND || type == RAWMMC)
 	{
 		cal0 = GetPartitionByName("PRODINFO");
 		if (NULL == cal0)

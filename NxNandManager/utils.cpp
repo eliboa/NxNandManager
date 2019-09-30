@@ -184,8 +184,10 @@ std::string ListPhysicalDrives(BOOL noError)
 	for (int drive = 0; drive < 26; drive++)
 	{
 
+		bool found = false;
 		DiskSector ds;
 		CPartitionManager m_pm;
+		unsigned char buff[512] = { 0 };
 
 		char driveName0[256];
 		sprintf_s(driveName0, 256, "PhysicalDrive%d", drive);
@@ -201,11 +203,19 @@ std::string ListPhysicalDrives(BOOL noError)
 			continue;
 		}
 
-		m_pm.m_bIncludeExtendedPartitionDefinitions = true;
+		// Look for TX hidden partition
+		ds.ReadSector(1, &buff);
+		if (hexStr(&buff[0], 6) == "54584E414E44") {
+			std::string s = std::to_string(drive);
+			compatibleDrives.append("\\\\.\\PhysicalDrive" + s + " [" + GetReadableSize(diskLength) + " - TX emuNAND partition detected]\n");
+			num_drive++;
+			found = true;
+		}
 
-		bool found = false;
+		m_pm.m_bIncludeExtendedPartitionDefinitions = true;
+		
 		// Read MBR
-		if (m_pm.ReadPartitionTable(drive, 0)) {
+		if (!found && m_pm.ReadPartitionTable(drive, 0)) {
 
 			// Iterate partitions
 			size_t nbPartsTotal = 0, nbParts = m_pm.partlist.size();
@@ -217,12 +227,11 @@ std::string ListPhysicalDrives(BOOL noError)
 				if (pi.lba_start + 0x8002 > pi.lba_end)
 					continue;
 
-				// Look for BOOT0 at offset pi.lba_start + 0x8002 + 0x130
-				unsigned char buff[512] = { 0 };
+				// Look for BOOT0 at offset pi.lba_start + 0x8002 + 0x130				
 				ds.ReadSector(pi.lba_start + 0x8002, &buff);
 				if (hexStr(&buff[0x130], 12) == "010021000E00000009000000") {
 					std::string s = std::to_string(drive);
-					compatibleDrives.append("\\\\.\\PhysicalDrive" + s + " [" + GetReadableSize(diskLength) + " - MMC Partition detected]\n");
+					compatibleDrives.append("\\\\.\\PhysicalDrive" + s + " [" + GetReadableSize(diskLength) + " - emuMMC partition detected]\n");
 					num_drive++;
 					found = true;
 				}
