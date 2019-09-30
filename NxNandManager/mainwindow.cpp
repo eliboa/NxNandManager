@@ -13,7 +13,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 	// Init partition table
 	QTableWidget *partitionTable = ui->partition_table;
-    partitionTable->resize(330, partitionTable->height());
+    //partitionTable->resize(330, partitionTable->height());
 	partitionTable->setRowCount(0);
     partitionTable->setColumnCount(3);
     partitionTable->setColumnWidth(0, 160);
@@ -28,7 +28,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
 	// Init progress bar
-    ui->progressBar->resize(305, ui->progressBar->height());
+    //ui->progressBar->resize(305, ui->progressBar->height());
 	ui->progressBar->setValue(0);
 	ui->progressBar->setTextVisible(true);
 	ui->progressBar->setFormat("");
@@ -118,9 +118,12 @@ void MainWindow::openDrive()
 	}
 
     openDriveDialog = new OpenDrive(this);
-	openDriveDialog->setWindowTitle("Logical drives");
-	openDriveDialog->show();
+    openDriveDialog->setWindowTitle("Scanning drives, please wait...");
+	openDriveDialog->show();    
+    openDriveDialog->ListDrives();
+    openDriveDialog->setWindowTitle("Logical drives");
 	openDriveDialog->exec();
+
 
 }
 
@@ -505,7 +508,7 @@ void MainWindow::inputSet(NxStorage *storage)
 
 	}
 
-	if(input->type == BOOT0 || input->type == BOOT1 || input->type == PARTITION)
+    if(input->type == BOOT0 || input->type == BOOT1 || input->type == PARTITION)
 	{
 		ui->partition_table->setRowCount(1);
 		if(input->type == PARTITION) {
@@ -523,39 +526,57 @@ void MainWindow::inputSet(NxStorage *storage)
 		}
 		ui->partition_table->setItem(0, 1, new QTableWidgetItem(GetReadableSize(input->size).c_str()));
         ui->partition_table->setItem(0, 2, new QTableWidgetItem(input->isEncrypted ? "Yes" : "No"));
-
-
-		if(input->type == BOOT0)
-		{
-            //ui->partition_table->setItem(0, 2, new QTableWidgetItem("No"));
-            ui->menuTools->actions().at(2)->setEnabled(true);
-		}
-
-
 	}
 
-	QString path = QString::fromWCharArray(input->pathLPWSTR), input_label;
-	QFileInfo fi(path);
-	input_label.append(fi.fileName() + " (");
-    if(input->isSplitted)
-        input_label.append("splitted dump, ");
-	input_label.append(QString(GetReadableSize(input->size).c_str()) + ")");
-
-    if(input->fw_detected)
+    if(input->type == BOOT0 || input->type == RAWMMC)
     {
-        input_label.append(" - FW " + QString(input->fw_version));
-        if(input->exFat_driver)
-            input_label.append(" (exFat)");
+        ui->menuTools->actions().at(2)->setEnabled(true);
     }
 
-    if(input->isEncrypted && input->bad_crypto)
-        input_label.append(" - DECRYPTION FAILED !");
+    // Display storage information
+	QString path = QString::fromWCharArray(input->pathLPWSTR), input_label;
+	QFileInfo fi(path);
 
-	ui->inputLabel->setText(input_label);
-    if(input->isEncrypted && input->bad_crypto)
-        ui->inputLabel->setStyleSheet("QLabel { color : red; }");
+    ui->filedisk_value->setText(fi.fileName());
+    ui->nxtype_value->setText(input->GetNxStorageTypeAsString());
+    ui->size_value->setText(QString(GetReadableSize(input->size).c_str()));
+    ui->fwversion_value->setStyleSheet("QLabel { color : #686868; }");
+    ui->deviceid_value->setStyleSheet("QLabel { color : #686868; }");
+
+    if(input->fw_detected)
+        ui->fwversion_value->setText(QString(input->fw_version));
+    else if(input->type == RAWNAND || input->type == RAWMMC ||
+            (input->type == PARTITION && strcmp(input->partitionName, "SYSTEM") == 0))
+    {
+        if(input->isEncrypted && input->bad_crypto) {
+            ui->fwversion_value->setText("BAD CRYPTO!");
+            ui->fwversion_value->setStyleSheet("QLabel { color : red; }");
+            ui->fwversion_value->setStatusTip("Error while decrypting content, wrong keys ? (CTRL+K to configure keyset)");
+        }
+        else {
+            ui->fwversion_value->setText("KEYSET NEEDED!");
+            ui->fwversion_value->setStatusTip("Unable to decrypt content (CTRL+K to configure keyset)");
+        }
+    }
     else
-        ui->inputLabel->setStyleSheet("QLabel { color : black; }");
+        ui->fwversion_value->setText("N/A");
+
+    if (strlen(input->deviceId) > 0)
+        ui->deviceid_value->setText(input->deviceId);
+    else if(input->type == RAWNAND || input->type == RAWMMC || (input->type == PARTITION && strcmp(input->partitionName, "PRODINFO") == 0))
+    {
+        if(input->isEncrypted && input->bad_crypto) {
+            ui->deviceid_value->setText("BAD CRYPTO!");
+            ui->deviceid_value->setStyleSheet("QLabel { color : red; }");
+            ui->deviceid_value->setStatusTip("Error while decrypting content, wrong keys ? (CTRL+K to configure keyset)");
+        }
+        else {
+            ui->deviceid_value->setText("KEYSET NEEDED!");
+            ui->deviceid_value->setStatusTip("Unable to decrypt content (CTRL+K to configure keyset)");
+        }
+    }
+    else
+        ui->deviceid_value->setText("N/A");
 }
 
 
@@ -900,6 +921,13 @@ void MainWindow::toggleAutoRCM()
 	}
 
 	bool pre_autoRcm = input->autoRcm;
+
+    if(input->type == RAWMMC && !pre_autoRcm && QMessageBox::question(this, "Warning", "Be aware that activating autoRCM on emuNAND will be inoperant since it only works on sysNAND.\nAre you sure you want to continue ?", QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+    {
+        QMessageBox::information(this, "Information", "Operation canceled");
+        return;
+    }
+
 	if(!input->setAutoRCM(input->autoRcm ? false : true))
 		QMessageBox::critical(nullptr,"Error", "Error while toggling autoRCM");
 	else {

@@ -22,8 +22,12 @@ public:
     ~OpenDrive();
     Ui::DialogOpenDrive *ui;
 
+    void ListDrives();
+    void ShowLabel();
+
 private slots:
     void on_listWidget_itemDoubleClicked(QListWidgetItem *item);
+
 
 private:
 

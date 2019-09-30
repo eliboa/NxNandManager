@@ -111,11 +111,13 @@ Properties::Properties(NxStorage *in) :
         i++;
     }
 
-    if (strlen(input->wlanMacAddress) > 0)
+    //if (strlen(input->wlanMacAddress) > 0)
+    if (input->macAddress.length() > 0)
     {
         ui->PropertiesTable->setRowCount(i+1);
         ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("MAC Address"));
-        ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(hexStr(reinterpret_cast<unsigned char*>(input->wlanMacAddress), 6).c_str()));
+        //ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(hexStr(reinterpret_cast<unsigned char*>(input->wlanMacAddress), 6).c_str()));
+        ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->macAddress.c_str()));
         i++;
     }
 

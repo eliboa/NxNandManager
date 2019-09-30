@@ -39,7 +39,8 @@ void NxStorage::InitStorage()
 	fw_detected = false;
 	bad_crypto = false;
 	memset(fw_version, 0, sizeof fw_version);
-
+	memset(deviceId, 0, sizeof deviceId);
+	macAddress.empty();
 
 	HANDLE hDevice = INVALID_HANDLE_VALUE;
 	BOOL bResult = FALSE;
@@ -2497,8 +2498,17 @@ int NxStorage::prodinfo_read()
 	memcpy(&serial_number, &buffer[0x250], 18);
 	memset(&deviceId, 0x00, 21);
 	memcpy(&deviceId, &buffer[0x544], 20);
-	memset(&wlanMacAddress, 0x00, 7);
-	memcpy(&wlanMacAddress, &buffer[0x210], 6);	
+	s8 t_wlanMacAddress[7] = { 0 };
+	memset(&t_wlanMacAddress, 0x00, 7);
+	memcpy(&t_wlanMacAddress, &buffer[0x210], 6);
+
+    std::string t_macAddress = hexStr(reinterpret_cast<unsigned char*>(t_wlanMacAddress), 6);
+	for (std::string::size_type i = 0; i < t_macAddress.size(); i++) {
+		macAddress += t_macAddress[i];
+        if (i & 1 && i != t_macAddress.size() - 1) {
+			macAddress.append("-");
+		}
+	}
 
 	if (DEBUG_MODE) {
 		printf("PRODINFO device id %s \n", deviceId);

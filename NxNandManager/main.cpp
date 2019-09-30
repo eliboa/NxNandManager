@@ -356,8 +356,8 @@ int main(int argc, char *argv[])
 			if (strlen(curNxdata->deviceId) > 0)
 				printf("Device Id      : %s\n", curNxdata->deviceId);
 
-			if (strlen(curNxdata->wlanMacAddress) > 0)
-				printf("MAC Address    : %s\n", hexStr(reinterpret_cast<unsigned char*>(curNxdata->wlanMacAddress), 6).c_str());	
+			if (curNxdata->macAddress.length() > 0)
+				printf("MAC Address    : %s\n", curNxdata->macAddress.c_str());	
 
 			if (NULL != curNxdata->firstPartion)
 			{

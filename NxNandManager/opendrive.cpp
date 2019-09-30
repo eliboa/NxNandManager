@@ -8,7 +8,30 @@ OpenDrive::OpenDrive(QWidget *parent) :
     ui->setupUi(this);
     connect(this, SIGNAL(finished(QString)), parent, SLOT(driveSet(QString)));
 
+    ui->listWidget->setEnabled(false);
+    ui->listWidget->hide();
+    ui->label->setEnabled(true);
+    ui->label->show();
+}
+
+OpenDrive::~OpenDrive()
+{
+    delete ui;
+}
+void OpenDrive::ShowLabel()
+{
+    ui->listWidget->setEnabled(false);
+    ui->listWidget->hide();
+    ui->label->setEnabled(true);
+    ui->label->show();
+}
+void OpenDrive::ListDrives()
+{
     QString drives = QString(ListPhysicalDrives(TRUE).c_str());
+    ui->label->setEnabled(false);
+    ui->label->hide();
+    ui->listWidget->setEnabled(true);
+    ui->listWidget->show();
     QString drivename;
     int li = 0;
     for (int i = 0; i < drives.count(); ++i)
@@ -27,11 +50,6 @@ OpenDrive::OpenDrive(QWidget *parent) :
     }
     keyEnterReceiver* key = new keyEnterReceiver();
     this->installEventFilter(key);
-}
-
-OpenDrive::~OpenDrive()
-{
-    delete ui;
 }
 
 void OpenDrive::on_listWidget_itemDoubleClicked(QListWidgetItem *item)
