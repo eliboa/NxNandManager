@@ -427,8 +427,8 @@ void MainWindow::inputSet(NxStorage *storage)
 	input = storage;
 
 	// Clear table
-	ui->partition_table->setRowCount(0);
-	ui->partition_table->setStatusTip(tr(""));
+    ui->partition_table->setRowCount(0);
+    ui->partition_table->setStatusTip(tr(""));
 
 	ui->progressBar->setFormat("");
 	ui->progressBar->setValue(0);
@@ -441,12 +441,45 @@ void MainWindow::inputSet(NxStorage *storage)
     ui->menuTools->actions().at(1)->setDisabled(true);
     ui->menuTools->actions().at(2)->setDisabled(true);
 
+    QString path = QString::fromWCharArray(input->pathLPWSTR), input_label;
+    QFileInfo fi(path);
+    path = fi.fileName();
+    if(input->isDrive && input->type == RAWMMC)
+    {
+        path.append(" [");
+        path.append(n2hexstr(input->mmc.lba_start * NX_EMMC_BLOCKSIZE, 10).c_str());
+        path.append(" -> ");
+        path.append(n2hexstr((input->mmc.lba_end + 1) * NX_EMMC_BLOCKSIZE - 1, 10).c_str());
+        path.append("]");
+    }
+    ui->filedisk_value->setText(path);
+    ui->nxtype_value->setText(input->GetNxStorageTypeAsString());
+    ui->size_value->setText(QString(GetReadableSize(input->size).c_str()));
+    ui->fwversion_value->setStyleSheet("QLabel { color : #686868; }");
+    ui->deviceid_value->setStyleSheet("QLabel { color : #686868; }");
+    ui->fwversion_value->setStatusTip("");
+    ui->fwversion_value->setText("N/A");
+    ui->deviceid_value->setStatusTip("");
+    ui->deviceid_value->setText("N/A");
+
     //createActions();
 	initButtons();
 
 	if(input->type == INVALID || input->type == UNKNOWN)
 	{
-		QString message("Input file/drive is not a valid NX storage type"), buff;
+        QString message("Input file/drive is not a valid NX Storage."), buff;
+        if(input->b_MayBeNxStorage && input->size <= 0xA0000000)
+        {
+            message.append("\nMake sure the file name matches the partition's name.\nAccording to file size, file name could be :\n");
+            for( NxPartition part : partInfoArr)
+            {
+                if(part.size == input->size) {
+                    message.append("- ");
+                    message.append(part.name);
+                    message.append("\n");
+                }
+            }
+        }
 		if(input->isSplitted && input->raw_size == input->size)
 			message.append("\nThe application was unable to locate backup GPT in splitted dump");
 		else if(input->isSplitted)
@@ -494,18 +527,18 @@ void MainWindow::inputSet(NxStorage *storage)
 		while (nullptr != cur)
 		{
 
-			ui->partition_table->setRowCount(i+1);
-            ui->partition_table->setItem(i, 0, new QTableWidgetItem(QString(cur->name)));
+            ui->partition_table->insertRow(ui->partition_table->rowCount());
+
+            ui->partition_table->setItem(ui->partition_table->rowCount()-1, 0, new QTableWidgetItem(QString(cur->name)));
 			u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
 			QString qSize = QString::number(size);
-			ui->partition_table->setItem(i, 1, new QTableWidgetItem(GetReadableSize(size).c_str()));
-            ui->partition_table->setItem(i, 2, new QTableWidgetItem(cur->isEncrypted ? "Yes" : "No"));
-			cur = cur->next;
-			i++;
+            ui->partition_table->setItem(ui->partition_table->rowCount()-1, 1, new QTableWidgetItem(GetReadableSize(size).c_str()));
 
+            ui->partition_table->setItem(ui->partition_table->rowCount()-1, 2, new QTableWidgetItem(cur->isEncrypted ? "Yes" : "No"));
+
+			cur = cur->next;
 		}
 		ui->partition_table->setStatusTip(tr("Right-click on partition to dump/restore to/from file."));
-
 	}
 
     if(input->type == BOOT0 || input->type == BOOT1 || input->type == PARTITION)
@@ -534,15 +567,6 @@ void MainWindow::inputSet(NxStorage *storage)
     }
 
     // Display storage information
-	QString path = QString::fromWCharArray(input->pathLPWSTR), input_label;
-	QFileInfo fi(path);
-
-    ui->filedisk_value->setText(fi.fileName());
-    ui->nxtype_value->setText(input->GetNxStorageTypeAsString());
-    ui->size_value->setText(QString(GetReadableSize(input->size).c_str()));
-    ui->fwversion_value->setStyleSheet("QLabel { color : #686868; }");
-    ui->deviceid_value->setStyleSheet("QLabel { color : #686868; }");
-
     if(input->fw_detected)
         ui->fwversion_value->setText(QString(input->fw_version));
     else if(input->type == RAWNAND || input->type == RAWMMC ||
@@ -954,4 +978,10 @@ void MainWindow::keySetSet()
         }
         inputSet(input);
     }
+}
+
+void MainWindow::on_moreinfo_button_clicked()
+{
+    if(nullptr != input && input->type != INVALID && input->type != UNKNOWN)
+        Properties();
 }

@@ -26,7 +26,7 @@ void NxStorage::InitStorage()
 
 	type = UNKNOWN;
 	size = 0, fileDiskTotalBytes = 0, fileDiskFreeBytes = 0;
-	isDrive = false, backupGPTfound = false, autoRcm = false, isEncrypted = false;
+	isDrive = false, backupGPTfound = false, autoRcm = false, isEncrypted = false, b_MayBeNxStorage = false;
 	pdg = { 0 };
 	partCount = 0;
 	firstPartion = NULL;
@@ -124,6 +124,7 @@ void NxStorage::InitStorage()
 	DWORD bytesRead = 0;
 	BYTE buff[0x200];
 	BYTE sbuff[0x200];
+	bool TXNand = false;
 
 	// Look for magic offset
 	for (int i=0; i < (int)array_countof(mgkOffArr); i++)
@@ -147,6 +148,12 @@ void NxStorage::InitStorage()
 				break;
 			}
 		}
+	}
+
+	if (type == PRODINFO || type == PRODINFOF)
+	{
+		strcpy_s(partitionName, type == PRODINFO ? "PRODINFO" : "PRODINFOF");
+		type = PARTITION;
 	}
 
 	// Dynamic search for PK11 magic (BOOT1)
@@ -191,6 +198,10 @@ void NxStorage::InitStorage()
 				type = PARTITION;
 				break;
 			}
+			else if (partInfoArr[i].size == size)
+			{
+				b_MayBeNxStorage = true;
+			}
 		}
 	}
 
@@ -204,8 +215,19 @@ void NxStorage::InitStorage()
 		mmc.rawnand_lba_start = mmc.boot1_lba_start + 0x2000;
 	}
 
+	if (type == TXNAND)
+	{
+		mmc.lba_start = 0;
+		mmc.boot0_lba_start = 2;
+		mmc.boot1_lba_start = mmc.boot0_lba_start + 0x2000;
+		mmc.rawnand_lba_start = mmc.boot1_lba_start + 0x2000;
+		mmc.lba_end = size - NX_EMMC_BLOCKSIZE;
+		TXNand = true;
+		type = RAWMMC;
+	}
+
 	// EmuMMC & TX emuNAND partition
-	if (isDrive && type == UNKNOWN)
+	if (isDrive && (type == UNKNOWN || TXNand))
     {
 		CloseHandle(hStorage);		
 		DiskSector ds;
@@ -219,22 +241,10 @@ void NxStorage::InitStorage()
 		for (auto & c : spath) c = toupper(c);
 		std::size_t n = spath.find("PHYSICALDRIVE");
 		if (n != std::string::npos) {
-			std::string volume = spath.substr(n+13);
-			
-			int vol = std::stoi(volume);
-			
+			std::string volume = spath.substr(n+13);			
+			int vol = std::stoi(volume);			
 			if (ds.OpenPhysicalDrive(vol)) {
 
-				// Look for TX hidden partition
-				bool TXNand = false;
-				ds.ReadSector(1, &buff);				
-				if (hexStr(&buff[0], 6) == "54584E414E44") {
-					mmc.lba_start = 0;
-					mmc.boot0_lba_start = 2;
-					mmc.boot1_lba_start = mmc.boot0_lba_start + 0x2000;
-					mmc.rawnand_lba_start = mmc.boot1_lba_start + 0x2000;
-					TXNand = true;
-				}
 				if (pm.ReadPartitionTable(vol, 0)) {
 					// Iterate partitions
 					size_t nbPartsTotal = 0, nbParts = pm.partlist.size();
@@ -242,11 +252,10 @@ void NxStorage::InitStorage()
 					{
 						partition_info &pi = pm.partlist[i];
 
-						// Set size for TX NAND
+						// Set size for TX NAND drive
 						if (TXNand && i == 0) {
 							mmc.lba_end = pi.lba_start - 1;
 							size = (mmc.lba_end - mmc.lba_start + 1) * NX_EMMC_BLOCKSIZE;
-
 							type = RAWMMC;
 							break;
 						}
@@ -282,7 +291,6 @@ void NxStorage::InitStorage()
 		pm.Close();
 		hStorage = CreateFileW(pathLPWSTR, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 	}
-
 
 	// Partition crypto validation
 	if(type == PARTITION)
@@ -358,7 +366,7 @@ void NxStorage::InitStorage()
 	if (type == RAWNAND || type == RAWMMC)
 	{		
 		bool was_mmc = false;
-		u64 last_sector = 0;
+		u64 last_cluster = 0;
 		LARGE_INTEGER liDistanceToMove;
 		liDistanceToMove.QuadPart = 0x200;
 		if (type == RAWMMC) {
@@ -394,7 +402,7 @@ void NxStorage::InitStorage()
 						cur->lba_start += mmc.rawnand_lba_start;
 						cur->lba_end += mmc.rawnand_lba_start;
 					}
-					if(last_sector < cur->lba_end) last_sector = cur->lba_end;
+					if(last_cluster < cur->lba_end) last_cluster = cur->lba_end;
 					cur = cur->next;
 				}
 
@@ -427,7 +435,7 @@ void NxStorage::InitStorage()
 		}
 
 		// Look for backup GPT		
-		liDistanceToMove.QuadPart = last_sector * NX_EMMC_BLOCKSIZE + 0x20400000;
+        liDistanceToMove.QuadPart = last_cluster * NX_EMMC_BLOCKSIZE + 0x20400000;
 			
 		if (DEBUG_MODE) printf("Looking for backup GPT at offset %s, sector %s\n", n2hexstr(liDistanceToMove.QuadPart, 10).c_str(), n2hexstr(liDistanceToMove.QuadPart / NX_EMMC_BLOCKSIZE, 10).c_str());
 

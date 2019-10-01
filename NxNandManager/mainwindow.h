@@ -7,6 +7,7 @@
 #include <QtWinExtras>
 #include <QtWinExtras>
 #include <QWinTaskbarProgress>
+#include <QTableWidgetItem>
 #include "NxStorage.h"
 #include "worker.h"
 #include "opendrive.h"
@@ -84,6 +85,7 @@ private slots:
 	void on_stop_button_clicked();
 	void on_fullrestore_button_clicked();
 	void on_partition_table_itemSelectionChanged();
+    void on_moreinfo_button_clicked();
 
 public slots:
 	void inputSet(NxStorage *storage = nullptr);

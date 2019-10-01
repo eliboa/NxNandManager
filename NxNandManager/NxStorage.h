@@ -25,6 +25,9 @@ using namespace std;
 #define RAWNAND	  1003
 #define PARTITION 1005
 #define RAWMMC   1006
+#define TXNAND   1007
+#define PRODINFO 1008
+#define PRODINFOF 1009
 #define UNKNOWN   1004
 #define NX_GPT_FIRST_LBA 1
 #define NX_GPT_NUM_BLOCKS 33
@@ -177,6 +180,12 @@ struct NxMMC {
 static MagicOffsets mgkOffArr[] =
 {
 	// { offset, magic, size, type, firwmare }
+	{ 0, "43414C30", 4, PRODINFO}, // PRODINFO
+	{ 0x680, "434552544946", 6, PRODINFOF}, // PRODINFOF
+		// RAWNAND -> Look for GPT partition 
+	{ 0x200, "4546492050415254", 8, RAWNAND, 0 },
+	{ 0x1000530, "010021000E00000009000000", 12, RAWMMC, 0},
+	{ 0x200, "54584E414E44", 6, TXNAND, 0},
 	// BOOT0 => Look for boot_data_version + block_size_log2 + page_size_log2
 	{ 0x0530, "010021000E00000009000000", 12, BOOT0, 0},
 	// BOOT1 => Look for PK11 magic
@@ -189,10 +198,7 @@ static MagicOffsets mgkOffArr[] =
 	{ 0x40AF8,"504B3131", 4, BOOT1, 7},
 	{ 0x40ADC,"504B3131", 4, BOOT1, 8},
 	{ 0x40ACC,"504B3131", 4, BOOT1, 8.1},
-	{ 0x40AC0,"504B3131", 4, BOOT1, 9},
-	// RAWNAND -> Look for GPT partition 
-	{ 0x200, "4546492050415254", 8, RAWNAND, 0 },
-	{ 0x1000530, "010021000E00000009000000", 12, RAWMMC, 0}
+	{ 0x40AC0,"504B3131", 4, BOOT1, 9}
 };
 
 static NxPartition partInfoArr[] =
@@ -355,7 +361,7 @@ public:
 	s8 deviceId[21] = { 0 };
 	s8 wlanMacAddress[12] = { 0 };
 	std::string macAddress;
-
+	bool b_MayBeNxStorage = false;
 
 };
 
