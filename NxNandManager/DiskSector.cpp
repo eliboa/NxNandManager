@@ -378,10 +378,11 @@ bool DiskSectorWin9x::ReadLogicalSectors (HANDLE hDev,
 
   dio.dwStartSector = dwStartSector;
   dio.wSectors      = wSectors;
-  dio.dwBuffer      = (u64)lpSectBuff;
+  dio.dwBuffer      = *reinterpret_cast<unsigned char *>(lpSectBuff);
+  //*(unsigned char *)
 
   reg.reg_EAX = bDrive - 1;    // Int 25h drive numbers are 0-based. 
-  reg.reg_EBX = (u64)&dio;   // Drive letter 0 = A, 1 = B  2 = C ect..
+  reg.reg_EBX = *reinterpret_cast<unsigned char *>(&dio);   // Drive letter 0 = A, 1 = B  2 = C ect..
   reg.reg_ECX = 0xFFFF;        // use DISKIO struct
 
   fResult = ::DeviceIoControl(hDev, VWIN32_DIOC_DOS_INT25,
@@ -436,10 +437,10 @@ bool DiskSectorWin9x::WriteLogicalSectors (HANDLE hDev,
 
   dio.dwStartSector = dwStartSector;
   dio.wSectors      = wSectors;
-  dio.dwBuffer      = (u64)lpSectBuff;
+  dio.dwBuffer      = *reinterpret_cast<unsigned char *>(lpSectBuff);
 
   reg.reg_EAX = bDrive - 1;    // Int 26h drive numbers are 0-based.
-  reg.reg_EBX = (u64)&dio;
+  reg.reg_EBX = *reinterpret_cast<unsigned char *>(&dio);
   reg.reg_ECX = 0xFFFF;        // use DISKIO struct
 
   fResult = ::DeviceIoControl(hDev, VWIN32_DIOC_DOS_INT26,
@@ -498,10 +499,10 @@ bool DiskSectorWin9x::NewReadSectors(HANDLE hDev,
 
   dio.dwStartSector = dwStartSector;
   dio.wSectors      = wSectors;
-  dio.dwBuffer      = (u64)lpSectBuff;
+  dio.dwBuffer      = *reinterpret_cast<unsigned char *>(lpSectBuff);
 
   reg.reg_EAX = 0x7305;   // Ext_ABSDiskReadWrite
-  reg.reg_EBX = (u64)&dio;
+  reg.reg_EBX = *reinterpret_cast<unsigned char *>(&dio);
   reg.reg_ECX = -1;
   reg.reg_EDX = bDrive;   // Int 21h, fn 7305h drive numbers are 1-based
 
@@ -561,10 +562,10 @@ bool DiskSectorWin9x::NewWriteSectors(HANDLE hDev,
 
   dio.dwStartSector = dwStartSector;
   dio.wSectors      = wSectors;
-  dio.dwBuffer      = (u64)lpSectBuff;
+  dio.dwBuffer      = *reinterpret_cast<unsigned char *>(lpSectBuff);
 
   reg.reg_EAX = 0x7305;   // Ext_ABSDiskReadWrite
-  reg.reg_EBX = (u64)&dio;
+  reg.reg_EBX = *reinterpret_cast<unsigned char *>(&dio);
   reg.reg_ECX = -1;
   reg.reg_EDX = bDrive;   // Int 21h, fn 7305h drive numbers are 1-based
 
