@@ -184,7 +184,7 @@ static MagicOffsets mgkOffArr[] =
 	{ 0x680, "434552544946", 6, PRODINFOF}, // PRODINFOF
 		// RAWNAND -> Look for GPT partition 
 	{ 0x200, "4546492050415254", 8, RAWNAND, 0 },
-	{ 0x1000530, "010021000E00000009000000", 12, RAWMMC, 0},
+	{ 0x4530, "010021000E00000009000000", 12, RAWMMC, 0},
 	{ 0x200, "54584E414E44", 6, TXNAND, 0},
 	// BOOT0 => Look for boot_data_version + block_size_log2 + page_size_log2
 	{ 0x0530, "010021000E00000009000000", 12, BOOT0, 0},

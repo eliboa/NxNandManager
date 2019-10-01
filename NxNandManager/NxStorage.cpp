@@ -210,7 +210,7 @@ void NxStorage::InitStorage()
 	{
 		mmc.lba_start = 0;
 		mmc.lba_end = size / NX_EMMC_BLOCKSIZE;
-		mmc.boot0_lba_start = 0x8000;
+		mmc.boot0_lba_start = 0;
 		mmc.boot1_lba_start = mmc.boot0_lba_start + 0x2000;
 		mmc.rawnand_lba_start = mmc.boot1_lba_start + 0x2000;
 	}
@@ -270,7 +270,7 @@ void NxStorage::InitStorage()
 
 						// BOOT0 FOUND
 						if (hexStr(&buff[0x130], 12) == "010021000E00000009000000") {
-							size = (pi.lba_end - pi.lba_start + 1) * NX_EMMC_BLOCKSIZE;
+							//size = (pi.lba_end - pi.lba_start + 1) * NX_EMMC_BLOCKSIZE;
 							mmc.lba_start = pi.lba_start;
 							mmc.lba_end = pi.lba_end;
 							mmc.boot0_lba_start = pi.lba_start + 0x8000;
@@ -408,6 +408,8 @@ void NxStorage::InitStorage()
 
 				if (type == RAWMMC)
 				{
+					size = size = (last_cluster - mmc.boot0_lba_start + 1) * NX_EMMC_BLOCKSIZE;
+
 					// Add BOOT1 partition
 					GptPartition *part2 = (GptPartition *)malloc(sizeof(GptPartition));
 					part2->isEncrypted = false;
@@ -1065,11 +1067,14 @@ int NxStorage::RestoreFromStorage(NxStorage *in, const char* partition, u64* rea
 					do_crypto = true;
 				}
 
-				// Set offset to begin in input rawnand
+				// Set offset to begin in RAWMMC
 				handle.off_start = 0;
-				if (type == RAWMMC && in->type == RAWNAND)
-					handle.off_start = mmc.rawnand_lba_start * NX_EMMC_BLOCKSIZE;
-
+				if (in->type == RAWMMC && in->type == RAWNAND)
+					out_off_start = mmc.rawnand_lba_start * NX_EMMC_BLOCKSIZE;;
+				if (in->type == RAWMMC && type == RAWMMC) {
+					handle.off_start = in->mmc.boot0_lba_start * NX_EMMC_BLOCKSIZE;
+					out_off_start = mmc.boot0_lba_start * NX_EMMC_BLOCKSIZE;
+				}
 				handle.off_end = in->size;
 				handle.off_max = in->size;
 
@@ -1387,7 +1392,7 @@ int NxStorage::DumpToStorage(NxStorage *out, const char* partition, u64* readAmo
 
 			handle.off_start = 0;
 			if (type == RAWMMC)
-				handle.off_start = mmc.lba_start * NX_EMMC_BLOCKSIZE;
+				handle.off_start = mmc.boot0_lba_start * NX_EMMC_BLOCKSIZE;
 
 			handle.off_end = this->size;
 			handle.off_max = this->size;
