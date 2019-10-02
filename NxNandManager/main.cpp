@@ -333,7 +333,7 @@ int main(int argc, char *argv[])
 				curNxdata->isSplitted ? " (splitted dump)" : "");
 			printf("File/Disk      : %s", curNxdata->isDrive ? "Disk" : "File");
 			if (curNxdata->type == RAWMMC) 
-				printf(" (%s - %s)\n", int_to_hex(u64(curNxdata->mmc.lba_start * NX_EMMC_BLOCKSIZE)).c_str(), int_to_hex(u64(curNxdata->mmc.lba_end * NX_EMMC_BLOCKSIZE)).c_str());
+				printf(" [%s - %s]\n", int_to_hex(u64(curNxdata->mmc.lba_start * NX_EMMC_BLOCKSIZE)).c_str(), int_to_hex(u64(curNxdata->mmc.lba_end * NX_EMMC_BLOCKSIZE)).c_str());
 			else
 				printf("\n");
 			printf("Encrypted      : %s%s\n", curNxdata->isEncrypted ? "Yes" : "No", 
@@ -371,7 +371,7 @@ int main(int argc, char *argv[])
 
 					if (DEBUG_MODE)
 					{
-						printf(" [sectors %I32d -> %I32d]", cur->lba_start, cur->lba_end);
+						printf(" [sectors %I32d - %I32d]", cur->lba_start, cur->lba_end);
 					}
 
 					printf("\n");
