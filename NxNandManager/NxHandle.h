@@ -105,6 +105,7 @@ class NxHandle {
 
         // Setters
         void setSplitted(bool b) { b_isSplitted = b; };
+        void setSize(u64 u_size) { m_size = u_size; };
 
         // Public methods
         void initHandle(int crypto_mode = NO_CRYPTO, NxPartition *partition = nullptr);

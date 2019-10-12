@@ -218,12 +218,20 @@ NxStorage::NxStorage(const char *p_path)
             
             if (cal0_found)
             {
-                nxHandle->initHandle();
+                
                 // Look for backup GPT
                 u64 off = m_size - NX_BLOCKSIZE;
                 if (nxHandle->isDrive())
+                {                   
                     off = (u64)last_sector * NX_BLOCKSIZE + 0x20400000;
+                    if (off > nxHandle->size()) {
+                        m_size = off + NX_BLOCKSIZE;
+                        nxHandle->setSize(off + NX_BLOCKSIZE);
+                    }
+                }
+                nxHandle->initHandle();
 
+                //printf("LOOK FOR BACKUP GPT AT OFFSET %s (handle size = %s) \n", n2hexstr(off, 12).c_str(), n2hexstr(nxHandle->size(), 12).c_str());
                 memset(buff, 0, 8);
                 if (nxHandle->read(off, buff, &bytesRead, 0x200) && !memcmp(&buff[0], "EFI PART", 8))
                 {
@@ -253,16 +261,12 @@ NxStorage::NxStorage(const char *p_path)
             //dbg_printf("NxStorage::NxStorage() Look for backup GPT at offset %s\n", n2hexstr(off).c_str());
             if (nxHandle->read(off, buff, &bytesRead, 0x200) && !memcmp(&buff[0], "EFI PART", 8))
             {
-                //printf("BACKUP GPT FOUND\n");
                 type = RAWNAND;
                 b_isSplitted = true;
                 m_size = nxHandle->size();
                 m_backupGPT = off;
             }
-            else {
-                //printf("BACKUP GPT NOT FOUND\n%s\n", hexStr(buff, 0x200).c_str());
-                nxHandle->setSplitted(false);
-            }
+            else nxHandle->setSplitted(false);
         }
     }
 

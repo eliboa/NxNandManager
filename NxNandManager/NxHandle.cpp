@@ -357,11 +357,13 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
     }
 
     // Encrypt/Decrypt buffer
+    //printf("READ CRYPTO %d, LENGTH %s\n", m_crypto, n2hexstr(length, 10).c_str());
     if (is_in(m_crypto, { ENCRYPT, DECRYPT }) && nxCrypto != nullptr && length == CLUSTER_SIZE)
     {
         m_cur_block = (lp_CurrentPointer.QuadPart - m_off_start) / CLUSTER_SIZE;
-        if(m_crypto == ENCRYPT)
+        if (m_crypto == ENCRYPT) {            
             nxCrypto->encrypt((unsigned char*)buffer, m_cur_block);
+        }
         else
             nxCrypto->decrypt((unsigned char*)buffer, m_cur_block);
     }
