@@ -3,7 +3,9 @@
 #include <QMainWindow>
 #include <QDialog>
 #include <QtWidgets>
-#include "utils.h"
+#include "worker.h"
+#include "../res/utils.h"
+#include "../NxStorage.h"
 
 QT_BEGIN_NAMESPACE
 class QAction;
@@ -22,12 +24,14 @@ public:
     ~OpenDrive();
     Ui::DialogOpenDrive *ui;
 
-    void ListDrives();
+    void ListDrives(QString drives);
     void ShowLabel();
 
 private slots:
     void on_listWidget_itemDoubleClicked(QListWidgetItem *item);
 
+public slots:
+    void list_callback(QString);
 
 private:
 

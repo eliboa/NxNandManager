@@ -20,19 +20,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="mainwindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="NxStorage.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="opendrive.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="worker.cpp">
@@ -41,10 +32,28 @@
     <ClCompile Include="xts_crypto.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DiskSector.cpp">
+    <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="partitionmanager.cpp">
+    <ClCompile Include="NxCrypto.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NxHandle.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NxPartition.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NxStorage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="res\fat32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="res\hex_string.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="res\utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -72,22 +81,28 @@
     <ClInclude Include="NxNandManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="NxCrypto.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NxHandle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NxPartition.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="NxStorage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="types.h">
+    <ClInclude Include="res\fat32.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="utils.h">
+    <ClInclude Include="res\hex_string.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="xts_crypto.h">
+    <ClInclude Include="res\types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DiskSector.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="partitionmanager.h">
+    <ClInclude Include="res\utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

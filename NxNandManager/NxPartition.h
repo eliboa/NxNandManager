@@ -68,8 +68,7 @@ class NxPartition
     
     // Member variables
     private:
-        NxStorage *parent;
-        NxHandle *nxHandle;
+        NxStorage *parent;        
         u32 m_lba_start = 0;
         u32 m_lba_end = 0;
         u64 m_attrs = 0;
@@ -86,7 +85,9 @@ class NxPartition
 
     // Member methods
     public:
+        NxHandle *nxHandle;
         NxPart nxPart_info;
+
         // Getters
         std::string partitionName();
         u32 lbaStart();
@@ -97,7 +98,7 @@ class NxPartition
         NxCrypto* crypto() { return nxCrypto; };
         
         // Setters
-        void setBadCrypto() { m_bad_crypto = true; };
+        void setBadCrypto(bool bad = true) { m_bad_crypto = bad; };
 
         // Boolean    
         bool isValidPartition();

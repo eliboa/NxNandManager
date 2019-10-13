@@ -5,8 +5,8 @@
 #include <QObject>
 #include <QDialog>
 #include <QtWidgets>
-#include "utils.h"
-#include "NxStorage.h"
+#include "../res/utils.h"
+#include "../NxStorage.h"
 
 QT_BEGIN_NAMESPACE
 class QAction;

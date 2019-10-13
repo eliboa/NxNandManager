@@ -26,34 +26,36 @@ CONFIG += c++11
 CONFIG += console
 
 SOURCES += \
-    DiskSector.cpp \
-    hex_string.cpp \
+    ../main.cpp \
+    ../res/hex_string.cpp \
+    ../res/fat32.cpp \
+    ../res/utils.cpp \
+    ../NxStorage.cpp \
+    ../NxCrypto.cpp \
+    ../NxPartition.cpp \
+    ../NxHandle.cpp \
     keyset.cpp \
     mainwindow.cpp \
-    main.cpp \
-    NxStorage.cpp \
-    partitionmanager.cpp \
     properties.cpp \
-    utils.cpp \
     worker.cpp \
-    opendrive.cpp \
-    xts_crypto.cpp
+    opendrive.cpp
 
 HEADERS += \
-    DiskSector.h \
-    hex_string.h \
+    ../NxNandManager.h \
+    ../res/hex_string.h \
+    ../res/fat32.h \
+    ../res/utils.h \
+    ../res/types.h \
+    ../NxStorage.h \
+    ../NxCrypto.h \
     keyset.h \
     mainwindow.h \
-    NxStorage.h \
-    partitionmanager.h \
     properties.h \
-    utils.h \
-    types.h \
-    NxNandManager.h \
+    ../NxPartition.h \
+    ../NxHandle.h \
+    mainwindow.h \
     worker.h \
-    opendrive.h \
-    xts_crypto.h
-
+    opendrive.h
 FORMS += \
     mainwindow.ui \
     opendrive.ui \
@@ -78,12 +80,13 @@ RC_FILE = NxNandManager.rc
 ARCH = 64
 
 contains( ARCH, 32 ) {
-    LIBS += -L$$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/lib/ -lcrypto
-    INCLUDEPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/include
-    DEPENDPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win32-mingw/include
+    LIBS += -L$$PWD/../../../openssl-1.1.1c-win32-mingw/lib/ -lcrypto
+    INCLUDEPATH += $$PWD/../../../openssl-1.1.1c-win32-mingw/include
+    DEPENDPATH += $$PWD/../../../openssl-1.1.1c-win32-mingw/include
 }
 contains( ARCH, 64 ) {
-    LIBS += -L$$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/lib/ -lcrypto
-    INCLUDEPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/include
-    DEPENDPATH += $$PWD/../../../../../Users/elibo/OneDrive/Documents/Switch/openssl-1.1.1c-win64-mingw/include
+    LIBS += -L$$PWD/../../../openssl-1.1.1c-win64-mingw/lib/ -lcrypto
+    INCLUDEPATH += $$PWD/../../../openssl-1.1.1c-win64-mingw/include
+    DEPENDPATH += $$PWD/../../../openssl-1.1.1c-win64-mingw/include
 }
+

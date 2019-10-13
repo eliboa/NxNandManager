@@ -12,6 +12,10 @@ OpenDrive::OpenDrive(QWidget *parent) :
     ui->listWidget->hide();
     ui->label->setEnabled(true);
     ui->label->show();
+    setWindowTitle("Physical drives");
+
+    Worker* workThread = new Worker(this);
+    workThread->start();
 }
 
 OpenDrive::~OpenDrive()
@@ -25,9 +29,9 @@ void OpenDrive::ShowLabel()
     ui->label->setEnabled(true);
     ui->label->show();
 }
-void OpenDrive::ListDrives()
+void OpenDrive::ListDrives(QString drives)
 {
-    QString drives = QString(ListPhysicalDrives(TRUE).c_str());
+    //QString drives = QString(ListPhysicalDrives().c_str());
     ui->label->setEnabled(false);
     ui->label->hide();
     ui->listWidget->setEnabled(true);
@@ -49,7 +53,7 @@ void OpenDrive::ListDrives()
         }
     }
     keyEnterReceiver* key = new keyEnterReceiver();
-    this->installEventFilter(key);
+    this->installEventFilter(key);    
 }
 
 void OpenDrive::on_listWidget_itemDoubleClicked(QListWidgetItem *item)
@@ -80,4 +84,10 @@ bool keyEnterReceiver::eventFilter(QObject* obj, QEvent* event)
     }
     return false;
 }
+
+void OpenDrive::list_callback(QString drives)
+{
+    ListDrives(drives);
+}
+
 

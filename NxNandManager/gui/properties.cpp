@@ -24,16 +24,13 @@ Properties::Properties(NxStorage *in) :
 
 
 
-    wstring ws(input->pathLPWSTR);
+    wstring ws(input->m_path);
     ui->PropertiesTable->setRowCount(i+1);
     ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Path"));
     ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(string(ws.begin(), ws.end()).c_str()));
     i++;
 
-
-    sprintf(buffer, "%s%s%s%s", input->GetNxStorageTypeAsString(),
-                    input->type == PARTITION ? " " : "", input->type == PARTITION ? input->partitionName : "",
-                    input->isSplitted ? " (splitted dump)" : "");
+    sprintf(buffer, "%s%s", input->getNxTypeAsStr(), input->isSplitted() ? " (splitted dump)" : "");
     ui->PropertiesTable->setRowCount(i+1);
     ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("NAND type"));
     ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(QString(buffer).trimmed()));
@@ -41,12 +38,12 @@ Properties::Properties(NxStorage *in) :
 
     ui->PropertiesTable->setRowCount(i+1);
     ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("File/Disk"));
-    ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->isDrive ? "Disk" : "File"));
+    ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->isDrive() ? "Disk" : "File"));
     i++;
 
 
-    sprintf(buffer, "%s%s", input->isEncrypted ? "Yes" : "No",
-                    input->isEncrypted && input->bad_crypto ? "  !!! DECRYPTION FAILED !!!" : "");
+    sprintf(buffer, "%s%s", input->isEncrypted() ? "Yes" : "No",
+                    input->isEncrypted() && input->badCrypto() ? "  !!! DECRYPTION FAILED !!!" : "");
     ui->PropertiesTable->setRowCount(i+1);
     ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Encrypted"));
     ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(QString(buffer).trimmed()));
@@ -54,7 +51,7 @@ Properties::Properties(NxStorage *in) :
 
     ui->PropertiesTable->setRowCount(i+1);
     ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Size"));
-    ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(GetReadableSize(input->size).c_str()));
+    ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(GetReadableSize(input->size()).c_str()));
     i++;
 
     if(input->type == BOOT0 || input->type == RAWMMC)
@@ -71,22 +68,19 @@ Properties::Properties(NxStorage *in) :
         i++;
     }
 
-    if(input->fw_detected)
+    if(strlen(input->fw_version))
     {
         ui->PropertiesTable->setRowCount(i+1);
         ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Firmware ver."));
         ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->fw_version));
         i++;
 
-        if(input->type == RAWNAND || strcmp(input->partitionName, "SYSTEM") == 0)
-        {
-            ui->PropertiesTable->setRowCount(i+1);
-            ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("ExFat driver"));
-            ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->exFat_driver ? "Detected" : "Undetected"));
-            i++;
-        }
+        ui->PropertiesTable->setRowCount(i+1);
+        ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("ExFat driver"));
+        ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->exFat_driver ? "Detected" : "Undetected"));
+        i++;
     }
-
+    /*
     if (strlen(input->last_boot) > 0)
     {
         ui->PropertiesTable->setRowCount(i+1);
@@ -94,7 +88,7 @@ Properties::Properties(NxStorage *in) :
         ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->last_boot));
         i++;
     }
-
+    */
     if (strlen(input->serial_number) > 3)
     {
         ui->PropertiesTable->setRowCount(i+1);
@@ -125,9 +119,9 @@ Properties::Properties(NxStorage *in) :
     {
         ui->PropertiesTable->setRowCount(i+1);
         ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Backup GPT"));
-        if(input->backupGPTfound)
+        if(input->backupGPT())
         {
-            sprintf(buffer, "FOUND (offset 0x%s)", n2hexstr((u64)input->size - NX_EMMC_BLOCKSIZE, 10).c_str());
+            sprintf(buffer, "FOUND (offset 0x%s)", n2hexstr(input->backupGPT(), 10).c_str());
             ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(QString(buffer).trimmed()));
         }
         else

@@ -194,6 +194,12 @@ int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *byte
         if (crypto_mode == ENCRYPT && input_part->isEncryptedPartition())
             return ERR_CRYPTO_ENCRYPTED_YET;
 
+        if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && isEncryptedPartition() && !input_part->isEncryptedPartition())
+            return ERR_RESTORE_CRYPTO_MISSING;
+
+        if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && !isEncryptedPartition() && input_part->isEncryptedPartition())
+            return ERR_RESTORE_CRYPTO_MISSIN2;
+
         if (input_part->size() > size())
             return ERR_IO_MISMATCH;
 

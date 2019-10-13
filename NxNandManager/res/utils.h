@@ -98,7 +98,8 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_CRYPTO_DECRYPTED_YET, "Input file is already decrypted"},
 	{ ERR_IN_PART_NOT_FOUND, "Partition not found in \"input\""},
 	{ ERR_OUT_PART_NOT_FOUND, "Partition not found in \"output\""},
-	{ ERR_RESTORE_UNKNOWN_DISK, ""}
+	{ ERR_RESTORE_UNKNOWN_DISK, "Cannot restore to an unknown disk"},
+    { ERR_FILE_ALREADY_EXISTS, "File already exits"}
 };
 
 typedef struct KeySet KeySet;
@@ -207,5 +208,6 @@ std::string trim(const std::string& s);
 
 bool is_file(const char* path);
 bool is_dir(const char* path);
+int parseKeySetFile(const char *keyset_file, KeySet *biskeys);
 
 #endif

@@ -293,7 +293,8 @@ NxStorage::NxStorage(const char *p_path)
 NxStorage::~NxStorage()
 {
     //printf("NxStorage::~NxStorage() DESTRUCTOR \n");
-    partitions.clear();
+    if(partitions.size())
+        partitions.clear();
     if (nullptr != nxHandle) delete nxHandle;
 }
 
@@ -411,29 +412,41 @@ int NxStorage::setKeys(const char* keyset)
     BYTE buff[CLUSTER_SIZE];
     DWORD bytesRead;
 
+    for (NxPartition *part : partitions)
+        part->setBadCrypto(false);
+
+    memset(&fw_version, 0, strlen(fw_version));
+    memset(&deviceId, 0x00, 21);
+    macAddress.empty();
+    memset(serial_number, 0, strlen(serial_number));
+
     // Set and validate crypto + retrieve information from encrypted partitions
     NxPartition *cal0 = getNxPartition(PRODINFO);
     if (nullptr != cal0 && !cal0->setCrypto(keys.crypt0, keys.tweak0))
-        return ERROR_DECRYPT_FAILED;
-    
-    NxPartition *prodinfof = getNxPartition(PRODINFOF);
-    if (nullptr != prodinfof && !prodinfof->setCrypto(keys.crypt0, keys.tweak0))
-        return ERROR_DECRYPT_FAILED;
-
-    NxPartition *safe = getNxPartition(SAFE);
-    if (nullptr != safe && !safe->setCrypto(keys.crypt1, keys.tweak1))
-        return ERROR_DECRYPT_FAILED;
+        cal0->setBadCrypto(true);
 
     NxPartition *system = getNxPartition(SYSTEM);
     if (nullptr != system && !system->setCrypto(keys.crypt2, keys.tweak2))
-        return ERROR_DECRYPT_FAILED;
+        system->setBadCrypto(true);
+
+    // Retrieve information from encrypted partitions
+    if(!badCrypto())
+        setStorageInfo();
+            
+    NxPartition *prodinfof = getNxPartition(PRODINFOF);
+    if (nullptr != prodinfof && !prodinfof->setCrypto(keys.crypt0, keys.tweak0))
+        prodinfof->setBadCrypto(true);
+
+    NxPartition *safe = getNxPartition(SAFE);
+    if (nullptr != safe && !safe->setCrypto(keys.crypt1, keys.tweak1))
+       safe->setBadCrypto();
     
     NxPartition *user = getNxPartition(SYSTEM);
     if (nullptr != user && !user->setCrypto(keys.crypt2, keys.tweak2))
-        return ERROR_DECRYPT_FAILED;
+        user->setBadCrypto(true);
 
-    // Retrieve information from encrypted partitions
-    setStorageInfo();
+    if(badCrypto())
+        return ERROR_DECRYPT_FAILED;    
 
     return SUCCESS;
 }
@@ -470,7 +483,7 @@ void NxStorage::setStorageInfo(int partition)
             }
         }
     }
-    else if (partition == SYSTEM || !partition)
+    if (partition == SYSTEM || !partition)
     {
         NxPartition *system = getNxPartition(SYSTEM);
         if (nullptr != system && !system->badCrypto() && (!system->isEncryptedPartition() || nullptr != system->crypto()))
@@ -616,6 +629,12 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
 
         if (input->size() > size())
             return ERR_IO_MISMATCH;
+
+        if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && input->isEncrypted() && !isEncrypted())
+            return ERR_RESTORE_CRYPTO_MISSIN2;
+
+        if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && !input->isEncrypted() && isEncrypted())
+            return ERR_RESTORE_CRYPTO_MISSING;
 
         // Init handles for both input & output
         input->nxHandle->initHandle(crypto_mode);

@@ -118,13 +118,8 @@ void MainWindow::openDrive()
 	}
 
     openDriveDialog = new OpenDrive(this);
-    openDriveDialog->setWindowTitle("Scanning drives, please wait...");
 	openDriveDialog->show();    
-    openDriveDialog->ListDrives();
-    openDriveDialog->setWindowTitle("Logical drives");
 	openDriveDialog->exec();
-
-
 }
 
 void MainWindow::Properties()
@@ -168,15 +163,15 @@ void MainWindow::incognito()
 
     if(ret == QMessageBox::Yes)
     {
-        if(bKeyset && parseKeySetFile("keys.dat", &biskeys) >= 2)
-            input->InitKeySet(&biskeys);
-        ret = input->Incognito();
+        //if(bKeyset && parseKeySetFile("keys.dat", &biskeys) >= 2)
+        //    input->InitKeySet(&biskeys);
+        ret = input->applyIncognito();
         if(ret < 0)
             error(ret);
         else
             QMessageBox::information(nullptr,"Incognito","Incognito successfully applied.");
 
-        input->InitStorage();
+        //input->InitStorage();
     }
 
 }
@@ -189,12 +184,12 @@ void MainWindow::on_rawdump_button_clicked(int crypto_mode)
 		return;
 	}
 
-	bypassMD5 = FALSE;
+    selected_io = nullptr;
 
 	// Create new file dialog
 	QFileDialog fd(this);
 	fd.setAcceptMode(QFileDialog::AcceptSave); // Ask overwrite
-	QString save_filename(input->type == PARTITION ? input->partitionName : input->GetNxStorageTypeAsString());	
+    QString save_filename(input->getNxTypeAsStr());
     QString ext("");
     if(crypto_mode == ENCRYPT)
         ext.append(".enc");
@@ -208,29 +203,20 @@ void MainWindow::on_rawdump_button_clicked(int crypto_mode)
     QString fileName = fd.getSaveFileName(this, "Save as", "default_dir\\" + save_filename + ext);
 	if (!fileName.isEmpty())
 	{
+        if(is_file(fileName.toUtf8().constData()))
+            remove(fileName.toUtf8().constData());
+
         QDir CurrentDir;
         MySettings.setValue("default_dir", CurrentDir.absoluteFilePath(fileName));
 
-        bool do_crypto = false;
-        if(crypto_mode && bKeyset && parseKeySetFile("keys.dat", &biskeys))
-        {
-            do_crypto = true;
-            input->InitKeySet(&biskeys);
-        }
-        else
-            input->InitKeySet();
-
-		//New output storage
-        selected_io = new NxStorage(fileName.toUtf8().constData(), (do_crypto && crypto_mode == ENCRYPT) ? &biskeys : NULL);
-
-		// Open new thread to copy data
-		workThread = new Worker(this, input, selected_io, DUMP, bypassMD5);
+        // Open new thread to copy data
+        workThread = new Worker(this, input, fileName, MD5_HASH);
 		startWorkThread();
 	}
 }
 
 void MainWindow::on_rawdumpDec_button_clicked()
-{
+{    
     on_rawdump_button_clicked(DECRYPT);
 }
 
@@ -247,14 +233,14 @@ void MainWindow::dumpPartition(int crypto_mode)
 		return;
 	}
 
-	bypassMD5 = FALSE;
+    selected_io = nullptr;
 
 	QModelIndexList indexes = ui->partition_table->selectionModel()->selectedRows();
 	for (int i = 0; i < indexes.count(); ++i)
 	{
 		// Get partition name
 		QString cur_partition(ui->partition_table->item(indexes.at(i).row(), 0)->text());
-        GptPartition *curPartition = input->GetPartitionByName(cur_partition.toUtf8().constData());
+        NxPartition *curPartition = input->getNxPartition(cur_partition.toUtf8().constData());
         QString ext("");
         if(nullptr != curPartition)
         {
@@ -271,44 +257,29 @@ void MainWindow::dumpPartition(int crypto_mode)
         QString fileName = fd.getSaveFileName(this, "Save as", "default_dir\\" + cur_partition + ext); // Default filename is partition name
 		if (!fileName.isEmpty())
 		{
+            if(is_file(fileName.toUtf8().constData()))
+                remove(fileName.toUtf8().constData());
+
             QDir CurrentDir;
             MySettings.setValue("default_dir", CurrentDir.absoluteFilePath(fileName));
 
-            bool do_crypto = false;
-            if(crypto_mode && bKeyset && parseKeySetFile("keys.dat", &biskeys))
-            {
-                do_crypto = true;
-                input->InitKeySet(&biskeys);
-            }
-            else
-                input->InitKeySet();
-
-            //New output storage
-            selected_io = new NxStorage(fileName.toUtf8().constData());
-            if(crypto_mode == ENCRYPT)
-            {
-                do_crypto = true;
-                selected_io->InitKeySet(&biskeys);
-            }
-
+            if(not_in(crypto_mode, {ENCRYPT, DECRYPT}))
+                crypto_mode = MD5_HASH;
 
 			// Open new thread to copy data
-			workThread = new Worker(this, input, selected_io, DUMP, bypassMD5, cur_partition.toUtf8().constData());
+            workThread = new Worker(this, curPartition, fileName, crypto_mode);
 			startWorkThread();
 		}
-
 	}
 }
 
 void MainWindow::dumpDecPartition()
 {
-    //QMessageBox::critical(nullptr,"Error","dumpDecPartition");
     dumpPartition(DECRYPT);
 }
 
 void MainWindow::dumpEncPartition()
 {
-    //QMessageBox::critical(nullptr,"Error","dumpDecPartition");
     dumpPartition(ENCRYPT);
 }
 
@@ -324,72 +295,43 @@ void MainWindow::restorePartition()
 	QModelIndexList indexes = ui->partition_table->selectionModel()->selectedRows();
 	for (int i = 0; i < indexes.count(); ++i)
 	{
-		// Get partition name & size
+        // Get partition
 		QString cur_partition(ui->partition_table->item(indexes.at(i).row(), 0)->text());
-		QString Scur_size(ui->partition_table->item(indexes.at(i).row(), 1)->text());
-		u64 cur_size = input->IsValidPartition(cur_partition.toUtf8().constData());
-
+        NxPartition *curPartition = input->getNxPartition(cur_partition.toUtf8().constData());
 
 		QString fileName = QFileDialog::getOpenFileName(this);
 		if (!fileName.isEmpty())
 		{
-			selected_io = new NxStorage(fileName.toUtf8().constData());
+            selected_io = new NxStorage(fileName.toUtf8().constData());
+            if(!selected_io->isNxStorage())
+            {
+                error(ERR_INPUT_HANDLE, "Not a valid Nx Storage");
+                return;
+            }
+            NxPartition *selected_part = selected_io->getNxPartition(curPartition->type());
+            if(nullptr == selected_part)
+            {
+                error(ERR_IN_PART_NOT_FOUND);
+                return;
+            }
 
-			QString message, warnings;
-			std::string Sbasename = remove_extension(base_name(std::string(fileName.toUtf8().constData())));
-			QString basename(Sbasename.c_str());
-			if(selected_io->size != cur_size) warnings.append(QString("- Input file size (%1) doesn't match partition size (%2)\n").arg(QString(GetReadableSize(selected_io->size).c_str())).arg(Scur_size));
-			if(basename != cur_partition) warnings.append(QString("- Input filename (%1) doesn't match partition name (%2)\n").arg(basename).arg(cur_partition));
-			if(selected_io->type != PARTITION ) warnings.append(QString("- Input file type (%1) doesn't match output type (PARTITION)\n").arg(QString(selected_io->GetNxStorageTypeAsString())));
+            int crypto_mode = NO_CRYPTO;
+            if(bKeyset && selected_part->nxPart_info.isEncrypted && not_in(selected_io->setKeys("keys.dat"), { ERR_KEYSET_NOT_EXISTS, ERR_KEYSET_EMPTY })
+                    && !selected_io->badCrypto() && !selected_part->isEncryptedPartition())
+            {
+                crypto_mode = ENCRYPT;
+            }
 
-			//QString type = input->isDrive ? "drive" : "file";
-			message.append(QString("You are about to restore partition to existing rawnand %1\n").arg(input->isDrive ? "drive" : "file"));
+            QString message;
+            message.append(QString("You are about to restore partition %1.\nAre you sure you want to continue ?").arg(QString(selected_part->partitionName().c_str())));
 
-			if(warnings.count()>0)
-			{
-				message.append("\nWARNINGS :\n");
-				message.append(warnings);
-			}
-
-			message.append("\nAre you sure you want to continue ?");
 			if(QMessageBox::question(this, "Warning", message, QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
 			{
 				return;
 			}
 
-            // Default is not to use crypto.
-            input->InitKeySet();
-            selected_io->InitKeySet();
-
-            // Restoring to RAWNAND : key set provided & file to restore is not encrypted
-            if((input->type == RAWNAND || input->type == RAWMMC) && bKeyset && !selected_io->isEncrypted)
-            {
-                // Only try to encrypt native encrypted partitions or full rawnand
-                if(selected_io->type == RAWNAND || selected_io->type == RAWMMC|| (selected_io->type == PARTITION && (QString(selected_io->partitionName) == "PRODINFO" || QString(selected_io->partitionName) == "PRODINFOF" ||
-                   QString(selected_io->partitionName) == "SAFE" || QString(selected_io->partitionName) == "SYSTEM" || QString(selected_io->partitionName) == "USER")))
-                {
-                    input->InitKeySet(&biskeys);
-                    selected_io->InitKeySet(&biskeys);
-                }
-
-            }
-
-            /*
-            // Set crypto for decrypted partitions (if keyset provided)
-            if(!selected_io->isEncrypted && selected_io->type == PARTITION && bKeyset &&
-               (QString(selected_io->partitionName) == "PRODINFO" || QString(selected_io->partitionName) == "PRODINFOF" ||
-                QString(selected_io->partitionName) == "SAFE" || QString(selected_io->partitionName) == "SYSTEM" || QString(selected_io->partitionName) == "USER"))
-            {
-                input->InitKeySet(&biskeys);
-                selected_io->InitKeySet(&biskeys);
-            } else {
-                input->InitKeySet();
-                selected_io->InitKeySet();
-            }
-            */
-
 			// Open new thread to restore data
-			workThread = new Worker(this, selected_io, input, RESTORE, bypassMD5, cur_partition.toUtf8().constData());
+            workThread = new Worker(this, curPartition, selected_io, crypto_mode);
 			startWorkThread();
 
 		}
@@ -400,11 +342,17 @@ void MainWindow::restorePartition()
 void MainWindow::initButtons()
 {
 	ui->rawdump_button->setText("FULL DUMP");
-	if(input->type == INVALID || input->type == UNKNOWN)
+    if(!input->isNxStorage())
 	{
 		ui->rawdump_button->setEnabled(false);
 		ui->fullrestore_button->setEnabled(false);
 	}
+    else
+    {
+        ui->rawdump_button->setEnabled(true);
+        ui->fullrestore_button->setEnabled(true);
+    }
+    /*
     if((input->type == RAWNAND || input->type == RAWMMC) && nullptr != input->firstPartion)
 	{
 		ui->rawdump_button->setEnabled(true);
@@ -420,11 +368,15 @@ void MainWindow::initButtons()
 		else ui->fullrestore_button->setEnabled(true);
 		ui->rawdump_button->setEnabled(true);
 	}
+    */
 }
 
 void MainWindow::inputSet(NxStorage *storage)
 {
 	input = storage;
+
+    if(bKeyset)
+        storage->setKeys("keys.dat");
 
 	// Clear table
     ui->partition_table->setRowCount(0);
@@ -441,20 +393,22 @@ void MainWindow::inputSet(NxStorage *storage)
     ui->menuTools->actions().at(1)->setDisabled(true);
     ui->menuTools->actions().at(2)->setDisabled(true);
 
-    QString path = QString::fromWCharArray(input->pathLPWSTR), input_label;
+    QString path = QString::fromWCharArray(input->m_path), input_label;
     QFileInfo fi(path);
     path = fi.fileName();
-    if(input->isDrive && input->type == RAWMMC)
+
+    if(input->isDrive() && input->type == RAWMMC)
     {
         path.append(" [");
-        path.append(n2hexstr(input->mmc.lba_start * NX_EMMC_BLOCKSIZE, 10).c_str());
+        path.append(n2hexstr(input->mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str());
         path.append(" -> ");
-        path.append(n2hexstr((input->mmc.lba_end + 1) * NX_EMMC_BLOCKSIZE - 1, 10).c_str());
+        path.append(n2hexstr(u64(input->mmc_b0_lba_start * NX_BLOCKSIZE) + storage->size() - 1, 10).c_str());
         path.append("]");
     }
+
     ui->filedisk_value->setText(path);
-    ui->nxtype_value->setText(input->GetNxStorageTypeAsString());
-    ui->size_value->setText(QString(GetReadableSize(input->size).c_str()));
+    ui->nxtype_value->setText(input->getNxTypeAsStr());
+    ui->size_value->setText(QString(GetReadableSize(input->size()).c_str()));
     ui->fwversion_value->setStyleSheet("QLabel { color : #686868; }");
     ui->deviceid_value->setStyleSheet("QLabel { color : #686868; }");
     ui->fwversion_value->setStatusTip("");
@@ -462,29 +416,25 @@ void MainWindow::inputSet(NxStorage *storage)
     ui->deviceid_value->setStatusTip("");
     ui->deviceid_value->setText("N/A");
 
-    //createActions();
 	initButtons();
 
-	if(input->type == INVALID || input->type == UNKNOWN)
+    if(!input->isNxStorage())
 	{
         QString message("Input file/drive is not a valid NX Storage."), buff;
-        if(input->b_MayBeNxStorage && input->size <= 0xA0000000)
+        if(input->b_MayBeNxStorage && input->size() <= 0xA0000000)
         {
             message.append("\nMake sure the file name matches the partition's name.\nAccording to file size, file name could be :\n");
-            for( NxPartition part : partInfoArr)
+            for( NxPart part : NxPartArr)
             {
-                if(part.size == input->size) {
+                if(part.size == input->size()) {
                     message.append("- ");
                     message.append(part.name);
                     message.append("\n");
                 }
             }
         }
-		if(input->isSplitted && input->raw_size == input->size)
-			message.append("\nThe application was unable to locate backup GPT in splitted dump");
-		else if(input->isSplitted)
-			message.append(QString("\nSplitted dump total size (%1) doesn't match size deduced from primary GPT (%2)").arg(GetReadableSize(input->size).c_str(), GetReadableSize(input->raw_size).c_str()));
-
+        if(input->isSplitted())
+            message.append("\nFailed to locate GPT backup in splitted dump");
 		QMessageBox::critical(nullptr,"Error",message);
 		return;
 	}
@@ -492,104 +442,72 @@ void MainWindow::inputSet(NxStorage *storage)
     // Save as menu
     ui->menuFile->actions().at(3)->setEnabled(true);
 
-    // Decrypt & save as menu
-    if(input->isEncrypted && bKeyset && !input->bad_crypto)
-        ui->menuFile->actions().at(4)->setEnabled(true);
-
-    // Encrypt & save as menu
-    if(!input->isEncrypted && bKeyset) {
-        if(input->type == RAWNAND || input->type == RAWMMC || input->type == BOOT0 || input->type == BOOT1 || (strlen(input->partitionName) > 0 &&
-            (strcmp(input->partitionName, "PRODINFO") == 0 || strcmp(input->partitionName, "PRODINFOF") == 0 ||
-             strcmp(input->partitionName, "SAFE") == 0 || strcmp(input->partitionName, "SYSTEM") == 0 ||
-             strcmp(input->partitionName, "USER") == 0)))
-
+    if(input->isSinglePartType())
+    {
+        NxPartition *part = input->getNxPartition();
+        // Decrypt & save as menu
+        if(part->isEncryptedPartition() && bKeyset && !part->badCrypto())
+            ui->menuFile->actions().at(4)->setEnabled(true);
+        // Encrypt & save as menu
+        if(!part->isEncryptedPartition() && bKeyset && part->nxPart_info.isEncrypted)
             ui->menuFile->actions().at(5)->setEnabled(true);
     }
+
     // Restore from file
-    if((input->type == RAWNAND || input->type == RAWMMC) && !input->isSplitted)
-        ui->menuFile->actions().at(6)->setEnabled(true);
+    ui->menuFile->actions().at(6)->setEnabled(true);
 
     // Properties menu
     ui->menuFile->actions().at(8)->setEnabled(true);
 
     // Incognito menu
-    if(input->type == RAWNAND || input->type == RAWMMC || (NULL != input->partitionName && strcmp(input->partitionName, "PRODINFO") == 0))
-    {
+    NxPartition *cal0 = input->getNxPartition(PRODINFO);
+    if(nullptr != cal0 && (!cal0->isEncryptedPartition() || (bKeyset && !cal0->badCrypto())))
         ui->menuTools->actions().at(1)->setEnabled(true);
-    }
 
-    // List partitions for RAWNAND & RAWMMC
-    if((input->type == RAWNAND || input->type == RAWMMC) && nullptr != input->firstPartion)
-	{
-
-        int i = 0;
-		GptPartition *cur = input->firstPartion;
-		while (nullptr != cur)
-		{
-
-            ui->partition_table->insertRow(ui->partition_table->rowCount());
-
-            ui->partition_table->setItem(ui->partition_table->rowCount()-1, 0, new QTableWidgetItem(QString(cur->name)));
-			u64 size = ((u64)cur->lba_end - (u64)cur->lba_start) * (int)NX_EMMC_BLOCKSIZE;
-			QString qSize = QString::number(size);
-            ui->partition_table->setItem(ui->partition_table->rowCount()-1, 1, new QTableWidgetItem(GetReadableSize(size).c_str()));
-
-            ui->partition_table->setItem(ui->partition_table->rowCount()-1, 2, new QTableWidgetItem(cur->isEncrypted ? "Yes" : "No"));
-
-			cur = cur->next;
-		}
-		ui->partition_table->setStatusTip(tr("Right-click on partition to dump/restore to/from file."));
-	}
-
-    if(input->type == BOOT0 || input->type == BOOT1 || input->type == PARTITION)
-	{
-		ui->partition_table->setRowCount(1);
-		if(input->type == PARTITION) {
-            //wstring ws(input->pathLPWSTR);
-            //std::string basename = base_name(string(ws.begin(), ws.end()));
-            //ui->partition_table->setItem(0, 0, new QTableWidgetItem(basename.c_str()));
-            ui->partition_table->setItem(0, 0, new QTableWidgetItem(input->partitionName));
-		} else {
-			char name[128];
-			if(input->type == BOOT0)
-				sprintf(name, "BOOT0 (autoRCM : %s)", input->autoRcm ? "on" : "off");
-			else
-				sprintf(name, "%s", input->GetNxStorageTypeAsString());
-			ui->partition_table->setItem(0, 0, new QTableWidgetItem(name));
-		}
-		ui->partition_table->setItem(0, 1, new QTableWidgetItem(GetReadableSize(input->size).c_str()));
-        ui->partition_table->setItem(0, 2, new QTableWidgetItem(input->isEncrypted ? "Yes" : "No"));
-	}
-
-    if(input->type == BOOT0 || input->type == RAWMMC)
-    {
+    // AutoRcm menu
+    if(nullptr != input->getNxPartition(BOOT0))
         ui->menuTools->actions().at(2)->setEnabled(true);
+
+    // Fill partition TableWidget
+    for (NxPartition *part : input->partitions)
+    {
+        // Add new row
+        ui->partition_table->insertRow(ui->partition_table->rowCount());
+        int index = ui->partition_table->rowCount() - 1;
+        ui->partition_table->setItem(index, 0, new QTableWidgetItem(QString(part->partitionName().c_str())));
+        ui->partition_table->setItem(index, 1, new QTableWidgetItem(GetReadableSize(part->size()).c_str()));
+        ui->partition_table->setItem(index, 2, new QTableWidgetItem(part->isEncryptedPartition() ? "Yes" : "No"));
     }
+
+    ui->partition_table->setStatusTip(tr("Right-click on partition to dump/restore to/from file."));
 
     // Display storage information
-    if(input->fw_detected)
+    if(strlen(input->fw_version))
         ui->fwversion_value->setText(QString(input->fw_version));
-    else if(input->type == RAWNAND || input->type == RAWMMC ||
-            (input->type == PARTITION && strcmp(input->partitionName, "SYSTEM") == 0))
-    {
-        if(input->isEncrypted && input->bad_crypto) {
-            ui->fwversion_value->setText("BAD CRYPTO!");
-            ui->fwversion_value->setStyleSheet("QLabel { color : red; }");
-            ui->fwversion_value->setStatusTip("Error while decrypting content, wrong keys ? (CTRL+K to configure keyset)");
-        }
-        else {
-            ui->fwversion_value->setText("KEYSET NEEDED!");
-            ui->fwversion_value->setStatusTip("Unable to decrypt content (CTRL+K to configure keyset)");
-        }
-    }
     else
-        ui->fwversion_value->setText("N/A");
-
-    if (strlen(input->deviceId) > 0)
-        ui->deviceid_value->setText(input->deviceId);
-    else if(input->type == RAWNAND || input->type == RAWMMC || (input->type == PARTITION && strcmp(input->partitionName, "PRODINFO") == 0))
     {
-        if(input->isEncrypted && input->bad_crypto) {
+        NxPartition *system = input->getNxPartition(SYSTEM);
+        if(nullptr != system)
+        {
+            if(system->badCrypto()) {
+                ui->fwversion_value->setText("BAD CRYPTO!");
+                ui->fwversion_value->setStyleSheet("QLabel { color : red; }");
+                ui->fwversion_value->setStatusTip("Error while decrypting content, wrong keys ? (CTRL+K to configure keyset)");
+            }
+            else {
+                ui->fwversion_value->setText("KEYSET NEEDED!");
+                ui->fwversion_value->setStatusTip("Unable to decrypt content (CTRL+K to configure keyset)");
+            }
+        }
+        else ui->fwversion_value->setText("N/A");
+    }
+
+
+    if (strlen(input->deviceId))
+        ui->deviceid_value->setText(input->deviceId);
+    else if (nullptr != cal0)
+    {
+        if(cal0->badCrypto()) {
             ui->deviceid_value->setText("BAD CRYPTO!");
             ui->deviceid_value->setStyleSheet("QLabel { color : red; }");
             ui->deviceid_value->setStatusTip("Error while decrypting content, wrong keys ? (CTRL+K to configure keyset)");
@@ -599,78 +517,75 @@ void MainWindow::inputSet(NxStorage *storage)
             ui->deviceid_value->setStatusTip("Unable to decrypt content (CTRL+K to configure keyset)");
         }
     }
-    else
-        ui->deviceid_value->setText("N/A");
+    else ui->deviceid_value->setText("N/A");
 }
 
 
 void MainWindow::on_partition_table_itemSelectionChanged()
 {
-
 	// Partition table context menu
 	foreach (QAction *action, ui->partition_table->actions()) {
 		ui->partition_table->removeAction(action);
 	}
 
-    if((input->type == RAWNAND || input->type == RAWMMC)&& nullptr != input->firstPartion)
-	{
-		ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
-		const QIcon dumpIcon = QIcon::fromTheme("document-open", QIcon(":/images/save.png"));
-		QAction* dumpAction = new QAction(dumpIcon, "Dump to file...");
-		dumpAction->setStatusTip(tr("Save as new file"));
-		ui->partition_table->connect(dumpAction, SIGNAL(triggered()), this, SLOT(dumpPartition()));
-		ui->partition_table->addAction(dumpAction);
+    ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
 
-        QList<QTableWidgetItem *> list = ui->partition_table->selectedItems();
-        for(auto &item : list)
+    // For selected partitions (limited to 1 for now)
+    QList<QTableWidgetItem *> list = ui->partition_table->selectedItems();
+    for(auto &item : list)
+    {
+        NxPartition *selected_part = input->getNxPartition(item->text().toUtf8().constData());
+        if(nullptr == selected_part)
+            return;
+
+        // Dump action
+        const QIcon dumpIcon = QIcon::fromTheme("document-open", QIcon(":/images/save.png"));
+        QAction* dumpAction = new QAction(dumpIcon, "Dump to file...");
+        dumpAction->setStatusTip(tr("Save as new file"));
+        ui->partition_table->connect(dumpAction, SIGNAL(triggered()), this, SLOT(dumpPartition()));
+        ui->partition_table->addAction(dumpAction);
+
+        // Restore action
+        const QIcon restoreIcon = QIcon::fromTheme("document-open", QIcon(":/images/restore.png"));
+        QAction* restoreAction = new QAction(restoreIcon, "Restore from file...");
+        restoreAction->setStatusTip(tr("Open an existing file"));
+        ui->partition_table->connect(restoreAction, SIGNAL(triggered()), this, SLOT(restorePartition()));
+        ui->partition_table->addAction(restoreAction);
+
+        // Decrypt action
+        if(selected_part->isEncryptedPartition() && !selected_part->badCrypto())
         {
-            GptPartition *partition = input->GetPartitionByName(item->text().toUtf8().constData());
-            if(NULL != partition && partition->isEncrypted && !partition->bad_crypto)
-            {                
-                const QIcon encIcon = QIcon::fromTheme("document-open", QIcon(":/images/decrypt.png"));
-                QAction* dumpDecAction = new QAction(encIcon, "Decrypt && dump to file...");
-                dumpDecAction->setStatusTip(tr("Save as new file"));
-                if(!bKeyset)
-                    dumpDecAction->setDisabled(true);
-                ui->partition_table->connect(dumpDecAction, SIGNAL(triggered()), this, SLOT(dumpDecPartition()));
-                ui->partition_table->addAction(dumpDecAction);
-            }
-            else if (NULL != partition && !partition->isEncrypted && (strcmp(partition->name, "PRODINFO") == 0 ||
-                     strcmp(partition->name, "PRODINFOF") == 0 || strcmp(partition->name, "SAFE") == 0 ||
-                     strcmp(partition->name, "SYSTEM") == 0 || strcmp(partition->name, "USER") == 0))
-            {
-                const QIcon decIcon = QIcon::fromTheme("document-open", QIcon(":/images/encrypt.png"));
-                QAction* dumpEncAction = new QAction(decIcon, "Encrypt && dump to file...");
-                dumpEncAction->setStatusTip(tr("Save as new file"));
-                if(!bKeyset)
-                    dumpEncAction->setDisabled(true);
-                ui->partition_table->connect(dumpEncAction, SIGNAL(triggered()), this, SLOT(dumpEncPartition()));
-                ui->partition_table->addAction(dumpEncAction);
-            }
+            const QIcon encIcon = QIcon::fromTheme("document-open", QIcon(":/images/decrypt.png"));
+            QAction* dumpDecAction = new QAction(encIcon, "Decrypt && dump to file...");
+            dumpDecAction->setStatusTip(tr("Save as new file"));
+            if(!bKeyset)
+                dumpDecAction->setDisabled(true);
+            ui->partition_table->connect(dumpDecAction, SIGNAL(triggered()), this, SLOT(dumpDecPartition()));
+            ui->partition_table->addAction(dumpDecAction);
         }
 
-		if(!input->isSplitted)
-		{
-            const QIcon restoreIcon = QIcon::fromTheme("document-open", QIcon(":/images/restore.png"));
-			QAction* restoreAction = new QAction(restoreIcon, "Restore from file...");
-			restoreAction->setStatusTip(tr("Open an existing file"));
-			ui->partition_table->connect(restoreAction, SIGNAL(triggered()), this, SLOT(restorePartition()));
-			ui->partition_table->addAction(restoreAction);
-		}
-	}
-	else if(input->type == BOOT1 || input->type == PARTITION)
-	{
-		ui->partition_table->setContextMenuPolicy(Qt::NoContextMenu);
-	}
-	else if(input->type == BOOT0)
-	{
-		ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
-		QAction* action = new QAction(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM");
-		action->setStatusTip(tr(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM"));
-		ui->partition_table->connect(action, SIGNAL(triggered()), this, SLOT(toggleAutoRCM()));
-		ui->partition_table->addAction(action);
-	}
+        // Encrypt action
+        if(selected_part->nxPart_info.isEncrypted && !selected_part->isEncryptedPartition())
+        {
+            const QIcon decIcon = QIcon::fromTheme("document-open", QIcon(":/images/encrypt.png"));
+            QAction* dumpEncAction = new QAction(decIcon, "Encrypt && dump to file...");
+            dumpEncAction->setStatusTip(tr("Save as new file"));
+            if(!bKeyset)
+                dumpEncAction->setDisabled(true);
+            ui->partition_table->connect(dumpEncAction, SIGNAL(triggered()), this, SLOT(dumpEncPartition()));
+            ui->partition_table->addAction(dumpEncAction);
+        }
 
+        // AutoRCM action
+        if(nullptr != input->getNxPartition(BOOT0))
+        {
+            ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
+            QAction* action = new QAction(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM");
+            action->setStatusTip(tr(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM"));
+            ui->partition_table->connect(action, SIGNAL(triggered()), this, SLOT(toggleAutoRCM()));
+            ui->partition_table->addAction(action);
+        }
+    }
 }
 
 void MainWindow::driveSet(QString drive)
@@ -741,34 +656,66 @@ void MainWindow::endWorkThread()
 	TaskBarProgress->setVisible(false);
 	TaskBarProgress->setValue(0);
 }
-
-void MainWindow::updateProgress(int percent, u64 *bytesAmount)
+/*
+void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal)
 {
-	QString stepLabel("Copying...");
-	if(progressMD5) stepLabel = QString("Verifying integrity...");
-	ui->progressBar->setValue(percent);
-	TaskBarProgress->setValue(percent);
-	if(percent == 100)
-	{
-		if(progressMD5) ui->progressBar->setFormat("Done and verified ! ");
-		else ui->progressBar->setFormat("Done. " + QString(GetReadableSize(*bytesAmount).c_str()) + " written");
-	}
-	else ui->progressBar->setFormat(stepLabel + " (" + QString::number(percent) + "%)");
+    int test = 1;
+}
+*/
+void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal)
+{
+    if (nullptr == bytesCount || nullptr == bytesTotal)
+        return;
 
-	if(percent > 0)
-	{
-		auto time = std::chrono::system_clock::now();
-		std::chrono::duration<double> elapsed_seconds = time - (progressMD5 ? startWorkMD5 : startWork);
-		std::chrono::duration<double> remaining_seconds = (elapsed_seconds / percent) * (100 - percent);
-		remainingTimeWork = time + remaining_seconds;
-	}
+    auto time = std::chrono::system_clock::now();
+    std::chrono::duration<double> tmp_elapsed_seconds = time - workThread->begin_time;
 
-	if(percent == 100 && (progressMD5 || bypassMD5)) endWorkThread();
+    if(*bytesCount == *bytesTotal)
+    {
+        QString label;
+        if(mode == RESTORE) label.append("Restored");
+        else label.append("Dumped");
+        if(mode == MD5_HASH)
+            label.append(" & verified");
+        label.append(" ").append(storage_name);
+        label.append(" (").append(QString(GetReadableSize(*bytesCount).c_str())).append(")");
+
+        ui->progressBar->setFormat(label);
+        ui->progressBar->setValue(100);
+
+        return;
+    }
+    else if(!*bytesCount) {
+        elapsed_seconds = 0;
+        if(mode == MD5_HASH) MD5begin();
+    }
+
+    if (!((int)tmp_elapsed_seconds.count() > elapsed_seconds) && bytesCount)
+        return;
+
+    elapsed_seconds = tmp_elapsed_seconds.count();
+    std::chrono::duration<double> remaining_seconds = (tmp_elapsed_seconds / *bytesCount) * (*bytesTotal - *bytesCount);
+    remainingTimeWork = time + remaining_seconds;
+
+    QString stepLabel;
+    if(mode == MD5_HASH) stepLabel.append("Computing hash ");
+    else if (mode == RESTORE) stepLabel.append("Restoring ");
+    else stepLabel.append("Copying ");
+    if(mode != MD5_HASH) stepLabel.append(storage_name);
+
+    int percent = *bytesCount * 100 / *bytesTotal;
+    stepLabel.append("... ").append(GetReadableSize(*bytesCount).c_str());
+    stepLabel.append(" /").append(GetReadableSize(*bytesTotal).c_str());
+    stepLabel.append(" (").append(QString::number(percent)).append("%)");
+
+    ui->progressBar->setValue(percent);
+    ui->progressBar->setFormat(stepLabel);
 }
 
 void MainWindow::MD5begin()
 {
 	progressMD5 = true;
+    ui->progressBar->setValue(0);
 	setProgressBarStyle("0FB3FF");
 	ui->remaining_time_label->setText("Remaining time : calculating");
 	startWorkMD5 = std::chrono::system_clock::now();
@@ -909,29 +856,57 @@ void MainWindow::on_fullrestore_button_clicked()
 		return;
 	}
 
-	bypassMD5 = TRUE;
-
 	// Create new file dialog
 	QString fileName = QFileDialog::getOpenFileName(this);
 	if (!fileName.isEmpty())
 	{
-		QString message;
-		message.append("You are about to restore an existing " + QString(input->isDrive ? "drive" : "file") + "\nAre you sure you want to continue ?");
-		if(QMessageBox::question(this, "Warning", message, QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
-		{
-			return;
-		}
-
 		//New output storage
 		selected_io = new NxStorage(fileName.toUtf8().constData());
 
-        if(!selected_io->isEncrypted && input->isEncrypted && bKeyset && parseKeySetFile("keys.dat", &biskeys))
+        if(!selected_io->isNxStorage())
         {
-            selected_io->InitKeySet(&biskeys);
-            input->InitKeySet(&biskeys);
+            error(ERR_INPUT_HANDLE, "Not a valid Nx Storage");
+            return;
         }
-		// Open new thread to copy data
-		workThread = new Worker(this, selected_io, input , RESTORE, bypassMD5);
+
+        if(input->isSinglePartType() && nullptr == selected_io->getNxPartition(input->getNxTypeAsInt()))
+        {
+            error(ERR_IN_PART_NOT_FOUND);
+            return;
+        }
+
+        if(!input->isSinglePartType() && ( selected_io->type != input->type ||  selected_io->size() > input->size()))
+        {
+            error(ERR_IO_MISMATCH);
+            return;
+        }
+
+        QString message;
+        message.append("You are about to restore an existing " + QString(input->isDrive() ? "drive" : "file") + "\nAre you sure you want to continue ?");
+        if(QMessageBox::question(this, "Warning", message, QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+            return;
+
+        // Partition restore
+        if(input->isSinglePartType())
+        {
+            NxPartition *out_part = input->getNxPartition();
+            NxPartition *selected_part = selected_io->getNxPartition(input->getNxTypeAsInt());
+            int crypto_mode = NO_CRYPTO;
+            if(bKeyset && selected_part->nxPart_info.isEncrypted && not_in(selected_io->setKeys("keys.dat"), { ERR_KEYSET_NOT_EXISTS, ERR_KEYSET_EMPTY })
+                    && !selected_io->badCrypto() && !selected_part->isEncryptedPartition())
+            {
+                crypto_mode = ENCRYPT;
+            }
+
+            // Open new thread to restore data
+            workThread = new Worker(this, out_part, selected_io, crypto_mode);
+        }
+        // Full restore (no crypto)
+        else
+        {
+            // Open new thread to restore data
+            workThread = new Worker(this, input, selected_io, NO_CRYPTO);
+        }
 		startWorkThread();
 	}
 }
@@ -952,14 +927,12 @@ void MainWindow::toggleAutoRCM()
         return;
     }
 
-	if(!input->setAutoRCM(input->autoRcm ? false : true))
+    if(!input->setAutoRcm(input->autoRcm ? false : true))
 		QMessageBox::critical(nullptr,"Error", "Error while toggling autoRCM");
-	else {
-		input->InitStorage();
+    else {
 		QMessageBox::information(this, "Success", "AutoRCM is "  + QString(input->autoRcm ? "enabled" : "disabled"));
-		inputSet(input);
-	}
-
+        inputSet(input);
+    }
 }
 
 void MainWindow::keySetSet()
@@ -971,11 +944,6 @@ void MainWindow::keySetSet()
 
     if(nullptr != input && input->type != UNKNOWN && input->type != INVALID)
     {
-        if(bKeyset)
-        {
-            input->InitKeySet(&biskeys);
-            input->InitStorage();
-        }
         inputSet(input);
     }
 }

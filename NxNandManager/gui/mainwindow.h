@@ -8,7 +8,7 @@
 #include <QtWinExtras>
 #include <QWinTaskbarProgress>
 #include <QTableWidgetItem>
-#include "NxStorage.h"
+#include "../NxStorage.h"
 #include "worker.h"
 #include "opendrive.h"
 #include "keyset.h"
@@ -57,10 +57,10 @@ private:
 	QWinTaskbarProgress *TaskBarProgress;
 	bool bTaskBarSet = FALSE;
     bool bKeyset;
+    int elapsed_seconds = 0;
 
 	void createActions();
 	void startWorkThread();
-	void endWorkThread();
 	void setProgressBarStyle(QString color = nullptr);
 	void initButtons();
 
@@ -85,14 +85,15 @@ private slots:
 	void on_stop_button_clicked();
 	void on_fullrestore_button_clicked();
 	void on_partition_table_itemSelectionChanged();
-    void on_moreinfo_button_clicked();
+    void on_moreinfo_button_clicked();    
 
 public slots:
+    void endWorkThread();
 	void inputSet(NxStorage *storage = nullptr);
 	void driveSet(QString);
     void keySetSet();
 	void error(int err, QString label = nullptr);
-	void updateProgress(int percent, u64 *bytesAmount);
+    void updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal);
 	void MD5begin();
 	void timer1000();
 

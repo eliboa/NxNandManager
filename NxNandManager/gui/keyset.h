@@ -3,7 +3,7 @@
 #include <QMainWindow>
 #include <QDialog>
 #include <QtWidgets>
-#include "utils.h"
+#include "../res/utils.h"
 #include <QObject>
 
 QT_BEGIN_NAMESPACE

@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#include "NxNandManager.h"
 #include "NxStorage.h"
 #include "NxPartition.h"
 #include "res/utils.h"
@@ -23,6 +23,22 @@ BOOL BYPASS_MD5SUM = FALSE;
 BOOL DEBUG_MODE = FALSE;
 BOOL FORCE = FALSE;
 BOOL LIST = FALSE;
+
+int startGUI(int argc, char *argv[])
+{
+#if defined(ENABLE_GUI)
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QApplication a(argc, argv);
+    a.setApplicationName("NxNandManager");
+    MainWindow w;
+    a.setStyleSheet("QMessageBox {messagebox-text-interaction-flags: 12;}");
+    w.show();
+    return a.exec();
+#else
+    throwException(ERR_INIT_GUI, "GUI unavailable. This build is CLI only");
+    return -1;
+#endif
+}
 
 void printStorageInfo(NxStorage *storage)
 {
@@ -154,6 +170,28 @@ int main(int argc, char *argv[])
         return -1;
     };
 
+    if (argc == 1)
+    {
+#if defined(ENABLE_GUI)
+        printf("No argument provided. Switching to GUI mode...\n");
+        PROCESS_INFORMATION pi;
+        STARTUPINFO si;
+        BOOL ret = FALSE;
+        DWORD flags = CREATE_NO_WINDOW;
+        ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+        ZeroMemory(&si, sizeof(STARTUPINFO));
+        si.cb = sizeof(STARTUPINFO);
+        wchar_t buffer[_MAX_PATH];
+        GetModuleFileName(GetCurrentModule(), buffer, _MAX_PATH);
+        wstring module_path(buffer);
+        module_path.append(L" --gui");
+        ret = CreateProcess(NULL, &module_path[0], NULL, NULL, NULL, flags, NULL, NULL, &si, &pi);
+        exit(EXIT_SUCCESS);
+#else
+        PrintUsage();
+#endif
+    }
+
     const char GUI_ARGUMENT[] = "--gui";
     const char INPUT_ARGUMENT[] = "-i";
     const char OUTPUT_ARGUMENT[] = "-o";
@@ -231,6 +269,12 @@ int main(int argc, char *argv[])
             printf("Argument (%s) is not allowed.\n\n", currArg);
             PrintUsage();
         }
+    }
+
+    if (gui)
+    {
+        startGUI(argc, argv);
+        exit(EXIT_SUCCESS);
     }
 
     if (LIST)
@@ -489,8 +533,6 @@ int main(int argc, char *argv[])
         // Full dump
         if (!v_partitions.size())
         {
-            printf("FULL DUMP\n");
-
             // Init some vars
             int rc = 0;
             u64 bytesCount = 0, bytesToRead = nx_input.size();
