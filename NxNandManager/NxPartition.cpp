@@ -86,7 +86,7 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
     nxCrypto = new NxCrypto(crypto, tweak);
 
     if (!isEncryptedPartition())
-        return false;
+        return true;
 
     nxHandle->initHandle(DECRYPT, this);
 

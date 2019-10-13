@@ -96,11 +96,11 @@ void Worker::run()
 	}
 
 }
+
 void Worker::terminate()
 {
     bCanceled = true;
 }
-
 
 void Worker::dumpPartition(NxPartition* partition, QString file)
 {
@@ -115,15 +115,12 @@ void Worker::dumpPartition(NxPartition* partition, QString file)
         emit sendProgress(DUMP, QString(partition->partitionName().c_str()), &bytesCount, &bytesToRead);
     }
 
-    if (rc != NO_MORE_BYTES_TO_COPY) {
+    if (rc != NO_MORE_BYTES_TO_COPY)
         emit error(rc);
-        return;
-    }
 
     else if (m_crypto_mode == MD5_HASH)
     {
         emit sendProgress(DUMP, QString(partition->partitionName().c_str()), &bytesToRead, &bytesToRead);
-
         HCRYPTHASH in_hash = partition->nxHandle->md5Hash();
         std::string in_sum = BuildChecksum(in_hash);
         bytesCount = 0;
@@ -137,20 +134,17 @@ void Worker::dumpPartition(NxPartition* partition, QString file)
             emit sendProgress(MD5_HASH, QString(partition->partitionName().c_str()), &bytesCount, &bytesToRead);
         }
 
-        if (bytesCount != bytesToRead) {
+        if (bytesCount != bytesToRead)
             emit error(rc);
-            return;
-        }
+
         else
         {
             emit sendProgress(MD5_HASH, QString(partition->partitionName().c_str()), &bytesToRead, &bytesToRead);
 
             HCRYPTHASH out_hash = out_storage.nxHandle->md5Hash();
             std::string out_sum = BuildChecksum(out_hash);
-            if (in_sum.compare(out_sum)) {
+            if (in_sum.compare(out_sum))
                 emit error(ERR_MD5_COMPARE);
-                return;
-            }
         }
     }
     SetThreadExecutionState(ES_CONTINUOUS);
@@ -170,10 +164,9 @@ void Worker::dumpStorage(NxStorage* storage, QString file)
         emit sendProgress(DUMP, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
     }
 
-    if (rc != NO_MORE_BYTES_TO_COPY) {
+    if (rc != NO_MORE_BYTES_TO_COPY)
         emit error(rc);
-        return;
-    }
+
     else if (m_crypto_mode == MD5_HASH)
     {
         HCRYPTHASH in_hash = storage->nxHandle->md5Hash();
@@ -188,10 +181,8 @@ void Worker::dumpStorage(NxStorage* storage, QString file)
             emit sendProgress(MD5_HASH, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
         }
 
-        if (bytesCount != bytesToRead) {
+        if (bytesCount != bytesToRead)
             emit error(rc);
-            return;
-        }
 
         else
         {
@@ -203,6 +194,7 @@ void Worker::dumpStorage(NxStorage* storage, QString file)
         }
     }
     SetThreadExecutionState(ES_CONTINUOUS);
+    sleep(1);
     emit finished();
 }
 
@@ -218,12 +210,12 @@ void Worker::restorePartition(NxPartition* partition, NxStorage* in_storage)
         emit sendProgress(RESTORE, QString(partition->partitionName().c_str()), &bytesCount, &bytesToRead);
     }
 
-    if (rc != NO_MORE_BYTES_TO_COPY) {
+    if (rc != NO_MORE_BYTES_TO_COPY)
         emit error(rc);
-        return;
-    }
 
+    emit sendProgress(RESTORE, QString(partition->partitionName().c_str()), &bytesToRead, &bytesToRead);
     SetThreadExecutionState(ES_CONTINUOUS);
+    sleep(1);
     emit finished();
 }
 
@@ -239,11 +231,11 @@ void Worker::restoreStorage(NxStorage* storage, NxStorage* in_storage)
         emit sendProgress(RESTORE, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
     }
 
-    if (rc != NO_MORE_BYTES_TO_COPY) {
+    if (rc != NO_MORE_BYTES_TO_COPY)
         emit error(rc);
-        return;
-    }
 
+    emit sendProgress(RESTORE, QString(storage->getNxTypeAsStr()), &bytesToRead, &bytesToRead);
     SetThreadExecutionState(ES_CONTINUOUS);
+    sleep(1);
     emit finished();
 }

@@ -4,7 +4,7 @@
 #define LIST_STORAGE    100
 #define NEW_STORAGE     101
 #define DUMP			102
-#define RESTORE			103
+//#define RESTORE			103
 #define DUMP_PART		104
 #define RESTORE_PART    105
 

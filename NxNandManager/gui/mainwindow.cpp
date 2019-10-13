@@ -316,10 +316,20 @@ void MainWindow::restorePartition()
             }
 
             int crypto_mode = NO_CRYPTO;
-            if(bKeyset && selected_part->nxPart_info.isEncrypted && not_in(selected_io->setKeys("keys.dat"), { ERR_KEYSET_NOT_EXISTS, ERR_KEYSET_EMPTY })
-                    && !selected_io->badCrypto() && !selected_part->isEncryptedPartition())
+            // Keyset is provided and restoring native encrypted partition
+            if(bKeyset && selected_part->nxPart_info.isEncrypted && not_in(selected_io->setKeys("keys.dat"), { ERR_KEYSET_NOT_EXISTS, ERR_KEYSET_EMPTY }))
             {
-                crypto_mode = ENCRYPT;
+                selected_io->setKeys("keys.dat");
+                if(!selected_io->badCrypto())
+                {
+                    // Restoring decrypted partition
+                    if(!selected_part->isEncryptedPartition())
+                        crypto_mode = ENCRYPT;
+
+                    // Restoring encrypted partition to decrypted partition (hummm?)
+                    else if (selected_part->isEncryptedPartition() && !curPartition->isEncryptedPartition())
+                        crypto_mode = DECRYPT;
+                }
             }
 
             QString message;
@@ -603,7 +613,6 @@ void MainWindow::error(int err, QString label)
 {
 	if(err != ERR_WORK_RUNNING)
 	{
-        if(workInProgress) endWorkThread();
 		ui->progressBar->setFormat("");
 		ui->progressBar->setValue(0);
 		if(label != nullptr)
@@ -664,9 +673,6 @@ void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount,
 */
 void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal)
 {
-    if (nullptr == bytesCount || nullptr == bytesTotal)
-        return;
-
     auto time = std::chrono::system_clock::now();
     std::chrono::duration<double> tmp_elapsed_seconds = time - workThread->begin_time;
 
@@ -698,7 +704,7 @@ void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount,
     remainingTimeWork = time + remaining_seconds;
 
     QString stepLabel;
-    if(mode == MD5_HASH) stepLabel.append("Computing hash ");
+    if(mode == MD5_HASH) stepLabel.append("Computing hash");
     else if (mode == RESTORE) stepLabel.append("Restoring ");
     else stepLabel.append("Copying ");
     if(mode != MD5_HASH) stepLabel.append(storage_name);
@@ -892,10 +898,20 @@ void MainWindow::on_fullrestore_button_clicked()
             NxPartition *out_part = input->getNxPartition();
             NxPartition *selected_part = selected_io->getNxPartition(input->getNxTypeAsInt());
             int crypto_mode = NO_CRYPTO;
-            if(bKeyset && selected_part->nxPart_info.isEncrypted && not_in(selected_io->setKeys("keys.dat"), { ERR_KEYSET_NOT_EXISTS, ERR_KEYSET_EMPTY })
-                    && !selected_io->badCrypto() && !selected_part->isEncryptedPartition())
+            // Keyset is provided and restoring native encrypted partition
+            if(bKeyset && selected_part->nxPart_info.isEncrypted && not_in(selected_io->setKeys("keys.dat"), { ERR_KEYSET_NOT_EXISTS, ERR_KEYSET_EMPTY }))
             {
-                crypto_mode = ENCRYPT;
+                selected_io->setKeys("keys.dat");
+                if(!selected_io->badCrypto())
+                {
+                    // Restoring decrypted partition
+                    if(!selected_part->isEncryptedPartition())
+                        crypto_mode = ENCRYPT;
+
+                    // Restoring encrypted partition to decrypted partition (hummm?)
+                    else if (selected_part->isEncryptedPartition() && !out_part->isEncryptedPartition())
+                        crypto_mode = DECRYPT;
+                }
             }
 
             // Open new thread to restore data
