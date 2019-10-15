@@ -16,11 +16,13 @@
 #include "NxNandManager.h"
 #include "NxStorage.h"
 #include "NxPartition.h"
+
 #include "res/utils.h"
 #include <clocale>
 
 BOOL BYPASS_MD5SUM = FALSE;
-BOOL DEBUG_MODE = FALSE;
+bool isdebug = FALSE;
+
 BOOL FORCE = FALSE;
 BOOL LIST = FALSE;
 
@@ -42,14 +44,15 @@ int startGUI(int argc, char *argv[])
 
 void printStorageInfo(NxStorage *storage)
 {
+    char c_path[MAX_PATH] = { 0 };
+    std::wcstombs(c_path, storage->m_path, wcslen(storage->m_path));
+
     printf("NAND type      : %s%s\n", storage->getNxTypeAsStr(), storage->isSplitted() ? " (splitted dump)" : "");
-    wprintf(L"Path           : %s", storage->m_path);
+    printf("Path           : %s", c_path);
     if (storage->isSplitted())
         printf(" (+%d)", storage->nxHandle->getSplitCount() - 1);
     printf("\n");
 
-    char c_path[MAX_PATH] = { 0 };
-    std::wcstombs(c_path, storage->m_path, wcslen(storage->m_path));
     if (storage->type == INVALID && is_dir(c_path))
         printf("File/Disk      : Directory");
     else 
@@ -248,7 +251,7 @@ int main(int argc, char *argv[])
             BYPASS_MD5SUM = TRUE;
 
         else if (!strncmp(currArg, DEBUG_MODE_FLAG, array_countof(DEBUG_MODE_FLAG) - 1))
-            DEBUG_MODE = TRUE;
+            isdebug = TRUE;
 
         else if (!strncmp(currArg, FORCE_FLAG, array_countof(FORCE_FLAG) - 1))
             FORCE = TRUE;
@@ -311,7 +314,7 @@ int main(int argc, char *argv[])
     printf("Accessing input...\r");
     NxStorage nx_input = NxStorage(input);
     printf("                      \r");
-
+   
     if (nx_input.type == INVALID)
     {
         if (nx_input.isDrive())

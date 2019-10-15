@@ -19,7 +19,7 @@
 // Constructor
 NxPartition::NxPartition(NxStorage *p, const char* p_name, u32 lba_start, u32 lba_end, u64 attrs)
 {
-    //dbg_printf("new NxPartition::NxPartition(parent, %s, lba_start=%I32d, lba_end=%I32d)\n", p_name, lba_start, lba_end);
+    dbg_printf("NxPartition::NxPartition(parent, %s, lba_start=%I32d, lba_end=%I32d)\n", p_name, lba_start, lba_end);
     parent = p;
     nxHandle = parent->nxHandle;
     
@@ -76,13 +76,14 @@ NxPartition::~NxPartition()
 
 bool NxPartition::setCrypto(char* crypto, char* tweak)
 {
-    //dbg_printf("NxPartition::setCrypto() for %s\n", partitionName().c_str());
+    
     if (!nxPart_info.isEncrypted)
         return false;
 
     if (nullptr != nxCrypto)
         delete nxCrypto;
 
+    dbg_printf("NxPartition::setCrypto() for %s\n", partitionName().c_str());
     nxCrypto = new NxCrypto(crypto, tweak);
 
     if (!isEncryptedPartition())
@@ -157,6 +158,8 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, u64 *bytesCount)
         nxHandle->initHandle(crypto_mode, this);
         m_buff_size = nxHandle->getDefaultBuffSize();
         m_buffer = new BYTE[m_buff_size];
+        memset(m_buffer, 0, m_buff_size);
+        dbg_printf("NxPartition::dumpToFile(file=%s, crypto_mode=%d, bytes_count=0)\n", file, crypto_mode);
     }    
 
     DWORD bytesRead = 0;
@@ -208,7 +211,9 @@ int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *byte
         this->nxHandle->initHandle(NO_CRYPTO, this);
         m_buff_size = input->nxHandle->getDefaultBuffSize();
         m_buffer = new BYTE[m_buff_size];
+        memset(m_buffer, 0, m_buff_size);
 
+        dbg_wprintf(L"NxPartition::restoreFromStorage(NxStorage=%s, crypto_mode=%d, bytes_count=0)\n", input->m_path, crypto_mode);
     }
 
     DWORD bytesRead = 0;
