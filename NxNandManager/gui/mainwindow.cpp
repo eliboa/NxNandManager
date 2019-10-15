@@ -688,7 +688,7 @@ void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount,
 
         ui->progressBar->setFormat(label);
         ui->progressBar->setValue(100);
-
+        TaskBarProgress->setValue(100);
         return;
     }
     else if(!*bytesCount) {
@@ -715,6 +715,7 @@ void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount,
     stepLabel.append(" (").append(QString::number(percent)).append("%)");
 
     ui->progressBar->setValue(percent);
+    TaskBarProgress->setValue(percent);
     ui->progressBar->setFormat(stepLabel);
 }
 
