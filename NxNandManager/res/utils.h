@@ -2,6 +2,8 @@
 #ifndef __utils_h__
 #define __utils_h__
 
+extern bool isdebug;
+
 #include <stdio.h>
 #include <string>
 #include <sys/types.h>
@@ -114,7 +116,8 @@ struct KeySet {
 	char tweak3[33];
 };
 
-#define dbg_printf(...) printf(__VA_ARGS__)
+void dbg_printf (const char *format, ...);
+void dbg_wprintf (const wchar_t *format, ...);
 
 wchar_t *convertCharArrayToLPCWSTR(const char* charArray);
 LPWSTR convertCharArrayToLPWSTR(const char* charArray);

@@ -471,3 +471,25 @@ int parseKeySetFile(const char *keyset_file, KeySet* biskeys)
     readFile.close();
     return num_keys;
 }
+
+void dbg_printf (const char *format, ...)
+{
+	if(!isdebug)
+		return;
+
+	va_list args;
+	va_start( args, format );
+	vprintf(format, args);
+	va_end( args );
+}
+
+void dbg_wprintf (const wchar_t *format, ...)
+{
+	if(!isdebug)
+		return;
+
+	va_list args;
+	va_start( args, format );
+	vwprintf(format, args);
+	va_end( args );
+}

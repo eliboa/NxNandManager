@@ -18,7 +18,7 @@
 
 NxStorage::NxStorage(const char *p_path)
 {
-    //dbg_printf("NxStorage::NxStorage() begins for %s\n", p_path);
+    dbg_printf("NxStorage::NxStorage() begins for %s\n", std::string(p_path).c_str());
     type = INVALID;
     memset(fw_version, 0, sizeof fw_version);
     m_backupGPT = 0;
@@ -31,8 +31,6 @@ NxStorage::NxStorage(const char *p_path)
         return;
     MultiByteToWideChar(CP_UTF8, 0, p_path, -1, m_path, nSize);
 
-    //wprintf(L"NxStorage PATH %s\n", m_path);
-
     // Get handle to file/disk
     nxHandle = new NxHandle(this);
     if (!nxHandle->exists)
@@ -40,7 +38,7 @@ NxStorage::NxStorage(const char *p_path)
 
     // Get size from handle (will probably be overwritten later)
     m_size = nxHandle->size();
-    //dbg_printf("NxStorage::NxStorage() size is %I64d\n", m_size);
+    dbg_printf("NxStorage::NxStorage() size is %I64d\n", m_size);
 
     // Init var.
     type = UNKNOWN;
@@ -55,9 +53,10 @@ NxStorage::NxStorage(const char *p_path)
 
         int remain = mgk.offset % NX_BLOCKSIZE; // Block align
         if (nxHandle->read(mgk.offset - remain, buff, &bytesRead, NX_BLOCKSIZE) && hexStr(&buff[remain], mgk.size) == mgk.magic)
-        {
-            //printf("buff \n%s\n", hexStr(buff, NX_BLOCKSIZE).c_str());
+        {            
             type = mgk.type;
+            dbg_printf("NxStorage::NxStorage() - MAGIC found at offset %s, type is %s\n", 
+                n2hexstr(mgk.offset, 10).c_str(), getNxTypeAsStr());
             break;
         }
     }
@@ -71,6 +70,7 @@ NxStorage::NxStorage(const char *p_path)
             std::string haystack(buff, buff + NX_BLOCKSIZE);
             if (haystack.find("PK11") != std::string::npos) {
                 type = BOOT1;
+                dbg_printf("NxStorage::NxStorage() - BOOT1 identified by looking for needle (PK11) in haystack (all file)\n");
                 break;
             }
         }
@@ -137,6 +137,7 @@ NxStorage::NxStorage(const char *p_path)
                     type = RAWMMC;
                     mmc_b0_lba_start = sector_start + 0x8000;
                     m_size = (u64)(sector_count - 0x8000) * NX_BLOCKSIZE;
+                    dbg_printf("NxStorage::NxStorage() - emuMMC found at offset %s\n", n2hexstr(mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str());
                     break;
                 }
                 else if (nxHandle->read((u32)sector_start + 0x4001, efi_part, &bytesRead, NX_BLOCKSIZE)
@@ -144,6 +145,7 @@ NxStorage::NxStorage(const char *p_path)
                 {
                     type = RAWMMC;
                     mmc_b0_lba_start = sector_start;
+                    dbg_printf("NxStorage::NxStorage() - emuMMC found at offset %s\n", n2hexstr(mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str());
                     m_size = (u64)sector_count * NX_BLOCKSIZE;
                     break;
                 }        
@@ -157,6 +159,7 @@ NxStorage::NxStorage(const char *p_path)
                 {
                     type = RAWMMC;
                     mmc_b0_lba_start = 2;
+                    dbg_printf("NxStorage::NxStorage() - foreign emuNAND found at offset %s\n", n2hexstr(mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str());
                     // TO-DO MISSING SIZE
                 }
             }
@@ -231,12 +234,12 @@ NxStorage::NxStorage(const char *p_path)
                 }
                 nxHandle->initHandle();
 
-                //printf("LOOK FOR BACKUP GPT AT OFFSET %s (handle size = %s) \n", n2hexstr(off, 12).c_str(), n2hexstr(nxHandle->size(), 12).c_str());
                 memset(buff, 0, 8);
                 if (nxHandle->read(off, buff, &bytesRead, 0x200) && !memcmp(&buff[0], "EFI PART", 8))
                 {
                     m_backupGPT = off;
                     m_size = off + NX_BLOCKSIZE;
+                    dbg_printf("NxStorage::NxStorage() - backup GPT found at offset %s\n", n2hexstr(m_backupGPT, 10).c_str());
                 }
             }
         }
