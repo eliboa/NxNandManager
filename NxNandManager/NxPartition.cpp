@@ -76,7 +76,6 @@ NxPartition::~NxPartition()
 
 bool NxPartition::setCrypto(char* crypto, char* tweak)
 {
-    
     if (!nxPart_info.isEncrypted)
         return false;
 
@@ -84,11 +83,13 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
         delete nxCrypto;
 
     dbg_printf("NxPartition::setCrypto() for %s\n", partitionName().c_str());
+    
+    m_bad_crypto = false;
     nxCrypto = new NxCrypto(crypto, tweak);
 
     if (!isEncryptedPartition())
         return true;
-
+    
     nxHandle->initHandle(DECRYPT, this);
 
     // Validate first cluster
