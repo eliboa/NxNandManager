@@ -76,7 +76,6 @@ NxPartition::~NxPartition()
 
 bool NxPartition::setCrypto(char* crypto, char* tweak)
 {
-    
     if (!nxPart_info.isEncrypted)
         return false;
 
@@ -84,11 +83,13 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
         delete nxCrypto;
 
     dbg_printf("NxPartition::setCrypto() for %s\n", partitionName().c_str());
+    
+    m_bad_crypto = false;
     nxCrypto = new NxCrypto(crypto, tweak);
 
     if (!isEncryptedPartition())
         return true;
-
+    
     nxHandle->initHandle(DECRYPT, this);
 
     // Validate first cluster
@@ -246,11 +247,8 @@ int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *byte
 bool NxPartition::fat32_dir(std::vector<fat32::dir_entry> *entries, const char *path)
 {
     entries->clear();
-
-    if (nullptr == parent || nullptr == parent->nxHandle)
-        return false;
-
-    if (m_type != SAFE && m_type != SYSTEM && m_type != USER)
+    
+    if (not_in(m_type, { SAFE, SYSTEM, USER }))
         return false;
 
     if (m_isEncrypted && (m_bad_crypto || nullptr == nxCrypto))
@@ -280,7 +278,7 @@ bool NxPartition::fat32_dir(std::vector<fat32::dir_entry> *entries, const char *
     if (entries->size() > 0 && (nullptr == path || (path[0] == '/' && strlen(path) == 1)))
         return true;
 
-    // Explore path, one directory (*cdir) after each other, from root
+    // Explore path, one directory (*dir) after each other, from root
     char *cdir = strdup(path), *dir;
     while ((dir = strtok(cdir, "/")) != nullptr)
     {
@@ -299,7 +297,7 @@ bool NxPartition::fat32_dir(std::vector<fat32::dir_entry> *entries, const char *
                     return true;
                 }
 
-                // Read cluster for director*
+                // Read cluster for directory
                 u64 next_cluster_off = fs.bytes_per_sector * ((dir_entry.entry.first_cluster - 2) * fs.sectors_per_cluster) + root_addr;
                 if (!nxHandle->read(next_cluster_off, buff, nullptr, CLUSTER_SIZE))
                     return false;

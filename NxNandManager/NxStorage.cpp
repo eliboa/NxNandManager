@@ -248,6 +248,7 @@ NxStorage::NxStorage(const char *p_path)
 
         if (!cal0_found)
         {
+            dbg_printf("NxStorage::NxStorage() - Error CAL0 not found in %s\n", getNxTypeAsStr());
             type = UNKNOWN;
             partitions.clear();
         }
@@ -259,6 +260,8 @@ NxStorage::NxStorage(const char *p_path)
         type = UNKNOWN;
         if (nxHandle->detectSplittedStorage())
         {
+            dbg_printf("NxStorage::NxStorage() - Splitted storage detected!\n");
+
             // Look for backup GPT
             u64 off = nxHandle->size() - NX_BLOCKSIZE;
             unsigned char buff[0x200] = { 0 };
@@ -270,8 +273,13 @@ NxStorage::NxStorage(const char *p_path)
                 b_isSplitted = true;
                 m_size = nxHandle->size();
                 m_backupGPT = off;
+                dbg_printf("NxStorage::NxStorage() - backup GPT found in splitted storage at offset %s\n", n2hexstr(off, 10).c_str());
             }
-            else nxHandle->setSplitted(false);
+            else
+            {
+                dbg_printf("NxStorage::NxStorage() - Error backup GPT not found for Splitted at offset %s\n", n2hexstr(off, 10).c_str());
+                nxHandle->setSplitted(false);
+            }
         }
     }
 
@@ -305,7 +313,7 @@ NxStorage::~NxStorage()
 
 int NxStorage::setKeys(const char* keyset)
 {
-    //dbg_printf("NxStorage::setKeys(%s)\n", keyset);
+    dbg_wprintf(L"NxStorage::setKeys(%s) for %s\n", keyset, m_path);
 
     memset(keys.crypt0, 0, 33);
     memset(keys.tweak0, 0, 33);
@@ -450,8 +458,11 @@ int NxStorage::setKeys(const char* keyset)
     if (nullptr != user && !user->setCrypto(keys.crypt2, keys.tweak2))
         user->setBadCrypto(true);
 
-    if(badCrypto())
-        return ERROR_DECRYPT_FAILED;    
+    if (badCrypto()) 
+    {
+        dbg_wprintf(L"NxStorage::setKeys(%s) BAD crypto for %s\n", keyset, m_path);
+        return ERROR_DECRYPT_FAILED;
+    }
 
     return SUCCESS;
 }
@@ -582,9 +593,7 @@ void NxStorage::setStorageInfo(int partition)
 int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount)
 {
     if (!*bytesCount)
-    {
-        //dbg_printf("NxStorage::dumpToFile(%s, %d, %s)\n", file, crypto_mode, n2hexstr(*bytesCount, 8).c_str());
-
+    {       
         if (crypto_mode == DECRYPT || crypto_mode == ENCRYPT)
             return ERR_CRYPTO_RAW_COPY;
 
@@ -599,6 +608,9 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount)
         nxHandle->initHandle(crypto_mode);
         m_buff_size = nxHandle->getDefaultBuffSize();
         m_buffer = new BYTE[m_buff_size];
+        memset(m_buffer, 0, m_buff_size);
+
+        dbg_printf("NxStorage::dumpToFile(file=%s, crypto_mode=%d, bytesCount=%s)\n", file, crypto_mode, n2hexstr(*bytesCount, 8).c_str());
     }
 
     DWORD bytesRead = 0;
@@ -611,6 +623,7 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount)
         if (*bytesCount == size())
             return NO_MORE_BYTES_TO_COPY;
 
+        dbg_printf("NxStorage::dumpToFile() ERROR, failed to read storage at bytesCount %s\n", n2hexstr(*bytesCount, 8).c_str());
         return ERR_WHILE_COPY;
     }
 
@@ -622,7 +635,7 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount)
 int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount)
 {
     if (!*bytesCount)
-    {
+    {        
         if (input->type == INVALID || input->type == UNKNOWN)
             return ERR_INVALID_INPUT;
 
@@ -646,12 +659,16 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
         this->nxHandle->initHandle(NO_CRYPTO);
         m_buff_size = input->nxHandle->getDefaultBuffSize();
         m_buffer = new BYTE[m_buff_size];
+        memset(m_buffer, 0, m_buff_size);
+
+        dbg_wprintf(L"NxStorage::restoreFromStorage(NxStorage=%s, crypto_mode=%d, bytesCount=%s)\n", input->m_path, crypto_mode, n2hexstr(*bytesCount, 8).c_str());
     }
 
     DWORD bytesRead = 0;
     if (!input->nxHandle->read(m_buffer, &bytesRead, m_buff_size))
     {
         delete[] m_buffer;
+        dbg_printf("NxStorage::restoreFromStorage() ERROR, failed to read storage at bytesCount %s\n", n2hexstr(*bytesCount, 8).c_str());
         return ERR_WHILE_COPY;
     }
 
@@ -661,7 +678,10 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
         delete[] m_buffer;
 
         if (*bytesCount + bytesWrite != size())
+        {
+            dbg_printf("NxStorage::restoreFromStorage() ERROR, failed to write storage at bytesCount %s\n", n2hexstr(*bytesCount, 8).c_str());
             return ERR_WHILE_COPY;
+        }
     }
 
     *bytesCount += bytesWrite;

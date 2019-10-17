@@ -95,8 +95,12 @@ void printStorageInfo(NxStorage *storage)
     int i = 0;
     for (NxPartition *part : storage->partitions)
     {
-        printf("%s%02d %s  (%s%s)%s\n", i == 1 ? "\nPartitions     : \n                 " : "                 ", ++i, part->partitionName().c_str(),
+        printf("%s%02d %s  (%s%s)%s", i == 1 ? "\nPartitions     : \n                 " : "                 ", ++i, part->partitionName().c_str(),
             GetReadableSize(part->size()).c_str(), part->isEncryptedPartition() ? " encrypted" : "", part->badCrypto() ? "  !!! DECRYPTION FAILED !!!" : "");
+
+        dbg_printf(" [%s - %s]", n2hexstr((u64)part->lbaStart() * NX_BLOCKSIZE, 10).c_str(), n2hexstr((u64)part->lbaStart() * NX_BLOCKSIZE + part->size()-1, 10).c_str());
+
+        printf("\n");
     }
 
     if (storage->type == RAWMMC || storage->type == RAWNAND)
@@ -417,12 +421,78 @@ int main(int argc, char *argv[])
     if (nx_output.type == INVALID && nx_output.isDrive())
         throwException("Output is an unknown drive/disk!");
 
+    
+    // Create new list for partitions and put -part arg in it
+    char l_partitions[MAX_PATH] = { 0 };
+    if (nullptr != partitions) {
+        strcpy(l_partitions, ",");
+        strcat(l_partitions, partitions);
+    }
+
+    // No partition provided
+    if (!strlen(l_partitions))
+    {
+        // Output is dir OR output contains several partitions but no partition provided
+        if (is_dir(output) || (nx_output.isNxStorage() && !nx_output.isSinglePartType() && nx_input.type != nx_output.type))
+        {
+            // Push every partition that is in both input & output to copy list OR simply in input if output is a dir
+            for (NxPartition *in_part : nx_input.partitions)
+            {
+                NxPartition *out_part = nx_output.getNxPartition(in_part->type());
+                if (is_dir(output) || (nullptr != out_part && in_part->size() <= out_part->size())) 
+                {
+                    strcat(l_partitions, ",");
+                    strcat(l_partitions, in_part->partitionName().c_str());
+                }
+            }
+        }
+
+        // If no partition in copy list -> full dump or restore
+        if (!strlen(l_partitions))
+        {
+            // Output is valid NxStorage(restore), types should match
+            if (nx_output.isNxStorage() && nx_input.type != nx_output.type)
+                throwException("Input type (%s) doesn't match output type (%s)",
+                (void*)nx_input.getNxTypeAsStr(), (void*)nx_output.getNxTypeAsStr());
+
+            // Control crypto mode
+            if (encrypt || decrypt)
+            {
+                if (nx_input.partitions.size() > 1)
+                    throwException("Partition(s) to be %s must be provided through \"-part\" argument",
+                        decrypt ? (void*)"decrypted" : (void*)"encrypted");
+
+                if (decrypt && !nx_input.isEncrypted())
+                    throwException(ERR_CRYPTO_NOT_ENCRYPTED);
+
+                if (decrypt && nx_input.badCrypto())
+                    throwException(ERROR_DECRYPT_FAILED);
+
+                else if (encrypt && nx_input.isEncrypted())
+                    throwException(ERR_CRYPTO_ENCRYPTED_YET);
+
+                else if (encrypt && !nx_input.getNxPartition()->nxPart_info.isEncrypted)
+                    throwException("Partition %s cannot be encrypted", (void*)nx_input.getNxPartition()->partitionName().c_str());
+
+                // Add partition to copy list
+                //v_partitions.push_back(nx_input.getNxPartition()->partitionName().c_str());
+                strcat(l_partitions, ",");
+                strcat(l_partitions, nx_input.getNxPartition()->partitionName().c_str());
+            }
+
+            // Prevent restoring decrypted partition to native encrypted partitions
+            if (is_in(nx_output.type, { RAWNAND, RAWMMC }) && nx_output.getNxPartition()->nxPart_info.isEncrypted
+                && (decrypt || (!encrypt && !nx_input.isEncrypted())))
+                throwException("Cannot restore decrypted partition to NxStorage type %s ", (void*)nx_output.getNxTypeAsStr());
+        }
+    }
+
     // A list of partitions is provided
-    if (nullptr != partitions)
-    {        
+    if (strlen(l_partitions))
+    {
         // Explode partitions string        
-        std::string pattern(","); // insert delimiter at beginning of string to get first partition from strok()
-        pattern.append(partitions);
+        std::string pattern;
+        pattern.append(l_partitions);
         char *partition, *ch_parts = strdup(pattern.c_str());
         while ((partition = strtok(!v_partitions.size() ? ch_parts : nullptr, ",")) != nullptr) v_partitions.push_back(partition);
 
@@ -435,16 +505,16 @@ int main(int argc, char *argv[])
                 throwException("Partition %s not found in input (-i)", (void*)part_name);
 
             // Validate crypto mode
-            if (decrypt && !in_part->isEncryptedPartition())
+            if (decrypt && !in_part->isEncryptedPartition() && in_part->nxPart_info.isEncrypted)
                 throwException("Partition %s is not encrypted", (void*)in_part->partitionName().c_str());
 
             else if (decrypt && in_part->badCrypto())
                 throwException("Failed to validate crypto for partition %s", (void*)in_part->partitionName().c_str());
 
-            else if (encrypt && in_part->isEncryptedPartition())
+            else if (encrypt && in_part->isEncryptedPartition() && in_part->nxPart_info.isEncrypted)
                 throwException("Partition %s is already encrypted", (void*)in_part->partitionName().c_str());
 
-            else if (encrypt && !in_part->nxPart_info.isEncrypted)
+            else if (encrypt && !in_part->nxPart_info.isEncrypted && v_partitions.size() == 1)
                 throwException("Partition %s cannot be encrypted", (void*)in_part->partitionName().c_str());
 
             // Restore controls
@@ -463,42 +533,6 @@ int main(int argc, char *argv[])
             }
         }
     }
-    // No partition provided
-    else 
-    {
-        // Output is valid NxStorage(restore), types should match
-        if (nx_output.isNxStorage() && nx_input.type != nx_output.type)
-            throwException("Input type (%s) doesn't match output type (%s)", 
-                (void*)nx_input.getNxTypeAsStr(), (void*)nx_output.getNxTypeAsStr());
-
-        // Control crypto mode
-        if (encrypt || decrypt)
-        {
-            if (nx_input.partitions.size() > 1)
-                throwException("Partition(s) to be %s must be provided through \"-part\" argument",
-                    decrypt ? (void*)"decrypted" : (void*)"encrypted");
-
-            if (decrypt && !nx_input.isEncrypted())
-                throwException(ERR_CRYPTO_NOT_ENCRYPTED);
-
-            if (decrypt && nx_input.badCrypto())
-                throwException(ERROR_DECRYPT_FAILED);
-
-            else if (encrypt && nx_input.isEncrypted())
-                throwException(ERR_CRYPTO_ENCRYPTED_YET);
-
-            else if (encrypt && !nx_input.getNxPartition()->nxPart_info.isEncrypted)
-                throwException("Partition %s cannot be encrypted", (void*)nx_input.getNxPartition()->partitionName().c_str());            
-
-            // Add partition to copy list
-            v_partitions.push_back(nx_input.getNxPartition()->partitionName().c_str());
-        }
-
-        // Prevent restoring decrypted partition to native encrypted partitions
-        if (is_in(nx_output.type, { RAWNAND, RAWMMC }) && nx_output.getNxPartition()->nxPart_info.isEncrypted
-            && (decrypt || (!encrypt && !nx_input.isEncrypted())))
-            throwException("Cannot restore decrypted partition to NxStorage type %s ", (void*)nx_output.getNxTypeAsStr());
-    }
 
     // If only one part to dump, output cannot be a dir
     if (!nx_output.isNxStorage() && !v_partitions.size() && is_dir(output))
@@ -508,7 +542,24 @@ int main(int argc, char *argv[])
     if (!nx_output.isNxStorage() && v_partitions.size() > 1 && !is_dir(output))
         throwException("Output must be a directory");
 
-    if(info)
+    // List partitions to be copied for user
+    if (info && v_partitions.size() > 1)
+    {
+        std::string label;
+        if (encrypt) label.append("encrypted and ");
+        else if (decrypt) label.append("decrypted and ");
+
+        printf(" -- COPY --\nThe following partitions will be %s%s from input to ouput : \n", label.c_str(), nx_output.isNxStorage() ? "restored" : "dumped");
+        for (const char* partition : v_partitions) {
+            printf("-%s\n", partition);
+        }
+        printf("\n");
+
+        if (is_in(nx_output.type, { RAWMMC, RAWNAND }))
+            printf("WARNING : GPT & GPT backup will not be overwritten in output. NO RAW RESTORE, ONLY PARTITIONS\n");
+    }
+
+    if (info)        
         throwException("--info argument provided, exit (remove arg from command to perform dump/restore operation).\n");
 
     // Prevent system from going into sleep mode
@@ -592,6 +643,8 @@ int main(int argc, char *argv[])
         else
         {           
             // Check if file already exists
+            int i = 0;
+            std::vector<int> indexes;
             for (const char *part_name : v_partitions)
             {
                 char new_out[MAX_PATH];
@@ -601,13 +654,24 @@ int main(int argc, char *argv[])
                 if (is_file(new_out))
                 {
                     if (!FORCE && !AskYesNoQuestion("The following output file already exists :\n- %s\nDo you want to overwrite it ?", (void*)new_out))
-                        throwException("Operation cancelled");
+                    {                        
+                        if (!v_partitions.size())
+                            throwException("Operation canceled");
 
-                    remove(new_out);
-                    if (is_file(new_out))
-                        throwException("Failed to delete output file %s", new_out);                            
+                        indexes.push_back(i);
+                    }
+                    else
+                    {
+                        remove(new_out);
+                        if (is_file(new_out))
+                            throwException("Failed to delete output file %s", new_out);
+                    }
                 }
+                i++;
             }
+            // Delete partitions user wants to keep from copy list
+            for(int i : indexes)
+                v_partitions.erase(v_partitions.begin() + i);
             
             // Copy each partition            
             for (const char *part_name : v_partitions)
