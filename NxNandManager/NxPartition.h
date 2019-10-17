@@ -40,18 +40,18 @@ struct NxPart {
 
 static NxPart NxPartArr[] =
 {
-    { "BOOT0",                    BOOT0    ,0x00400000 , false , NULL, 0},
-    { "BOOT1",                    BOOT1    ,0x00400000 , false , NULL, 0},
+    { "BOOT0",                   BOOT0    ,0x00400000 , false , NULL, 0},
+    { "BOOT1",                   BOOT1    ,0x00400000 , false , NULL, 0},
     { "PRODINFO",                PRODINFO ,0x003FBC00 , true  , "CAL0", 0},
-    { "PRODINFOF",                PRODINFOF,0x00400000 , true  , "CERTIF", 0x680},
-    { "BCPKG2-1-Normal-Main",   BCPKG21  ,0x00800000 , false , NULL, 0},
-    { "BCPKG2-2-Normal-Sub",    BCPKG22  ,0x00800000 , false , NULL, 0},
-    { "BCPKG2-3-SafeMode-Main", BCPKG23  ,0x00800000 , false , NULL, 0},
-    { "BCPKG2-4-SafeMode-Sub",  BCPKG24  ,0x00800000 , false , NULL, 0},
-    { "BCPKG2-5-Repair-Main",   BCPKG25  ,0x00800000 , false , NULL, 0},
-    { "BCPKG2-6-Repair-Sub",    BCPKG26  ,0x00800000 , false , NULL, 0},
+    { "PRODINFOF",               PRODINFOF,0x00400000 , true  , "CERTIF", 0x680},
+    { "BCPKG2-1-Normal-Main",    BCPKG21  ,0x00800000 , false , NULL, 0},
+    { "BCPKG2-2-Normal-Sub",     BCPKG22  ,0x00800000 , false , NULL, 0},
+    { "BCPKG2-3-SafeMode-Main",  BCPKG23  ,0x00800000 , false , NULL, 0},
+    { "BCPKG2-4-SafeMode-Sub",   BCPKG24  ,0x00800000 , false , NULL, 0},
+    { "BCPKG2-5-Repair-Main",    BCPKG25  ,0x00800000 , false , NULL, 0},
+    { "BCPKG2-6-Repair-Sub",     BCPKG26  ,0x00800000 , false , NULL, 0},
     { "SAFE",                    SAFE     ,0x04000000 , true  , "NO NAME", 0x47},
-    { "SYSTEM",                    SYSTEM   ,0xA0000000 , true  , "NO NAME", 0x47},
+    { "SYSTEM",                  SYSTEM   ,0xA0000000 , true  , "NO NAME", 0x47},
     { "USER",                    USER     ,0x680000000, true  , "NO NAME", 0x47}
 };
 
@@ -105,7 +105,8 @@ class NxPartition
         bool isEncryptedPartition();  
 
         //Methods
-        bool fat32_dir(std::vector<fat32::dir_entry> *entries, const char *dir);        
+        bool fat32_dir(std::vector<fat32::dir_entry> *entries, const char *dir);
+        u64 fat32_getFreeSpace();   
         bool setCrypto(char* crypto, char* tweak);
         int compare(NxPartition *partition);
         int dumpToFile(const char *file, int crypt_mode, u64 *bytesCount);

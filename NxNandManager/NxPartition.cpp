@@ -315,3 +315,33 @@ bool NxPartition::fat32_dir(std::vector<fat32::dir_entry> *entries, const char *
     }
     return true;
 }
+
+// Get free space from number of free clusters in FAT
+u64 NxPartition::fat32_getFreeSpace()
+{
+    nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
+    BYTE buff[CLUSTER_SIZE];
+
+    // Read first cluster
+    if (!nxHandle->read(buff, nullptr, CLUSTER_SIZE))
+        return 0;
+    
+    // Get root address
+    fat32::fs_attr fs;
+    fat32::read_boot_sector(buff, &fs);
+
+    int cluster_free_count = 0;
+    int cluster_num = fs.fat_size * fs.bytes_per_sector / CLUSTER_SIZE;
+
+    unsigned char free_cluster[4] = { 0x00,0x00,0x00,0x00 };
+    for (int i(0); i < cluster_num; i++)
+    {
+        nxHandle->read(buff, nullptr, CLUSTER_SIZE);
+        for (int j(0); j < CLUSTER_SIZE; j = j + 4)
+        {
+            if(!memcmp(&buff[j], free_cluster, 4))
+                cluster_free_count++;
+        }
+    }
+    return (u64)cluster_free_count * CLUSTER_SIZE;
+}

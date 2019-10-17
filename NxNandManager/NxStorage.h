@@ -94,8 +94,8 @@ struct NxStorageType
 static NxStorageType NxTypesArr[] =
 {
     { INVALID  , "INVALID" },
-    { BOOT0       , "BOOT0" },
-    { BOOT1       , "BOOT1" },
+    { BOOT0    , "BOOT0" },
+    { BOOT1    , "BOOT1" },
     { RAWNAND  , "RAWNAND" },
     { PARTITION, "PARTITION" },
     { RAWMMC   , "FULL NAND" },
@@ -108,7 +108,7 @@ static NxStorageType NxTypesArr[] =
     { BCPKG24  , "BCPKG2-4-SafeMode-Sub" },
     { BCPKG25  , "BCPKG2-5-Repair-Main" },
     { BCPKG26  , "BCPKG2-6-Repair-Sub" },
-    { SAFE       , "SAFE" },
+    { SAFE     , "SAFE" },
     { SYSTEM   , "SYSTEM" },
     { USER     , "USER" },
     { UNKNOWN  , "UNKNOWN" }
