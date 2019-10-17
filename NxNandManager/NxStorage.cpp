@@ -20,7 +20,9 @@ NxStorage::NxStorage(const char *p_path)
 {
     dbg_printf("NxStorage::NxStorage() begins for %s\n", std::string(p_path).c_str());
     type = INVALID;
-    memset(fw_version, 0, sizeof fw_version);
+    memset(fw_version, 0, 48);
+    memset(deviceId, 0, 21);
+    memset(serial_number, 0, 18);
     m_backupGPT = 0;
     m_size = 0;
 
