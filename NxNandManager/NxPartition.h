@@ -83,6 +83,9 @@ class NxPartition
         int m_buff_size;
         u64 bytes_count;
 
+    public:
+        u64 freeSpace = 0;
+
     // Member methods
     public:
         NxHandle *nxHandle;

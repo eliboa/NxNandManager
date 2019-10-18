@@ -95,10 +95,13 @@ void printStorageInfo(NxStorage *storage)
     int i = 0;
     for (NxPartition *part : storage->partitions)
     {
-        printf("%s%02d %s  (%s%s)%s", i == 1 ? "\nPartitions     : \n                 " : "                 ", ++i, part->partitionName().c_str(),
-            GetReadableSize(part->size()).c_str(), part->isEncryptedPartition() ? " encrypted" : "", part->badCrypto() ? "  !!! DECRYPTION FAILED !!!" : "");
+        printf("%s%02d %s", i == 1 ? "\nPartitions     : \n                 " : "                 ", ++i, part->partitionName().c_str());
+        printf(" (%s", GetReadableSize(part->size()).c_str());
+        if (part->freeSpace)
+            printf(", free space %s", GetReadableSize(part->freeSpace).c_str());
+        printf("%s)%s", part->isEncryptedPartition() ? " encrypted" : "", part->badCrypto() ? "  !!! DECRYPTION FAILED !!!" : "");
 
-        dbg_printf(" [%s - %s]", n2hexstr((u64)part->lbaStart() * NX_BLOCKSIZE, 10).c_str(), n2hexstr((u64)part->lbaStart() * NX_BLOCKSIZE + part->size()-1, 10).c_str());
+        dbg_printf(" [0x%s - 0x%s]", n2hexstr((u64)part->lbaStart() * NX_BLOCKSIZE, 10).c_str(), n2hexstr((u64)part->lbaStart() * NX_BLOCKSIZE + part->size()-1, 10).c_str());
 
         printf("\n");
     }

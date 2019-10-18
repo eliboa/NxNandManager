@@ -86,11 +86,8 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
     
     m_bad_crypto = false;
     nxCrypto = new NxCrypto(crypto, tweak);
-
-    if (!isEncryptedPartition())
-        return true;
-    
-    nxHandle->initHandle(DECRYPT, this);
+   
+    nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
 
     // Validate first cluster
     unsigned char first_cluster[CLUSTER_SIZE];
@@ -99,15 +96,21 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
         // Do magic
         if (memcmp(&first_cluster[nxPart_info.magic_off], nxPart_info.magic, strlen(nxPart_info.magic)))
             m_bad_crypto = true;
+        else if(is_in(m_type, {USER, SYSTEM}))
+        {
+            freeSpace = fat32_getFreeSpace();
+        }
+
     }
-    nxHandle->initHandle(NO_CRYPTO);
+    
+    dbg_printf("NxPartition::setCrypto() ends %s %s\n", partitionName().c_str(), m_bad_crypto ? "BAD CRYPTO" : "GOOD CRYPTO");
 
     return m_bad_crypto ? false : true;
 }
 
 std::string NxPartition::partitionName()
 {
-    return std::string(m_name).c_str();
+    return std::string(m_name);
 }
 
 u32 NxPartition::lbaStart()
@@ -314,7 +317,7 @@ bool NxPartition::fat32_dir(std::vector<fat32::dir_entry> *entries, const char *
     return true;
 }
 
-// Get free space from number of free clusters in FAT
+// Get free space from free clusters count in FAT
 u64 NxPartition::fat32_getFreeSpace()
 {
     nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
@@ -324,22 +327,33 @@ u64 NxPartition::fat32_getFreeSpace()
     if (!nxHandle->read(buff, nullptr, CLUSTER_SIZE))
         return 0;
     
-    // Get root address
+    // Get fs attributes from boot sector
     fat32::fs_attr fs;
     fat32::read_boot_sector(buff, &fs);
 
-    int cluster_free_count = 0;
+    u32 cluster_free_count = 0, cluster_count = 0, first_empty_cluster = 0;
     int cluster_num = fs.fat_size * fs.bytes_per_sector / CLUSTER_SIZE;
-
     unsigned char free_cluster[4] = { 0x00,0x00,0x00,0x00 };
+
+    // Iterate cluster map
     for (int i(0); i < cluster_num; i++)
     {
         nxHandle->read(buff, nullptr, CLUSTER_SIZE);
-        for (int j(0); j < CLUSTER_SIZE; j = j + 4)
+        int count = 0;
+        while (count < CLUSTER_SIZE)
         {
-            if(!memcmp(&buff[j], free_cluster, 4))
+            cluster_count++;
+            if (!memcmp(&buff[count], free_cluster, 4)) 
+            {
                 cluster_free_count++;
+                if (!first_empty_cluster) first_empty_cluster = cluster_count;
+            }
+            else first_empty_cluster = 0;
+            count += 4;
         }
     }
+
+    u32 free_cluster_count = cluster_count - first_empty_cluster;
+    dbg_printf("%s first_empty_cluster is %I32d / %I32d (%s available)\n", m_name, first_empty_cluster, cluster_count, GetReadableSize((u64)free_cluster_count * CLUSTER_SIZE).c_str());
     return (u64)cluster_free_count * CLUSTER_SIZE;
 }

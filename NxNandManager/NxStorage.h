@@ -217,6 +217,7 @@ class NxStorage
         BYTE *m_buffer;
         int m_buff_size;
         u64 bytes_count;
+        u32 gpt_lba_start, gpt_bck_lba_start, user_lba_start;
     
         std::vector<const char*> v_cpy_partitions;
 
@@ -264,6 +265,7 @@ class NxStorage
         bool isSinglePartType(int type = 0);
         int dumpToFile(const char *file, int crypt_mode, u64 *bytesCount);
         int restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount);
+        int resizeUser(const char *file, u32 num_clusters, u64 *bytesCount);
         bool setAutoRcm(bool enable);
         int applyIncognito();
 };

@@ -441,10 +441,6 @@ int NxStorage::setKeys(const char* keyset)
     NxPartition *system = getNxPartition(SYSTEM);
     if (nullptr != system && !system->setCrypto(keys.crypt2, keys.tweak2))
         system->setBadCrypto(true);
-
-    // Retrieve information from encrypted partitions
-    if(!badCrypto())
-        setStorageInfo();
             
     NxPartition *prodinfof = getNxPartition(PRODINFOF);
     if (nullptr != prodinfof && !prodinfof->setCrypto(keys.crypt0, keys.tweak0))
@@ -454,9 +450,13 @@ int NxStorage::setKeys(const char* keyset)
     if (nullptr != safe && !safe->setCrypto(keys.crypt1, keys.tweak1))
        safe->setBadCrypto();
     
-    NxPartition *user = getNxPartition(SYSTEM);
+    NxPartition *user = getNxPartition(USER);
     if (nullptr != user && !user->setCrypto(keys.crypt2, keys.tweak2))
         user->setBadCrypto(true);
+
+    // Retrieve information from encrypted partitions
+    if (!badCrypto())
+        setStorageInfo();
 
     if (badCrypto()) 
     {
@@ -499,6 +499,7 @@ void NxStorage::setStorageInfo(int partition)
             }
         }
     }
+    
     if (partition == SYSTEM || !partition)
     {
         NxPartition *system = getNxPartition(SYSTEM);
@@ -562,6 +563,7 @@ void NxStorage::setStorageInfo(int partition)
                     cur_off += bytesRead;
                 }
             }
+            
             // Read play report => /save/80000000000000a1 --> Let's just assume file is not fragmented in SYSTEM (TODO : Scan FAT for fragmentation)
             if (system->fat32_dir(&dir_entries, "/save/80000000000000a1"))
             {
@@ -585,9 +587,19 @@ void NxStorage::setStorageInfo(int partition)
                     }
                     cur_off += bytesRead;
                 }
-            }
+            }        
         }
     }
+    /*
+    if (partition == USER || !partition)
+    {
+        NxPartition *user = getNxPartition(USER);
+        if (nullptr != user && !user->badCrypto() && (!user->isEncryptedPartition() || nullptr != user->crypto()))
+        {
+            printf("USER - free space/total space : %s/%s\n", GetReadableSize(user->fat32_getFreeSpace()).c_str(), GetReadableSize(user->size()).c_str());
+        }
+    }
+    */
 }
 
 int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount)
@@ -691,6 +703,70 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
 
     return SUCCESS;
 }
+
+int NxStorage::resizeUser(const char *file, u32 num_clusters, u64 *bytesCount)
+{
+    if (!*bytesCount)
+    {
+        if (not_in(type, { RAWNAND, RAWMMC }))
+            return ERR_INVALID_INPUT;
+
+        if (isEncrypted && !m_keySet_set)
+            return ERR_CRYPTO_KEY_MISSING;
+
+        if (isEncrypted && badCrypto)
+            return ERROR_DECRYPT_FAILED;
+
+        gpt_lba_start = getNxPartition(PRODINFO)->lbaStart() - 0x21;
+        gpt_bck_lba_start = m_backupGPT / NX_BLOCKSIZE;
+        user_lba_start = getNxPartition(USER)->lbaStart();
+        nxHandle->initHandle(NO_CRYPTO);
+        m_buff_size = NX_BLOCKSIZE;
+        m_buffer = new BYTE[m_buff_size];
+        memset(m_buffer, 0, m_buff_size);
+    }
+
+
+    DWORD bytesRead = 0;
+
+    // Read GPT header
+    if (*bytesCount == gpt_lba_start)
+    {
+        unsigned char *gpt_buffer[0x4400];
+        if (!nxHandle->read(gpt_buffer, &bytesRead, 0x4200))
+        {
+            delete[] m_buffer;
+            return ERR_WHILE_COPY;
+        }
+
+        GptHeader *hdr = (GptHeader *)gpt_buffer;
+        for (int i = 0; i < hdr->num_part_ents; i++)
+        {
+            // Get GPT entry
+            GptEntry *ent = (GptEntry *)(gpt_buffer + (hdr->part_ent_lba - 1) * NX_BLOCKSIZE + i * sizeof(GptEntry));
+
+            s8 part_name[37] = { 0 };
+            for (int i = 0; i < 36; i++) { part_name[i] = ent->name[i]; }
+
+            // Partition USER
+            if (!strcmp(part_name, "USER"))
+            {
+
+            }
+            // Add new Nxpartition
+            NxPartition *part = new NxPartition(this, part_name, lba_start + ent->lba_start, lba_start + ent->lba_end);
+
+        }
+
+    }
+
+    // Read buffer
+    if (!nxHandle->read(m_buffer, &bytesRead, m_buff_size))
+    {
+
+    }
+}
+
 
 const char* NxStorage::getNxTypeAsStr()
 {
@@ -919,8 +995,6 @@ int NxStorage::applyIncognito()
     setStorageInfo(PRODINFO);
     return SUCCESS;
 }
-
-
 
 std::string BuildChecksum(HCRYPTHASH hHash)
 {
