@@ -505,6 +505,8 @@ void NxStorage::setStorageInfo(int partition)
         NxPartition *system = getNxPartition(SYSTEM);
         if (nullptr != system && !system->badCrypto() && (!system->isEncryptedPartition() || nullptr != system->crypto()))
         {
+
+            //dbg_printf("Get Storage information for SYSTEM\n");
             std::vector<fat32::dir_entry> dir_entries;
             unsigned char buff[CLUSTER_SIZE];
 
@@ -513,10 +515,12 @@ void NxStorage::setStorageInfo(int partition)
             {
                 for (fat32::dir_entry nca : dir_entries)
                 {
+                    //dbg_printf("Found NCA %s\n", nca.filename.c_str());
                     for (NxSystemTitles title : systemTitlesArr)
                     {
                         if (!nca.filename.compare(std::string(title.nca_filename)))
                         {
+                            //dbg_printf("Found NCA for fw %s\n", title.fw_version);
                             memcpy(fw_version, title.fw_version, strlen(title.fw_version));
                             break;
                         }
@@ -551,6 +555,7 @@ void NxStorage::setStorageInfo(int partition)
                     if (n != std::string::npos)
                     {
                         strcpy(fwv, haystack.substr(n + 10, 5).c_str());
+                        //dbg_printf("Reading /save/80000000000000d1 - OsVersion %s\n", fwv);
                         if (strcmp(fwv, fw_version) > 0) // Only overwrite for higher fw version
                             memcpy(fw_version, fwv, 5);
                     }
@@ -566,17 +571,20 @@ void NxStorage::setStorageInfo(int partition)
             
             // Read play report => /save/80000000000000a1 --> Let's just assume file is not fragmented in SYSTEM (TODO : Scan FAT for fragmentation)
             if (system->fat32_dir(&dir_entries, "/save/80000000000000a1"))
-            {
+            {                
+
                 fat32::dir_entry *play_report = &dir_entries[0];
                 u64 cur_off = play_report->data_offset;
                 u64 max_off = cur_off + play_report->entry.file_size;
                 s8 fwv[10] = { 0 };
 
+                //dbg_printf("FOUND %s, off %s, first lba is %I32d\n", play_report->filename.c_str(), n2hexstr(cur_off, 10).c_str(), play_report->data_first_lba); 
                 // Read all play report data
                 while (cur_off < max_off && nxHandle->read(cur_off, buff, &bytesRead, CLUSTER_SIZE))
                 {
+                    //dbg_printf("Reading /save/80000000000000a1\n"); 
                     std::string haystack(buff, buff + CLUSTER_SIZE);
-
+                    
                     // Find needle (firmware version) in haystacks
                     std::size_t n = haystack.find("os_version");
                     if (n != std::string::npos)
@@ -711,10 +719,10 @@ int NxStorage::resizeUser(const char *file, u32 num_clusters, u64 *bytesCount)
         if (not_in(type, { RAWNAND, RAWMMC }))
             return ERR_INVALID_INPUT;
 
-        if (isEncrypted && !m_keySet_set)
+        if (isEncrypted() && !m_keySet_set)
             return ERR_CRYPTO_KEY_MISSING;
 
-        if (isEncrypted && badCrypto)
+        if (isEncrypted() && badCrypto())
             return ERROR_DECRYPT_FAILED;
 
         gpt_lba_start = getNxPartition(PRODINFO)->lbaStart() - 0x21;
@@ -729,7 +737,7 @@ int NxStorage::resizeUser(const char *file, u32 num_clusters, u64 *bytesCount)
 
     DWORD bytesRead = 0;
 
-    // Read GPT header
+    // Reach GPT header
     if (*bytesCount == gpt_lba_start)
     {
         unsigned char *gpt_buffer[0x4400];
@@ -753,11 +761,7 @@ int NxStorage::resizeUser(const char *file, u32 num_clusters, u64 *bytesCount)
             {
 
             }
-            // Add new Nxpartition
-            NxPartition *part = new NxPartition(this, part_name, lba_start + ent->lba_start, lba_start + ent->lba_end);
-
         }
-
     }
 
     // Read buffer
@@ -765,6 +769,7 @@ int NxStorage::resizeUser(const char *file, u32 num_clusters, u64 *bytesCount)
     {
 
     }
+    return SUCCESS;
 }
 
 

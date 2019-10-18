@@ -295,7 +295,8 @@ bool NxPartition::fat32_dir(std::vector<fat32::dir_entry> *entries, const char *
                 // path is a file
                 if (!dir_entry.is_directory)
                 {
-                    dir_entry.data_offset = fs.bytes_per_sector * ((dir_entry.entry.first_cluster - 2) * fs.sectors_per_cluster) + (fs.num_fats * fs.fat_size * fs.bytes_per_sector) + (fs.reserved_sector_count * fs.bytes_per_sector);
+                    dir_entry.data_offset = fs.bytes_per_sector * ((dir_entry.entry.first_cluster - 2) * fs.sectors_per_cluster) + (fs.num_fats * fs.fat_size * fs.bytes_per_sector) + (fs.reserved_sector_count * fs.bytes_per_sector);                    
+                    entries->clear();
                     entries->push_back(dir_entry);
                     return true;
                 }

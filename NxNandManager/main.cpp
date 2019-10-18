@@ -60,8 +60,13 @@ void printStorageInfo(NxStorage *storage)
     if (storage->type == RAWMMC)
         printf(" (0x%s - 0x%s)\n", n2hexstr(u64(storage->mmc_b0_lba_start * NX_BLOCKSIZE), 10).c_str(), n2hexstr(u64(storage->mmc_b0_lba_start * NX_BLOCKSIZE) + storage->size() - 1, 10).c_str());
     else printf("\n");
-    if(storage->type != INVALID) printf("Size           : %s\n", GetReadableSize(storage->size()).c_str());
-
+    if(storage->type != INVALID) 
+    {
+        printf("Size           : %s", GetReadableSize(storage->size()).c_str());
+        if(storage->isSinglePartType() && storage->getNxPartition()->freeSpace)
+            printf(" (free space %s)", GetReadableSize(storage->getNxPartition()->freeSpace).c_str());
+        printf("\n");
+    }
     if (!storage->isNxStorage())
         return;
 
