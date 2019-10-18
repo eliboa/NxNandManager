@@ -72,9 +72,10 @@ void printStorageInfo(NxStorage *storage)
 
 
     printf("Encrypted      : %s%s\n", storage->isEncrypted() ? "Yes" : "No", storage->badCrypto() ? "  !!! DECRYPTION FAILED !!!" : "");
-    if (storage->type == BOOT0 || storage->type == RAWMMC) printf("AutoRCM        : %s\n", storage->autoRcm ? "ENABLED" : "DISABLED");
-    if (storage->type == BOOT0)
+    if (storage->type == BOOT0 || storage->type == RAWMMC) {
+        printf("AutoRCM        : %s\n", storage->autoRcm ? "ENABLED" : "DISABLED");
         printf("Bootloader ver.: %d\n", static_cast<int>(storage->bootloader_ver));    
+    }
     if (strlen(storage->fw_version) > 0)
     {
         printf("Firmware ver.  : %s\n", storage->fw_version);
