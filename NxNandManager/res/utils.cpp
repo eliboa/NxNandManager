@@ -493,3 +493,27 @@ void dbg_wprintf (const wchar_t *format, ...)
 	vwprintf(format, args);
 	va_end( args );
 }
+
+DWORD crc32Hash(const void *data, DWORD size)
+{
+  if(crc32Intalized == false)
+  {
+    register DWORD crc;
+    for(register DWORD i = 0; i < 256; i++)
+    {
+      crc = i;
+      for(register DWORD j = 8; j > 0; j--)
+      {
+        if(crc & 0x1)crc = (crc >> 1) ^ 0xEDB88320L;
+        else crc >>= 1;
+      }
+      crc32table[i] = crc;
+    }
+ 
+    crc32Intalized = true;
+  }
+ 
+  register DWORD cc = 0xFFFFFFFF;
+  for(register DWORD i = 0; i < size; i++)cc = (cc >> 8) ^ crc32table[(((LPBYTE)data)[i] ^ cc) & 0xFF];
+  return ~cc;
+}

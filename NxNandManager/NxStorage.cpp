@@ -190,7 +190,32 @@ NxStorage::NxStorage(const char *p_path)
                 NxPartition *boot1 = new NxPartition(this, "BOOT1", 0x2000, 0x3FFF);                
                 partitions_total_size += boot0->size() + boot1->size();
             }
-            GptHeader *hdr = (GptHeader *)buff;            
+            GptHeader *hdr = (GptHeader *)buff;
+            
+            if(isdebug)
+            {
+                dbg_printf("-- GPT header --\nstarts at lba %I64d (off 0x%s)\n", hdr->my_lba, n2hexstr((u64)hdr->my_lba * NX_BLOCKSIZE, 10).c_str());
+                dbg_printf("backup at lba %I64d (off 0x%s)\n", hdr->alt_lba, n2hexstr((u64)hdr->alt_lba * NX_BLOCKSIZE, 10).c_str());
+                dbg_printf("first use lba %I64d (off 0x%s)\n", hdr->first_use_lba, n2hexstr((u64)hdr->first_use_lba * NX_BLOCKSIZE, 10).c_str());
+                dbg_printf("last use lba %I64d (off 0x%s)\n", hdr->last_use_lba, n2hexstr((u64)hdr->last_use_lba * NX_BLOCKSIZE, 10).c_str());
+                
+                dbg_printf("GPT Header CRC32 = %I32d\n", hdr->crc32);
+                unsigned char header[92];
+                memcpy(header, buff, 92);
+                header[16] = 0;
+                header[17] = 0;
+                header[18] = 0;
+                header[19] = 0;
+                dbg_printf("GPT Header CRC32 new hash = %I32d\n", crc32Hash(header, 92));
+
+                dbg_printf("Table CRC32 = %I32d\n", hdr->part_ents_crc32);
+                unsigned char *table = new unsigned char[hdr->num_part_ents * hdr->part_ent_size];
+                u32 off = (hdr->part_ent_lba - 1) * NX_BLOCKSIZE;
+                memcpy(&table[0], &buff[off], hdr->num_part_ents * hdr->part_ent_size);
+                dbg_printf("Table CRC32 new hash = %I32d\n", crc32Hash(table, hdr->num_part_ents * hdr->part_ent_size));
+                delete[] table;
+            }
+
             // Iterate GPP 
             for (int i = 0; i < hdr->num_part_ents; i++)
             {                                
@@ -219,12 +244,13 @@ NxStorage::NxStorage(const char *p_path)
 
                 if (lba_start + ent->lba_end > last_sector)
                     last_sector = lba_start + ent->lba_end;
-            }            
+            }
             
             if (cal0_found)
             {
                 
                 // Look for backup GPT
+                /*
                 u64 off = m_size - NX_BLOCKSIZE;
                 if (nxHandle->isDrive())
                 {                   
@@ -234,6 +260,8 @@ NxStorage::NxStorage(const char *p_path)
                         nxHandle->setSize(off + NX_BLOCKSIZE);
                     }
                 }
+                */
+                u64 off = (u64)hdr->alt_lba * NX_BLOCKSIZE;
                 nxHandle->initHandle();
 
                 memset(buff, 0, 8);
@@ -712,7 +740,7 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
     return SUCCESS;
 }
 
-int NxStorage::resizeUser(const char *file, u32 num_clusters, u64 *bytesCount)
+int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount)
 {
     if (!*bytesCount)
     {
@@ -725,49 +753,103 @@ int NxStorage::resizeUser(const char *file, u32 num_clusters, u64 *bytesCount)
         if (isEncrypted() && badCrypto())
             return ERROR_DECRYPT_FAILED;
 
+        std::ifstream infile(file);
+        if (infile.good())
+        {
+            infile.close();
+            return ERR_FILE_ALREADY_EXISTS;
+        }
+        p_ofstream = new std::ofstream(file, std::ofstream::binary);
+
         gpt_lba_start = getNxPartition(PRODINFO)->lbaStart() - 0x21;
-        gpt_bck_lba_start = m_backupGPT / NX_BLOCKSIZE;
         user_lba_start = getNxPartition(USER)->lbaStart();
+
         nxHandle->initHandle(NO_CRYPTO);
-        m_buff_size = NX_BLOCKSIZE;
-        m_buffer = new BYTE[m_buff_size];
-        memset(m_buffer, 0, m_buff_size);
+        m_buff_size = CLUSTER_SIZE;
+        m_buffer = new BYTE[CLUSTER_SIZE];
+        memset(m_buffer, 0, CLUSTER_SIZE);
     }
 
 
     DWORD bytesRead = 0;
 
-    // Reach GPT header
-    if (*bytesCount == gpt_lba_start)
+    // Reach GPT  
+    if (*bytesCount == (u64)gpt_lba_start * NX_BLOCKSIZE)
     {
-        unsigned char *gpt_buffer[0x4400];
+        unsigned char *gpt_buffer[0x4200];
         if (!nxHandle->read(gpt_buffer, &bytesRead, 0x4200))
         {
             delete[] m_buffer;
+            delete p_ofstream;
+            return ERR_WHILE_COPY;
+        }
+    
+        // GPT Header
+        GptHeader *hdr = (GptHeader *)gpt_buffer;
+
+        // Get entry for USER & resize
+        u32 table_off = (hdr->part_ent_lba - 1) * NX_BLOCKSIZE;
+        GptEntry *user_ent = (GptEntry *)(gpt_buffer + table_off + (hdr->num_part_ents - 1) * hdr->part_ent_size);
+        user_ent->lba_end = user_ent->lba_start + new_size - 1;
+
+        // New CRC32 for partition table
+        u32 table_size = hdr->num_part_ents * hdr->part_ent_size;
+        unsigned char *table = new unsigned char[table_size];
+        memcpy(&table[0], &gpt_buffer[table_off], table_size);
+        hdr->part_ents_crc32 = crc32Hash(table, table_size);
+        delete[] table;
+
+        // New values for header
+        hdr->last_use_lba = user_ent->lba_end;
+        hdr->alt_lba = hdr->last_use_lba + 33;
+
+        // New CRC32 for header
+        unsigned char header[92];
+        memcpy(header, gpt_buffer, 92);
+        memset(&header[16], 0, 4);
+        hdr->crc32 = crc32Hash(header, 92);
+
+        // TO-DO : Write header
+    }
+    // Reach USER
+    else if (*bytesCount == (u64)user_lba_start * NX_BLOCKSIZE)
+    {
+        nxHandle->setCrypto(getNxPartition(USER)->isEncryptedPartition() ? DECRYPT : NO_CRYPTO);
+
+        // Read first cluster
+        if (!nxHandle->read(m_buffer, &bytesRead, m_buff_size))
+        {
+            delete[] m_buffer;
+            delete p_ofstream;
             return ERR_WHILE_COPY;
         }
 
-        GptHeader *hdr = (GptHeader *)gpt_buffer;
-        for (int i = 0; i < hdr->num_part_ents; i++)
-        {
-            // Get GPT entry
-            GptEntry *ent = (GptEntry *)(gpt_buffer + (hdr->part_ent_lba - 1) * NX_BLOCKSIZE + i * sizeof(GptEntry));
+        // Get FAT size from boot sector
+        u32 fat_size;
+        u8 num_fats;        
+        memcpy(&fat_size, &m_buffer[0x24], 4);
+        memcpy(&num_fats, &m_buffer[0x10], 1);
+        u32 cluster_num = fat_size * 0x200 / CLUSTER_SIZE;
 
-            s8 part_name[37] = { 0 };
-            for (int i = 0; i < 36; i++) { part_name[i] = ent->name[i]; }
+        // New FAT size
+        u32 new_cluster_num = new_size * 0x200 / CLUSTER_SIZE;
+        u32 new_fat_size = new_cluster_num * 4; // 4 bytes per FAT entry in FAT;
+        memcpy(&m_buffer[0x24], &new_fat_size, 4);
 
-            // Partition USER
-            if (!strcmp(part_name, "USER"))
-            {
+        // TO-DO : Write boot sector
 
-            }
-        }
+        // Cluster map : 0x1000 FAT entries in one cluster
+        u32 clusters_to_copy = new_cluster_num > cluster_num ? cluster_num : new_cluster_num;
+        //for (int i(0); i < cluster_num; i++)
+        
     }
 
     // Read buffer
     if (!nxHandle->read(m_buffer, &bytesRead, m_buff_size))
     {
-
+        delete[] m_buffer;
+        delete p_ofstream;
+        return ERR_WHILE_COPY;
     }
     return SUCCESS;
 }

@@ -136,6 +136,10 @@ HMODULE GetCurrentModule();
 bool file_exists(const wchar_t *fileName);
 int digit_to_int(char d);
 
+static DWORD crc32table[256];
+static bool crc32Intalized = false;
+DWORD crc32Hash(const void *data, DWORD size);
+
 template<class T>
 T base_name(T const & path, T const & delims = "/\\")
 {
