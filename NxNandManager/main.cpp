@@ -101,7 +101,7 @@ void printStorageInfo(NxStorage *storage)
     int i = 0;
     for (NxPartition *part : storage->partitions)
     {
-        printf("%s%02d %s", i == 1 ? "\nPartitions     : \n                 " : "                 ", ++i, part->partitionName().c_str());
+        printf("%s %s", !i ? "\nPartitions : \n -" : " -", part->partitionName().c_str());
         printf(" (%s", GetReadableSize(part->size()).c_str());
         if (part->freeSpace)
             printf(", free space %s", GetReadableSize(part->freeSpace).c_str());
@@ -110,6 +110,7 @@ void printStorageInfo(NxStorage *storage)
         dbg_printf(" [0x%s - 0x%s]", n2hexstr((u64)part->lbaStart() * NX_BLOCKSIZE, 10).c_str(), n2hexstr((u64)part->lbaStart() * NX_BLOCKSIZE + part->size()-1, 10).c_str());
 
         printf("\n");
+        i++;
     }
 
     if (storage->type == RAWMMC || storage->type == RAWNAND)
@@ -146,7 +147,7 @@ int main(int argc, char *argv[])
     
     std::setlocale(LC_ALL, "en_US.utf8");
     printf("[ NxNandManager v3.0.0-a by eliboa ]\n\n");
-    const char *input = NULL, *output = NULL, *partitions = NULL, *keyset = NULL;
+    const char *input = NULL, *output = NULL, *partitions = NULL, *keyset = NULL, *user_resize = NULL;
     BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE;
     int io_num = 1;
 
@@ -164,6 +165,10 @@ int main(int argc, char *argv[])
             "  -d                Decrypt content (-keyset mandatory)\n"
             "  -e                Encrypt content (-keyset mandatory)\n"
             "  -keyset           Path to keyset file (bis keys)\n\n"
+            "  -user_resize=     Size in Mb for new USER partition in output\n"
+            "                    Only applies to input type RAWNAND or FULL NAND\n"
+            "                    GPT and USER's FAT will be modified\n"
+            "                    output (-o) must be a new file\n"
             "=> Options:\n\n"
 #if defined(ENABLE_GUI)
             "  --gui             Start the program in graphical mode, doesn't need other argument\n"
@@ -171,9 +176,9 @@ int main(int argc, char *argv[])
             "  --list            Detect and list compatible NX physical drives (memloader/mmc emunand partition)\n"
             "  --info            Display information about input/output (depends on NAND type):\n"
             "                    NAND type, partitions, encryption, autoRCM status... \n"
-            "                    ...more info when -keyset provided: firmware ver., S/N, last boot date\n\n"
+            "                    ...more info when -keyset provided: firmware ver., S/N, device ID...\n\n"
             "  --incognito       Wipe all console unique id's and certificates from CAL0 (a.k.a incognito)\n"
-            "                    Only apply to input type RAWNAND or PRODINFO partition\n"
+            "                    Only applies to input type RAWNAND or PRODINFO\n\n"
             "  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
             "  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n\n"
         );
@@ -223,6 +228,7 @@ int main(int argc, char *argv[])
     const char DECRYPT_ARGUMENT[] = "-d";
     const char ENCRYPT_ARGUMENT[] = "-e";
     const char INCOGNITO_ARGUMENT[] = "--incognito";
+    const char RESIZE_USER_ARGUMENT[] = "-user_resize";
 
     for (int i = 1; i < argc; i++)
     {
@@ -244,6 +250,14 @@ int main(int argc, char *argv[])
             u32 len = array_countof(PARTITION_ARGUMENT) - 1;            
             if (currArg[len] == '=')
                 partitions = &currArg[len + 1];
+            else if (currArg[len] == 0 && i == argc - 1)
+                return PrintUsage();
+        }
+        else if (!strncmp(currArg, RESIZE_USER_ARGUMENT, array_countof(RESIZE_USER_ARGUMENT) - 1))
+        {
+            u32 len = array_countof(RESIZE_USER_ARGUMENT) - 1;
+            if (currArg[len] == '=')
+                user_resize = &currArg[len + 1];
             else if (currArg[len] == 0 && i == argc - 1)
                 return PrintUsage();
         }
@@ -419,6 +433,77 @@ int main(int argc, char *argv[])
         printf("\n");
     }
 
+    // Output specific actions
+    //
+    if (nullptr != user_resize)
+    {
+        if (not_in(nx_input.type, { RAWNAND, RAWMMC }))
+            throwException("-user_resize on applies to input type \"RAWNAND\" or \"FULL NAND\"");
+
+        if (nx_output.isNxStorage() || is_dir(output) || nx_output.isDrive())
+            throwException("-user_resize argument provided, output (-o) should be a file");
+
+        NxPartition *user = nx_input.getNxPartition(USER);
+
+        if (nullptr == user->crypto() || user->badCrypto())
+            throwException("Bad crypto or missing keyset");
+
+        std::string s_new_size(user_resize);
+        int new_size = 0;
+        try {
+            new_size = std::stoi(s_new_size);
+        }
+        catch (...) {
+            throwException("-user_resize invalid value");
+        }
+        
+        if (new_size % 64) {
+            new_size = (new_size / 64 + 1) * 64;
+            ///printf("-user_resize new value is %d (aligned to 64Mb)\n");
+        }
+        
+        u32 user_new_size = new_size * 0x800; // Size in sectors. 1Mb = 0x800 sectores
+        u64 user_min = (u64)user_new_size * 0x200 / 1024 / 1024;
+        u32 min_size = (u32)((user->size() - user->freeSpace) / 0x200); // 0x20000 = size for 1 cluster in FAT
+        u64 min = (u64)min_size * 0x200 / 1024 / 1024;
+        if (min % 64) min = (min / 64) * 64 + 64;
+
+        if (user_min < min) 
+              throwException("-user_resize mininmum value is %I64d (%s)", (void *)min, (void*)GetReadableSize((u64)min * 1024 * 1024).c_str());
+
+
+        if (info)
+            throwException("--info argument provided, exit (remove arg from command to perform resize).\n");
+
+        // Release output handle
+        nx_output.nxHandle->clearHandle();
+
+        SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
+
+        int rc = 0;
+        u64 bytesCount = 0, bytesToRead = nx_input.size() - user->size() + (u64)user_new_size * NX_BLOCKSIZE;
+
+        timepoint_t begin_time = std::chrono::system_clock::now();
+        elapsed_seconds = 0;
+
+        // Copy
+        printf("Copying %s...\r", nx_input.getNxTypeAsStr());
+        while (!(rc = nx_input.resizeUser(output, user_new_size, &bytesCount)))
+            printCopyProgress(COPY, nx_input.getNxTypeAsStr(), begin_time, bytesCount, bytesToRead);
+
+        std::chrono::duration<double> elapsed_total = std::chrono::system_clock::now() - begin_time;
+
+        // Failure
+        if (rc != NO_MORE_BYTES_TO_COPY)
+            throwException(rc);
+
+        // EOF
+        printf("%s dumped & resized. %s - Elapsed time: %s                         \n", nx_input.getNxTypeAsStr(),
+            GetReadableSize(bytesCount).c_str(), GetReadableElapsedTime(elapsed_total).c_str());
+
+        exit(EXIT_SUCCESS);
+    }
+
     ///
     ///  I/O Controls
     ///
@@ -429,7 +514,6 @@ int main(int argc, char *argv[])
     // Output is unknown disk
     if (nx_output.type == INVALID && nx_output.isDrive())
         throwException("Output is an unknown drive/disk!");
-
     
     // Create new list for partitions and put -part arg in it
     char l_partitions[MAX_PATH] = { 0 };
@@ -455,7 +539,6 @@ int main(int argc, char *argv[])
                 }
             }
         }
-
         // If no partition in copy list -> full dump or restore
         if (!strlen(l_partitions))
         {
@@ -488,11 +571,13 @@ int main(int argc, char *argv[])
                 strcat(l_partitions, ",");
                 strcat(l_partitions, nx_input.getNxPartition()->partitionName().c_str());
             }
-
+            /*
+            TO-DO : doesn't work
             // Prevent restoring decrypted partition to native encrypted partitions
             if (is_in(nx_output.type, { RAWNAND, RAWMMC }) && nx_output.getNxPartition()->nxPart_info.isEncrypted
                 && (decrypt || (!encrypt && !nx_input.isEncrypted())))
                 throwException("Cannot restore decrypted partition to NxStorage type %s ", (void*)nx_output.getNxTypeAsStr());
+            */
         }
     }
 

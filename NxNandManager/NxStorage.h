@@ -219,7 +219,9 @@ class NxStorage
         BYTE *m_buffer;
         int m_buff_size;
         u64 bytes_count;
-        u32 gpt_lba_start, gpt_bck_lba_start, user_lba_start;
+        u32 m_gpt_lba_start, m_user_lba_start, m_user_lba_end, m_user_new_size, m_user_new_bckgpt, cpy_cl_count_in, cpy_cl_count_out;
+        unsigned char gpt_header_buffer[0x200];
+
     
         std::vector<const char*> v_cpy_partitions;
 

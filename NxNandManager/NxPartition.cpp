@@ -187,10 +187,9 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, u64 *bytesCount)
 
 int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount)
 {
+    NxPartition *input_part = input->getNxPartition(m_type);
     if (!*bytesCount)
-    {        
-        NxPartition *input_part = input->getNxPartition(m_type);
-
+    {                
         // Controls
         if (nullptr == input_part)
             return ERR_IN_PART_NOT_FOUND;
@@ -238,7 +237,7 @@ int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *byte
 
     *bytesCount += bytesWrite;
 
-    if (*bytesCount == size())
+    if (*bytesCount == input_part->size())
         return NO_MORE_BYTES_TO_COPY;
 
     return SUCCESS;
@@ -354,7 +353,23 @@ u64 NxPartition::fat32_getFreeSpace()
         }
     }
 
+    dbg_printf("fs.bytes_per_sector = %I32d\n", fs.bytes_per_sector);
+    dbg_printf("fs.sectors_per_cluster = %I32d\n", fs.sectors_per_cluster);
+    dbg_printf("fs.num_fats = %I32d\n", fs.num_fats);
+    dbg_printf("fs.reserved_sector_count = %I32d\n", fs.reserved_sector_count);
+    dbg_printf("fs.fat_size = %I32d (%s)\n", fs.fat_size, GetReadableSize((u64)fs.fat_size * 0x200).c_str());
+    dbg_printf("clusters size for fs.fat_size = %I32d\n", fs.fat_size / 0x20);
+    //u32 cl_add = fs.fat_size / 0x20 * 0x1000;
+    u32 cl_add = fs.fat_size / 0x200 * 0x4000;
+    u32 u_size = (m_lba_end - m_lba_start + 1);
+    dbg_printf("clusters adresses for fs.fat_size = %I32d (%s)\n", n2hexstr(cl_add, 10).c_str(), GetReadableSize((u64)cl_add * 0x4000).c_str());
+    dbg_printf("%s size is %I32d sectors (%s)\n", partitionName().c_str(), u_size, GetReadableSize((u64)u_size * 0x200).c_str());
+    dbg_printf("clusters to address %I32d (%s)\n", u_size / 0x20, GetReadableSize((u64)u_size / 0x20 * 0x4000).c_str());
+    dbg_printf("size of fat in clusters %I32d (%s)\n", u_size / 0x20 / 0x1000, GetReadableSize((u64)u_size / 0x20 / 0x1000 * 0x4000).c_str());
+    dbg_printf("size of fat in sectors %I32d (%s)\n", u_size / 0x1000, GetReadableSize((u64)u_size / 0x1000 * 0x200).c_str());
+
     u32 free_cluster_count = cluster_count - first_empty_cluster;
     dbg_printf("%s first_empty_cluster is %I32d / %I32d (%s available)\n", m_name, first_empty_cluster, cluster_count, GetReadableSize((u64)free_cluster_count * CLUSTER_SIZE).c_str());
+
     return (u64)cluster_free_count * CLUSTER_SIZE;
 }

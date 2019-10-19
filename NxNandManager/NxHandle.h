@@ -102,6 +102,7 @@ class NxHandle {
         HCRYPTHASH md5Hash() { return m_md5_hash; };
         int getSplitCount() { return m_splitFileCount; };
         int getDefaultBuffSize();
+        NxCrypto* crypto() { return nxCrypto; };
 
         // Setters
         void setSplitted(bool b) { b_isSplitted = b; };
