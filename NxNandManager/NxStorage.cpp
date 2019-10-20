@@ -649,7 +649,7 @@ void NxStorage::setStorageInfo(int partition)
     */
 }
 
-int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount)
+int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount, bool rawnand_only)
 {
     if (!*bytesCount)
     {       
@@ -665,6 +665,11 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount)
 
         p_ofstream = new std::ofstream(file, std::ofstream::binary);
         nxHandle->initHandle(crypto_mode);
+
+        // Skip boot partitions if rawnanand_only
+        if (rawnand_only && type == RAWMMC)
+            nxHandle->setPointer((u64)0x4000 * NX_BLOCKSIZE);
+
         m_buff_size = nxHandle->getDefaultBuffSize();
         m_buffer = new BYTE[m_buff_size];
         memset(m_buffer, 0, m_buff_size);
@@ -679,7 +684,7 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount)
         delete p_ofstream;
         delete[] m_buffer;
 
-        if (*bytesCount == size())
+        if (*bytesCount == size() || (rawnand_only && type == RAWMMC && *bytesCount == size() - (u64)0x4000 * NX_BLOCKSIZE))
             return NO_MORE_BYTES_TO_COPY;
 
         dbg_printf("NxStorage::dumpToFile() ERROR, failed to read storage at bytesCount %s\n", n2hexstr(*bytesCount, 8).c_str());
@@ -750,8 +755,49 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
 
     return SUCCESS;
 }
+/*
+int NxStorage::resizeUserInit(u32 new_size)
+{
+    // Controls
+    if (not_in(type, { RAWNAND, RAWMMC }))
+        return ERR_INVALID_INPUT;
 
-int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount)
+    if (isEncrypted() && !m_keySet_set)
+        return ERR_CRYPTO_KEY_MISSING;
+
+    if (isEncrypted() && badCrypto())
+        return ERROR_DECRYPT_FAILED;
+
+    NxPartition *user = getNxPartition(USER);
+
+    if (!user->isEncryptedPartition())
+        return ERR_INVALID_INPUT;
+
+
+    u32 new_fat_size = new_size / 0x1000;
+    u32 new_total_size = new_fat_size + new_size + 32; // 32 sectors (1 cluster) reserved
+    u32 user_min_size = (u32)((user->size() - user->freeSpace) / 0x200);
+
+    // Adjust new_size if too small
+    if (new_total_size < user_min_size)
+        new_total_size = user_min_size;
+
+    // Align new size (64 Mb)
+    if (new_total_size / 0x20000 < 1)
+        new_total_size = 0x20000;
+    else if (new_total_size % 0x20000)
+        new_total_size = (new_total_size / 0x20000) * 0x20000 + 0x20000;
+
+
+    // Set copy vars
+    m_gpt_lba_start = type == RAWMMC ? 0x4000 : 0;
+    m_user_lba_start = user->lbaStart();
+    m_user_lba_end = user->lbaEnd() - (u32)(user->freeSpace / NX_BLOCKSIZE + NX_BLOCKSIZE);
+    m_user_new_size = new_size;
+
+}
+*/
+int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *bytesToRead)
 {
     DWORD bytesRead = 0;
     if (!*bytesCount)
@@ -765,25 +811,33 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount)
 
         if (isEncrypted() && badCrypto())
             return ERROR_DECRYPT_FAILED;
-               
-        u32 cl_new_size = (u64)(new_size * NX_BLOCKSIZE) / CLUSTER_SIZE;
 
-        // Adjust new_size if too small
+        //u32 cl_new_size = (u64)(new_size * NX_BLOCKSIZE) / CLUSTER_SIZE;
+
         NxPartition *user = getNxPartition(USER);
-        u32 user_min_size = (u32)((user->size() - user->freeSpace) / 0x200);
-        if (new_size < user_min_size)
-            new_size = user_min_size;
-        
-        // Align new size (64 Mb)
-        if (new_size / 0x20000 < 1)
-            new_size = 0x20000;
-        else if (new_size % 0x20000)
-            new_size = (new_size / 0x20000) * 0x20000 + 0x20000;
-
-        dbg_printf("NxStorage::resizeUser() new_size = %I32d \n", new_size);
 
         if (!user->isEncryptedPartition())
             return ERR_INVALID_INPUT;
+
+        u32 new_fat_size = new_size / 0x1000;
+        u32 new_total_size = new_fat_size + new_size + 32; // 32 sectors (1 cluster) reserved
+        u32 user_min_size = (u32)((user->size() - user->freeSpace) / 0x200);
+
+        // Adjust new_size if too small
+        if (new_total_size < user_min_size)
+            new_total_size = user_min_size;
+
+        // Align new size (64 Mb)
+        if (new_total_size / 0x20000 < 1)
+            new_total_size = 0x20000;
+        else if (new_total_size % 0x20000)
+            new_total_size = (new_total_size / 0x20000) * 0x20000 + 0x20000;
+
+        m_user_new_size = new_total_size - 32; // Subtract reserved sectores for full size
+        m_user_new_size = m_user_new_size - (m_user_new_size / 0x1001); // Substract FAT size
+        m_user_total_size = new_total_size;
+
+        dbg_printf("NxStorage::resizeUser() m_user_new_size = %I32d, m_user_total_size = %I32d \n", m_user_new_size, m_user_total_size);
 
         // Get handle for output
         std::ifstream infile(file);
@@ -793,54 +847,64 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount)
             return ERR_FILE_ALREADY_EXISTS;
         }
         p_ofstream = new std::ofstream(file, std::ofstream::binary);
+        // Bytes count for output
+        bytes_count = 0;
 
         // Set copy vars
         m_gpt_lba_start = type == RAWMMC ? 0x4000 : 0;
         m_user_lba_start = user->lbaStart();
-        m_user_lba_end = user->lbaEnd();
-        m_user_new_size = new_size;
+        m_user_lba_end = user->lbaEnd() - (u32)(user->freeSpace / NX_BLOCKSIZE + NX_BLOCKSIZE);
 
-        // Init handle & buffer
+        // Init input handle & buffer
         nxHandle->initHandle(NO_CRYPTO);
-        m_buff_size = CLUSTER_SIZE;
-        m_buffer = new BYTE[CLUSTER_SIZE];
-        memset(m_buffer, 0, CLUSTER_SIZE);
+        m_buff_size = DEFAULT_BUFF_SIZE;
+        m_buffer = new BYTE[DEFAULT_BUFF_SIZE];
+        memset(m_buffer, 0, DEFAULT_BUFF_SIZE);
     }
 
     // Reach GPT - Resize USER partition
     if (*bytesCount == (u64)m_gpt_lba_start * NX_BLOCKSIZE)
     {
         dbg_printf("NxStorage::resizeUser() - REACH GPT\n");
-        if (!nxHandle->read(m_buffer, &bytesRead, CLUSTER_SIZE))
+
+        delete[] m_buffer;
+        m_buffer = new BYTE[CLUSTER_SIZE];
+        m_buff_size = CLUSTER_SIZE;
+
+        if (!nxHandle->read(m_buffer, &bytesRead, m_buff_size))
         {
             delete[] m_buffer;
             delete p_ofstream;
             return ERR_WHILE_COPY;
         }
-        *bytesCount += CLUSTER_SIZE;
-    
+        *bytesCount += m_buff_size;
+
         // GPT Header
         GptHeader *hdr = (GptHeader *)(m_buffer + 0x200);
-        
+
         // Get entry for USER & resize
         u32 table_off = 0x200 + (hdr->part_ent_lba - 1) * NX_BLOCKSIZE;
         GptEntry *user_ent = (GptEntry *)(m_buffer + table_off + (hdr->num_part_ents - 1) * hdr->part_ent_size);
-        user_ent->lba_end = user_ent->lba_start + m_user_new_size - 1;
+        user_ent->lba_end = user_ent->lba_start + m_user_total_size - 1;
 
         // New CRC32 for partition table
         u32 table_size = hdr->num_part_ents * hdr->part_ent_size;
         unsigned char *table = new unsigned char[table_size];
         memcpy(&table[0], &m_buffer[table_off], table_size);
         hdr->part_ents_crc32 = crc32Hash(table, table_size);
+        dbg_printf("NxStorage::resizeUser() - new CRC32 for partition table %I32d\n", hdr->part_ents_crc32);
         delete[] table;
 
         // New values for header
         hdr->last_use_lba = user_ent->lba_end;
         hdr->alt_lba = hdr->last_use_lba + 33;
 
+        dbg_printf("NxStorage::resizeUser() - new GPT header - user_bla_ends %I32d,  backup_gpt_bla %I32d\n", user_ent->lba_end, hdr->alt_lba);
+
         // Set new backup GPT off
         m_user_new_bckgpt = hdr->alt_lba;
         if (type == RAWMMC) m_user_new_bckgpt += 0x4000;
+        *bytesToRead = (u64)(m_user_new_bckgpt + 1) * NX_BLOCKSIZE;
 
         // New CRC32 for header
         unsigned char header[92];
@@ -849,16 +913,29 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount)
         hdr->crc32 = crc32Hash(header, 92);
 
         // Save GPT header
-        memcpy(gpt_header_buffer, &hdr[0], 0x200);        
+        memcpy(gpt_header_buffer, &hdr[0], 0x200);
 
-        // Write header
-        p_ofstream->write((char *)&m_buffer[0], CLUSTER_SIZE);
+        // Write GPT buffer
+        p_ofstream->write((char *)&m_buffer[0], m_buff_size);
+        bytes_count += m_buff_size;
+
+        // Change buffer size
+        delete[] m_buffer;
+        m_buffer = new BYTE[DEFAULT_BUFF_SIZE];
+        m_buff_size = DEFAULT_BUFF_SIZE;
+
         return SUCCESS;
     }
 
     // Reach USER - Resize FAT
     else if (*bytesCount == (u64)m_user_lba_start * NX_BLOCKSIZE)
     {
+        dbg_printf("NxStorage::resizeUser() - REACH USER\n");
+        // New buffer size is CLUSTER
+        delete[] m_buffer;
+        m_buffer = new BYTE[CLUSTER_SIZE];
+        m_buff_size = CLUSTER_SIZE;
+
         NxPartition *user = getNxPartition(USER);
         nxHandle->initHandle(DECRYPT, user);
         cpy_cl_count_out = 0;
@@ -874,7 +951,7 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount)
 
         // Get FAT size from boot sector
         u32 fat_size;
-        u8 num_fats;        
+        u8 num_fats;
         memcpy(&fat_size, &m_buffer[0x24], 4);
         memcpy(&num_fats, &m_buffer[0x10], 1);
         u32 cluster_num = fat_size * NX_BLOCKSIZE / CLUSTER_SIZE;
@@ -884,12 +961,15 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount)
         u32 new_cluster_num = new_fat_size * NX_BLOCKSIZE / CLUSTER_SIZE;
         memcpy(&m_buffer[0x24], &new_fat_size, 4);
 
+        dbg_printf("NxStorage::resizeUser() - new FAT size %I32d (preivous %I32d)\n", new_fat_size, fat_size);
+
         // Encrypt cluster
         user->crypto()->encrypt(m_buffer, cpy_cl_count_out);
-    
+
         // Write first cluster
         p_ofstream->write((char *)&m_buffer[0], CLUSTER_SIZE);
         cpy_cl_count_out++;
+        bytes_count += CLUSTER_SIZE;
 
         // Read & Write needed clusters for new FAT
         u32 clusters_to_copy = new_cluster_num > cluster_num ? cluster_num : new_cluster_num;
@@ -907,6 +987,7 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount)
                     user->crypto()->encrypt(m_buffer, cpy_cl_count_out);;
                     p_ofstream->write((char *)&m_buffer[0], CLUSTER_SIZE);
                     cpy_cl_count_out++;
+                    bytes_count += CLUSTER_SIZE;
                 }
             }
 
@@ -920,58 +1001,64 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount)
                     user->crypto()->encrypt(m_buffer, cpy_cl_count_out);;
                     p_ofstream->write((char *)&m_buffer[0], CLUSTER_SIZE);
                     cpy_cl_count_out++;
+                    bytes_count += CLUSTER_SIZE;
                 }
             }
-        }       
+        }
         return SUCCESS;
     }
 
     // Copy USER
-    else  if (*bytesCount > (u64)m_user_lba_start * NX_BLOCKSIZE && 
-              *bytesCount <= (u64)(m_user_lba_start + m_user_new_size - 1) * NX_BLOCKSIZE)
+    else  if (*bytesCount > (u64)m_user_lba_start * NX_BLOCKSIZE)
     {
 
-        // Get new buffer for output
-        if(*bytesCount <= (u64)m_user_lba_end * NX_BLOCKSIZE && *bytesCount < (u64)(m_user_lba_start + m_user_new_size - 1) * NX_BLOCKSIZE)
+        // Copy from input
+        if (*bytesCount <= (u64)m_user_lba_end * NX_BLOCKSIZE)
+        {
+            // Read and encrypt from input
             nxHandle->read(m_buffer, nullptr, CLUSTER_SIZE);
+            getNxPartition(USER)->crypto()->encrypt(m_buffer, cpy_cl_count_out);
+            p_ofstream->write((char *)&m_buffer[0], CLUSTER_SIZE);
+            cpy_cl_count_out++;
+            *bytesCount += CLUSTER_SIZE;
+
+            return SUCCESS;
+        }
+        // Fill output
         else
-            memset(m_buffer, 0, CLUSTER_SIZE);
-        *bytesCount += CLUSTER_SIZE;
-
-        // Encrypt and write buffer
-        getNxPartition(USER)->crypto()->encrypt(m_buffer, cpy_cl_count_out);;
-        p_ofstream->write((char *)&m_buffer[0], CLUSTER_SIZE);
-        cpy_cl_count_out++;
-
-        // Reach end of user
-        if (*bytesCount >= (u64)(m_user_lba_start + m_user_new_size - 1) * NX_BLOCKSIZE) 
         {
             u64 cur_off = p_ofstream->tellp();
             u64 bck_gpt_off = (u64)m_user_new_bckgpt * NX_BLOCKSIZE;
-            memset(m_buffer, 0, CLUSTER_SIZE);
 
-            // Fill with zero bytes until GPT header backup
-            while (cur_off < bck_gpt_off) 
+            // Fill with empty buffer until GPT backup offset
+            if (cur_off < bck_gpt_off)
             {
                 p_ofstream->write((char *)&m_buffer[0], CLUSTER_SIZE);
-                cur_off = p_ofstream->tellp();
+                *bytesCount += CLUSTER_SIZE;
+
+                return SUCCESS;
             }
+            else
+            {
+                if (cur_off == bck_gpt_off)
+                {
+                    p_ofstream->write((char *)&gpt_header_buffer[0], 0x200);
+                    *bytesCount += CLUSTER_SIZE;
+                }
 
-            // Write backup GPT header
-            p_ofstream->write((char *)&gpt_header_buffer[0], 0x200);
-            //dbg_printf("NxStorage::resizeUser() - NO_MORE_BYTE FOR USER (output pos = %I64d, backupt GPT should be at %I64d)\n", cur_off, (u64)m_user_new_bckgpt * NX_BLOCKSIZE);
-            
-            p_ofstream->close();
-            delete[] m_buffer;
-            delete p_ofstream;
-            return NO_MORE_BYTES_TO_COPY;
+                p_ofstream->close();
+                delete[] m_buffer;
+                delete p_ofstream;
+
+                return cur_off == bck_gpt_off ? NO_MORE_BYTES_TO_COPY : ERR_WHILE_COPY;
+            }
         }
-
         return SUCCESS;
     }
+
     // Every other iteration
     else
-    {        
+    {
         // Read buffer
         if (!nxHandle->read(m_buffer, &bytesRead, m_buff_size))
         {
@@ -980,11 +1067,19 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount)
             dbg_printf("NxStorage::resizeUser() - ERROR UNTYPED BUFFER\n");
             return ERR_WHILE_COPY;
         }
+
+        // Resize buffer 
+        if (*bytesCount + bytesRead > (u64)m_user_lba_start * NX_BLOCKSIZE)
+        {
+            dbg_printf("NxStorage::resizeUser() - Resize buffer - initial bytesRead = %I32d, bytesCount = %I64d, user starts %I64d\n", bytesRead, *bytesCount, (u64)m_user_lba_start * NX_BLOCKSIZE);
+            bytesRead -= (u32)(*bytesCount + bytesRead - (u64)(m_user_lba_start * NX_BLOCKSIZE));
+            dbg_printf("NxStorage::resizeUser() - Resize buffer - new bytesRead = %I32d\n", bytesRead);
+        }
+
         // Write buffer
         p_ofstream->write((char *)&m_buffer[0], bytesRead);
-        *bytesCount += CLUSTER_SIZE;
-
-        return SUCCESS;    
+        *bytesCount += bytesRead;
+        return SUCCESS;
     }
     return ERR_WHILE_COPY;
 }

@@ -86,8 +86,7 @@ class NxHandle {
         bool b_isDrive = false;
 
         // Methods
-        NxSplitFile* getSplitFile(u64 offset);
-        bool setPointer(u64 offset);
+        NxSplitFile* getSplitFile(u64 offset);        
 
     public:
 
@@ -120,7 +119,7 @@ class NxHandle {
         bool write(u64 offset, void *buffer, DWORD* bytesWrite, DWORD length = 0);
         bool createFile(wchar_t *path, int io_mode = GENERIC_READ);
         bool hash(u64* bytesCount);
-
+        bool setPointer(u64 offset);
 };
 
 #endif

@@ -161,7 +161,8 @@ int main(int argc, char *argv[])
             "  -part=            Partition(s) to copy (apply to both input & output if possible)\n"
             "                    Use a comma (\",\") separated list to provide multiple partitions\n"
             "                    Possible values are PRODINFO, PRODINFOF, SAFE, SYSTEM, USER,\n"
-            "                    BCPKG2-2-Normal-Sub, BCPKG2-3-SafeMode-Main, etc. (see --info)\n\n"
+            "                    BCPKG2-2-Normal-Sub, BCPKG2-3-SafeMode-Main, etc. (see --info)\n"
+            "                    You can use \"-part=RAWNAND\" to dump RAWNAND from input type FULL NAND\n\n"
             "  -d                Decrypt content (-keyset mandatory)\n"
             "  -e                Encrypt content (-keyset mandatory)\n"
             "  -keyset           Path to keyset file (bis keys)\n\n"
@@ -478,6 +479,17 @@ int main(int argc, char *argv[])
         // Release output handle
         nx_output.nxHandle->clearHandle();
 
+        // Output file already exists
+        if (is_file(output))
+        {
+            if (!FORCE && !AskYesNoQuestion("Output file already exists. Do you want to overwrite it ?"))
+                throwException("Operation cancelled");
+
+            remove(output);
+            if (is_file(output))
+                throwException("Failed to delete output file");
+        }
+
         SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
 
         int rc = 0;
@@ -488,7 +500,7 @@ int main(int argc, char *argv[])
 
         // Copy
         printf("Copying %s...\r", nx_input.getNxTypeAsStr());
-        while (!(rc = nx_input.resizeUser(output, user_new_size, &bytesCount)))
+        while (!(rc = nx_input.resizeUser(output, user_new_size, &bytesCount, &bytesToRead)))
             printCopyProgress(COPY, nx_input.getNxTypeAsStr(), begin_time, bytesCount, bytesToRead);
 
         std::chrono::duration<double> elapsed_total = std::chrono::system_clock::now() - begin_time;
@@ -509,6 +521,7 @@ int main(int argc, char *argv[])
     ///
 
     std::vector<const char*> v_partitions;
+    bool dump_rawnand = false;
     int crypto_mode = BYPASS_MD5SUM ? NO_CRYPTO : MD5_HASH;
 
     // Output is unknown disk
@@ -539,6 +552,7 @@ int main(int argc, char *argv[])
                 }
             }
         }
+        
         // If no partition in copy list -> full dump or restore
         if (!strlen(l_partitions))
         {
@@ -593,6 +607,14 @@ int main(int argc, char *argv[])
         // For each partition in param string
         for (const char* part_name : v_partitions)
         {
+
+            if (!strcmp(part_name, "RAWNAND") && nx_input.type == RAWMMC && !nx_output.isNxStorage())
+            {
+                v_partitions.clear();
+                dump_rawnand = true;
+                break;
+            }
+
             // Partition must exist in input
             NxPartition *in_part = nx_input.getNxPartition(part_name);
             if (nullptr == in_part)
@@ -687,9 +709,12 @@ int main(int argc, char *argv[])
             timepoint_t begin_time = std::chrono::system_clock::now();
             elapsed_seconds = 0;
 
+            if (dump_rawnand)
+                printf("BOOT0 & BOOT1 skipped (RAWNAND only)\n");
+
             // Copy
             printf("Copying %s...\r", nx_input.getNxTypeAsStr());
-            while (!(rc = nx_input.dumpToFile(output, crypto_mode, &bytesCount)))
+            while (!(rc = nx_input.dumpToFile(output, crypto_mode, &bytesCount, dump_rawnand)))
                 printCopyProgress(COPY, nx_input.getNxTypeAsStr(), begin_time, bytesCount, bytesToRead);
 
             std::chrono::duration<double> elapsed_total = std::chrono::system_clock::now() - begin_time;

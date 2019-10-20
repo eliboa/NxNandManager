@@ -219,7 +219,7 @@ class NxStorage
         BYTE *m_buffer;
         int m_buff_size;
         u64 bytes_count;
-        u32 m_gpt_lba_start, m_user_lba_start, m_user_lba_end, m_user_new_size, m_user_new_bckgpt, cpy_cl_count_in, cpy_cl_count_out;
+        u32 m_gpt_lba_start, m_user_lba_start, m_user_lba_end, m_user_new_size, m_user_total_size, m_user_new_bckgpt, cpy_cl_count_in, cpy_cl_count_out;
         unsigned char gpt_header_buffer[0x200];
 
     
@@ -267,9 +267,10 @@ class NxStorage
         NxPartition* getNxPartition(const char* part_name);
         int getNxTypeAsInt(const char* type = nullptr);
         bool isSinglePartType(int type = 0);
-        int dumpToFile(const char *file, int crypt_mode, u64 *bytesCount);
+        int dumpToFile(const char *file, int crypt_mode, u64 *bytesCount, bool rawnand_only = false);
         int restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount);
-        int resizeUser(const char *file, u32 num_clusters, u64 *bytesCount);
+        int resizeUserInit(u32 new_size);
+        int resizeUser(const char *file, u32 num_clusters, u64 *bytesCount, u64 *bytesToRead);
         bool setAutoRcm(bool enable);
         int applyIncognito();
 };
