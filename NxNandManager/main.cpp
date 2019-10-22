@@ -25,6 +25,7 @@ bool isdebug = FALSE;
 
 BOOL FORCE = FALSE;
 BOOL LIST = FALSE;
+BOOL FORMAT_USER = FALSE;
 
 int startGUI(int argc, char *argv[])
 {
@@ -124,6 +125,7 @@ void printStorageInfo(NxStorage *storage)
 }
 
 int elapsed_seconds = 0;
+
 void printCopyProgress(int mode, const char *storage_name, timepoint_t begin_time, u64 bytesCount, u64 bytesTotal)
 {
     auto time = std::chrono::system_clock::now();
@@ -168,6 +170,7 @@ int main(int argc, char *argv[])
             "  -keyset           Path to keyset file (bis keys)\n\n"
             "  -user_resize=     Size in Mb for new USER partition in output\n"
             "                    Only applies to input type RAWNAND or FULL NAND\n"
+            "                    Use FORMAT_USER flag to format partition during copy\n"
             "                    GPT and USER's FAT will be modified\n"
             "                    output (-o) must be a new file\n"
             "=> Options:\n\n"
@@ -186,6 +189,7 @@ int main(int argc, char *argv[])
 
         printf("=> Flags:\n\n"
             "                    \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
+            "                    \"FORMAT_USER\" to format USER partition (-user_resize arg mandatory)\n"
             "                    \"FORCE\" to disable prompt for user input (no question asked)\n");
 
         throwException(ERR_WRONG_USE);
@@ -230,6 +234,7 @@ int main(int argc, char *argv[])
     const char ENCRYPT_ARGUMENT[] = "-e";
     const char INCOGNITO_ARGUMENT[] = "--incognito";
     const char RESIZE_USER_ARGUMENT[] = "-user_resize";
+    const char FORMAT_USER_FLAG[] = "FORMAT_USER";
 
     for (int i = 1; i < argc; i++)
     {
@@ -283,6 +288,9 @@ int main(int argc, char *argv[])
 
         else if (!strncmp(currArg, FORCE_FLAG, array_countof(FORCE_FLAG) - 1))
             FORCE = TRUE;
+
+        else if (!strncmp(currArg, FORMAT_USER_FLAG, array_countof(FORMAT_USER_FLAG) - 1))
+            FORMAT_USER = TRUE;
 
         else if (!strncmp(currArg, KEYSET_ARGUMENT, array_countof(KEYSET_ARGUMENT) - 1) && i < argc)
             keyset = argv[++i];
@@ -442,7 +450,7 @@ int main(int argc, char *argv[])
             throwException("-user_resize on applies to input type \"RAWNAND\" or \"FULL NAND\"");
 
         if (nx_output.isNxStorage() || is_dir(output) || nx_output.isDrive())
-            throwException("-user_resize argument provided, output (-o) should be a file");
+            throwException("-user_resize argument provided, output (-o) should be a new file");
 
         NxPartition *user = nx_input.getNxPartition(USER);
 
@@ -466,12 +474,11 @@ int main(int argc, char *argv[])
         u32 user_new_size = new_size * 0x800; // Size in sectors. 1Mb = 0x800 sectores
         u64 user_min = (u64)user_new_size * 0x200 / 1024 / 1024;
         u32 min_size = (u32)((user->size() - user->freeSpace) / 0x200); // 0x20000 = size for 1 cluster in FAT
-        u64 min = (u64)min_size * 0x200 / 1024 / 1024;
+        u64 min = FORMAT_USER ? 64 : (u64)min_size * 0x200 / 1024 / 1024;
         if (min % 64) min = (min / 64) * 64 + 64;
 
         if (user_min < min) 
               throwException("-user_resize mininmum value is %I64d (%s)", (void *)min, (void*)GetReadableSize((u64)min * 1024 * 1024).c_str());
-
 
         if (info)
             throwException("--info argument provided, exit (remove arg from command to perform resize).\n");
@@ -490,6 +497,9 @@ int main(int argc, char *argv[])
                 throwException("Failed to delete output file");
         }
 
+        if (FORMAT_USER && !FORCE && !AskYesNoQuestion("USER partition will be formatted in output file. Are you sure you want to continue ?"))
+            throwException("Operation cancelled");
+
         SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
 
         int rc = 0;
@@ -500,7 +510,7 @@ int main(int argc, char *argv[])
 
         // Copy
         printf("Copying %s...\r", nx_input.getNxTypeAsStr());
-        while (!(rc = nx_input.resizeUser(output, user_new_size, &bytesCount, &bytesToRead)))
+        while (!(rc = nx_input.resizeUser(output, user_new_size, &bytesCount, &bytesToRead, FORMAT_USER)))
             printCopyProgress(COPY, nx_input.getNxTypeAsStr(), begin_time, bytesCount, bytesToRead);
 
         std::chrono::duration<double> elapsed_total = std::chrono::system_clock::now() - begin_time;

@@ -213,6 +213,7 @@ class NxStorage
         bool b_cryptoSet = false;
         bool b_isSplitted = false;
         bool m_keySet_set = false;
+        u64 m_freeSpace = 0;
 
         // Specific vars to handle copy        
         std::ofstream *p_ofstream;
@@ -269,8 +270,7 @@ class NxStorage
         bool isSinglePartType(int type = 0);
         int dumpToFile(const char *file, int crypt_mode, u64 *bytesCount, bool rawnand_only = false);
         int restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount);
-        int resizeUserInit(u32 new_size);
-        int resizeUser(const char *file, u32 num_clusters, u64 *bytesCount, u64 *bytesToRead);
+        int resizeUser(const char *file, u32 num_clusters, u64 *bytesCount, u64 *bytesToRead, bool format = false);
         bool setAutoRcm(bool enable);
         int applyIncognito();
 };

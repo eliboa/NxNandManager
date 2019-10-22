@@ -82,7 +82,7 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
     if (nullptr != nxCrypto)
         delete nxCrypto;
 
-    dbg_printf("NxPartition::setCrypto() for %s\n", partitionName().c_str());
+    //dbg_printf("NxPartition::setCrypto() for %s\n", partitionName().c_str());
     
     m_bad_crypto = false;
     nxCrypto = new NxCrypto(crypto, tweak);
@@ -103,7 +103,7 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
 
     }
     
-    dbg_printf("NxPartition::setCrypto() ends %s %s\n", partitionName().c_str(), m_bad_crypto ? "BAD CRYPTO" : "GOOD CRYPTO");
+    //dbg_printf("NxPartition::setCrypto() ends %s %s\n", partitionName().c_str(), m_bad_crypto ? "BAD CRYPTO" : "GOOD CRYPTO");
 
     return m_bad_crypto ? false : true;
 }

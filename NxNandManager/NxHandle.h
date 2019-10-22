@@ -101,11 +101,13 @@ class NxHandle {
         HCRYPTHASH md5Hash() { return m_md5_hash; };
         int getSplitCount() { return m_splitFileCount; };
         int getDefaultBuffSize();
+        u64 getDiskFreeSpace() { return m_fileDiskFreeBytes; };
         NxCrypto* crypto() { return nxCrypto; };
 
         // Setters
         void setSplitted(bool b) { b_isSplitted = b; };
         void setSize(u64 u_size) { m_size = u_size; };
+        void setOffMax(u64 off) { m_off_max = m_off_start + off; };
         void setCrypto(int crypto_mode = NO_CRYPTO) { m_crypto = crypto_mode; };
 
         // Public methods

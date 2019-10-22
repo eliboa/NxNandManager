@@ -98,6 +98,7 @@ void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
     u64 tmp_size = !parent->size() || isSplitted() ? m_size : parent->size();
     m_off_start = (u64)parent->mmc_b0_lba_start * NX_BLOCKSIZE;
     m_off_end = m_off_start + tmp_size - 1;
+    m_off_max = m_off_end;
     m_readAmount = 0;
     m_cur_block = 0;
     lp_CurrentPointer.QuadPart = 0;
@@ -268,8 +269,6 @@ bool NxHandle::createFile(wchar_t *path, int io_mode)
 
 bool NxHandle::setPointer(u64 offset)
 {
-    //dbg_printf("NxHandle::setPointer(%s) real offset = %s\n", n2hexstr(offset, 12).c_str(), n2hexstr(m_off_start + offset, 12).c_str());
-    
     if (b_isSplitted)
     {
         u64 real_offset = m_off_start + offset - m_curSplitFile->offset;;
@@ -302,6 +301,8 @@ bool NxHandle::setPointer(u64 offset)
         if (SetFilePointerEx(m_h, li_DistanceToMove, &lp_CurrentPointer, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
             return false;
     }
+
+    //dbg_printf("NxHandle::setPointer(%s) real offset = %s\n", n2hexstr(offset, 12).c_str(), n2hexstr(m_off_start + offset, 12).c_str());
 
     return true;
 }
@@ -434,8 +435,10 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     }
 
     // eof
-    if (lp_CurrentPointer.QuadPart > m_off_end)
+    if (lp_CurrentPointer.QuadPart > m_off_max) {
+        dbg_printf("NxHandle::write reach EOF\n");
         return false;
+    }
 
     /*
     dbg_printf("NxHandle::write(buffer, bytesRead=%I64d, length=%s) at offset %s - crypto_mode = %d\n",
@@ -456,10 +459,14 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     }
 
     if (!WriteFile(m_h, buffer, length, &bytesWrite, NULL))
+    {
+        dbg_printf("NxHandle::write - FAILED WriteFile %s", GetLastErrorAsString().c_str());
         return false;
-
-    if (bytesWrite == 0)
+    }
+    if (bytesWrite == 0) {
+        dbg_printf("NxHandle::write - FAILED NO BYTE WRITE\n");
         return false;
+    }
 
     lp_CurrentPointer.QuadPart += bytesWrite;
     *bw = bytesWrite;
@@ -515,6 +522,7 @@ NxSplitFile* NxHandle::getSplitFile(u64 offset)
 
 void NxHandle::clearHandle()
 {
+    dbg_printf("NxHandle::clearHandle()\n");
     DWORD lpdwFlags[100];
     if (GetHandleInformation(m_h, lpdwFlags))
     {

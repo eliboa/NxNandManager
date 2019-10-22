@@ -37,6 +37,7 @@ SOURCES += \
     keyset.cpp \
     mainwindow.cpp \
     properties.cpp \
+    resizeuser.cpp \
     worker.cpp \
     opendrive.cpp
 
@@ -54,13 +55,15 @@ HEADERS += \
     ../NxPartition.h \
     ../NxHandle.h \
     mainwindow.h \
+    resizeuser.h \
     worker.h \
     opendrive.h
 FORMS += \
     mainwindow.ui \
     opendrive.ui \
     keyset.ui \
-    properties.ui
+    properties.ui \
+    resizeuser.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
