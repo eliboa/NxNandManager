@@ -79,17 +79,23 @@ QT += winextras
 
 RC_FILE = NxNandManager.rc
 
+#PRE_TARGETDEPS += C:\msys64\mingw64\lib\libcrypto.a
+
 #ARCH = 32
 ARCH = 64
 
 contains( ARCH, 32 ) {
-    LIBS += -L$$PWD/../../../openssl-1.1.1c-win32-mingw/lib/ -lcrypto
-    INCLUDEPATH += $$PWD/../../../openssl-1.1.1c-win32-mingw/include
-    DEPENDPATH += $$PWD/../../../openssl-1.1.1c-win32-mingw/include
+    win32: LIBS += -L$$PWD/../../../../../mingw32/lib/ -lcrypto
+    INCLUDEPATH += $$PWD/../../../../../mingw32/include
+    DEPENDPATH += $$PWD/../../../../../mingw32/include
+    win32:!win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw32/lib/crypto.lib
+    else:win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw32/lib/libcrypto.a
 }
 contains( ARCH, 64 ) {
-    LIBS += -L$$PWD/../../../openssl-1.1.1c-win64-mingw/lib/ -lcrypto
-    INCLUDEPATH += $$PWD/../../../openssl-1.1.1c-win64-mingw/include
-    DEPENDPATH += $$PWD/../../../openssl-1.1.1c-win64-mingw/include
+    win32: LIBS += -L$$PWD/../../../../../mingw64/lib/ -lcrypto
+    INCLUDEPATH += $$PWD/../../../../../mingw64/include
+    DEPENDPATH += $$PWD/../../../../../mingw64/include
+    win32:!win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw64/lib/crypto.lib
+    else:win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw64/lib/libcrypto.a
 }
 

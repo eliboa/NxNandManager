@@ -14,11 +14,13 @@ class ResizeUser : public QDialog
     Q_OBJECT
 
 public:
-    explicit ResizeUser(QWidget *parent = nullptr);
+    explicit ResizeUser(QWidget *parent = nullptr, NxStorage *input = nullptr);
     ~ResizeUser();
 
 private:
     Ui::ResizeUser *ui;
+    QWidget *parent;
+    NxStorage *input;
 };
 
 #endif // RESIZEUSER_H

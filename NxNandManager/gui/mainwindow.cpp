@@ -144,6 +144,16 @@ void MainWindow::openKeySet()
     keysetDialog->exec();
 }
 
+
+void MainWindow::openResizeDialog()
+{
+    ResizeUserDialog = new ResizeUser(this, input);
+    ResizeUserDialog->setWindowTitle("Resize USER");
+    ResizeUserDialog->show();
+    ResizeUserDialog->exec();
+}
+
+
 void MainWindow::incognito()
 {
     if(workInProgress)
@@ -402,6 +412,7 @@ void MainWindow::inputSet(NxStorage *storage)
     ui->menuFile->actions().at(3)->setDisabled(true);
     ui->menuTools->actions().at(1)->setDisabled(true);
     ui->menuTools->actions().at(2)->setDisabled(true);
+    ui->menuTools->actions().at(3)->setDisabled(true);
 
     QString path = QString::fromWCharArray(input->m_path), input_label;
     QFileInfo fi(path);
@@ -477,6 +488,10 @@ void MainWindow::inputSet(NxStorage *storage)
     // AutoRcm menu
     if(nullptr != input->getNxPartition(BOOT0))
         ui->menuTools->actions().at(2)->setEnabled(true);
+
+    // Resize NAND menu
+    if(is_in(input->type, {RAWNAND, RAWMMC}))
+        ui->menuTools->actions().at(3)->setEnabled(true);
 
     // Fill partition TableWidget
     for (NxPartition *part : input->partitions)
@@ -819,6 +834,13 @@ void MainWindow::createActions()
     ui->menuTools->actions().at(2)->setStatusTip(tr("Enable/Disable autoRCM (BOOT0 only)"));
     ui->menuTools->actions().at(2)->setDisabled(true);
     connect(ui->menuTools->actions().at(2), &QAction::triggered, this, &MainWindow::toggleAutoRCM);
+
+    // Resize NAND
+    ui->menuTools->actions().at(3)->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_R));
+    ui->menuTools->actions().at(3)->setStatusTip(tr("Resize USER partition"));
+    ui->menuTools->actions().at(3)->setDisabled(true);
+    connect(ui->menuTools->actions().at(3), &QAction::triggered, this, &MainWindow::openResizeDialog);
+
 }
 
 void MainWindow::timer1000()

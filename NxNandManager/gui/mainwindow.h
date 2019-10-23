@@ -13,6 +13,7 @@
 #include "opendrive.h"
 #include "keyset.h"
 #include "properties.h"
+#include "resizeuser.h"
 
 //#define DUMP	102
 //#define RESTORE 103
@@ -42,6 +43,7 @@ private:
     OpenDrive* openDriveDialog;
     KeySetDialog* keysetDialog;
     Properties* PropertiesDialog;
+    ResizeUser* ResizeUserDialog;
 	NxStorage* input;
 	NxStorage* selected_io;
 	bool m_ready;
@@ -73,6 +75,7 @@ private slots:
 	void openDrive();
     void Properties();
     void openKeySet();
+    void openResizeDialog();
     void incognito();
     void dumpPartition(int crypto_mode=NULL);
     void dumpDecPartition();

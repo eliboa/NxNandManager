@@ -29,17 +29,107 @@
     <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
    </property>
   </widget>
-  <widget class="QProgressBar" name="progressBar">
+  <widget class="QSpinBox" name="new_size">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>40</y>
-     <width>351</width>
+     <x>110</x>
+     <y>80</y>
+     <width>91</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="suffix">
+    <string> Mb</string>
+   </property>
+   <property name="minimum">
+    <number>64</number>
+   </property>
+   <property name="maximum">
+    <number>999999</number>
+   </property>
+   <property name="singleStep">
+    <number>64</number>
+   </property>
+   <property name="value">
+    <number>64</number>
+   </property>
+   <property name="displayIntegerBase">
+    <number>10</number>
+   </property>
+  </widget>
+  <widget class="QLabel" name="new_size_label">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>80</y>
+     <width>101</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>New size for USER :</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="checkBox">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>60</y>
+     <width>101</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Format USER</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="lineEdit">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>140</y>
+     <width>301</width>
+     <height>20</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton">
+   <property name="geometry">
+    <rect>
+     <x>320</x>
+     <y>140</y>
+     <width>75</width>
      <height>23</height>
     </rect>
    </property>
-   <property name="value">
-    <number>24</number>
+   <property name="text">
+    <string>Select</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>120</y>
+     <width>71</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Output file :</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="range_size_label">
+   <property name="geometry">
+    <rect>
+     <x>210</x>
+     <y>80</y>
+     <width>181</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
    </property>
   </widget>
  </widget>
