@@ -94,6 +94,7 @@ public slots:
     void endWorkThread();
 	void inputSet(NxStorage *storage = nullptr);
 	void driveSet(QString);
+    void resizeUser(QString file, int new_size, bool format);
     void keySetSet();
 	void error(int err, QString label = nullptr);
     void updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal);

@@ -1007,6 +1007,8 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
             u64 cur_off = p_ofstream->tellp();
             u64 bck_gpt_off = (u64)m_user_new_bckgpt * NX_BLOCKSIZE;
             memset(m_buffer, 0, CLUSTER_SIZE); // Clear buffer
+            getNxPartition(USER)->crypto()->encrypt(m_buffer, cpy_cl_count_out);
+            cpy_cl_count_out++;
 
             // Fill with empty buffer until GPT backup offset
             if (cur_off < bck_gpt_off)

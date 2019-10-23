@@ -1512,7 +1512,7 @@
   </action>
   <action name="actionIncognito">
    <property name="text">
-    <string>Incognito</string>
+    <string>Incognito (PRODINFO)</string>
    </property>
   </action>
   <action name="actionToogle_autoRCM_BOOT0">
@@ -1522,7 +1522,7 @@
   </action>
   <action name="actionResize_NAND">
    <property name="text">
-    <string>Resize NAND (RAWNAND, RAWMMC)</string>
+    <string>Resize NAND (RAWNAND, FULL NAND)</string>
    </property>
   </action>
  </widget>

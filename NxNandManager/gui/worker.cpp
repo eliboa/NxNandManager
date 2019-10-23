@@ -23,6 +23,18 @@ Worker::Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, int 
     m_crypto_mode = crypto_mode;
     connect_slots();
 }
+
+Worker::Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, int new_size, bool format)
+{
+    work = RESIZE;
+    parent = pParent;
+    nxInput = pNxInput;
+    file = filename;
+    m_format = format;
+    m_new_size = new_size;
+    connect_slots();
+}
+
 Worker::Worker(QMainWindow *pParent, NxStorage* pNxInput, NxStorage* pNxOutput, int crypto_mode)
 {
     work = RESTORE;
@@ -83,6 +95,9 @@ void Worker::run()
         }
         case DUMP :
             dumpStorage(nxInput, file);
+            break;
+        case RESIZE :
+            resizeUser(nxInput, file);
             break;
         case DUMP_PART :
             dumpPartition(nxInPart, file);
@@ -235,6 +250,30 @@ void Worker::restoreStorage(NxStorage* storage, NxStorage* in_storage)
         emit error(rc);
 
     emit sendProgress(RESTORE, QString(storage->getNxTypeAsStr()), &bytesToRead, &bytesToRead);
+    SetThreadExecutionState(ES_CONTINUOUS);
+    sleep(1);
+    emit finished();
+}
+
+void Worker::resizeUser(NxStorage* storage, QString file)
+{
+    SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
+    u32 user_new_size = m_new_size * 0x800; // Size in sectors. 1Mb = 0x800 sectors
+    NxPartition *user = storage->getNxPartition(USER);
+    u32 total_lba_count = user->lbaStart() + (user_new_size / 0x1000 + user_new_size + 66);
+    u64 bytesCount = 0, bytesToRead = total_lba_count * NX_BLOCKSIZE;
+    int rc = 0;
+
+    emit sendProgress(RESIZE, QString(nxInput->getNxTypeAsStr()), &bytesCount, &bytesToRead);
+    while (!(rc = storage->resizeUser(file.toUtf8().constData(), user_new_size, &bytesCount, &bytesToRead, m_format)))
+    {
+        emit sendProgress(RESIZE, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
+    }
+
+    if (rc != NO_MORE_BYTES_TO_COPY)
+        emit error(rc);
+
+    emit sendProgress(RESIZE, QString(storage->getNxTypeAsStr()), &bytesToRead, &bytesToRead);
     SetThreadExecutionState(ES_CONTINUOUS);
     sleep(1);
     emit finished();

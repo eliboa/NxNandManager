@@ -8,6 +8,7 @@ ResizeUser::ResizeUser(QWidget *parent, NxStorage *input) :
     ui->setupUi(this);
     this->parent = parent;
     this->input = input;
+    connect(this, SIGNAL(finished(QString, int, bool)), parent, SLOT(resizeUser(QString, int, bool)));
 
     NxPartition *user = input->getNxPartition(USER);
     u32 size = user->lbaEnd() - user->lbaStart() + 1;
@@ -21,6 +22,17 @@ ResizeUser::ResizeUser(QWidget *parent, NxStorage *input) :
     ui->new_size->setMaximum(999999);
     ui->new_size->setValue(min);
     ui->range_size_label->setText("(Min: " + QString::number(min) + " Mb, Max: " + QString::number(999999) + " Mb)");
+    on_new_size_valueChanged(min);
+
+    QString CurrentFile;
+    wchar_t buffer[_MAX_PATH];
+    GetModuleFileName(NULL, buffer, _MAX_PATH);
+    std::wstring curmodule(buffer);
+    std::wstring curpath = curmodule.substr(0, curmodule.find(base_nameW(curmodule)));
+    CurrentFile.append(std::string(curpath.begin(), curpath.end()).c_str());
+    CurrentFile.append(input->getNxTypeAsStr());
+    CurrentFile.append(".resized");
+    ui->output->setText(CurrentFile);
 }
 
 ResizeUser::~ResizeUser()
@@ -36,9 +48,38 @@ void ResizeUser::on_checkBox_stateChanged(int arg1)
         NxPartition *user = input->getNxPartition(USER);
         u32 size = user->lbaEnd() - user->lbaStart() + 1;
         u32 freesectors = (u32)(user->freeSpace / NX_BLOCKSIZE);
-        u32 min = (size - freesectors) / 0x800;
+        min = (size - freesectors) / 0x800;
         if(!min) min = 64;
     }
     ui->new_size->setMinimum(min);
     ui->range_size_label->setText("(Min: " + QString::number(min) + " Mb, Max: " + QString::number(999999) + " Mb)");
+}
+
+void ResizeUser::on_new_size_valueChanged(int size)
+{
+    u32 lba_count = size * 0x800; // 1mb = 0x800 sectors
+    NxPartition *user = input->getNxPartition(USER);
+    u32 total_lba_count = user->lbaStart() + (lba_count / 0x1000 + lba_count + 66);
+    ui->label_total_size->setText(GetReadableSize((u64)total_lba_count * NX_BLOCKSIZE).c_str());
+}
+
+void ResizeUser::on_selectFileButton_clicked()
+{
+    // Create new file dialog
+    QFileDialog fd(this);
+    fd.setAcceptMode(QFileDialog::AcceptSave); // Ask overwrite
+    QString save_filename(input->getNxTypeAsStr());
+    save_filename.append(".resized");
+
+    QString fileName = fd.getSaveFileName(this, "Save as", "default_dir\\" + save_filename);
+    if (!fileName.isEmpty())
+        ui->output->setText(fileName);
+}
+
+void ResizeUser::on_buttonBox_accepted()
+{
+    if(is_file(ui->output->text().toUtf8().constData()))
+        remove(ui->output->text().toUtf8().constData());
+
+    emit finished(ui->output->text(), ui->new_size->value(), ui->checkBox->isChecked());
 }

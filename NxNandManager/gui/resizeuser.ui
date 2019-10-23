@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>300</height>
+    <height>227</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,24 +16,30 @@
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
     <rect>
-     <x>40</x>
-     <y>250</y>
+     <x>50</x>
+     <y>190</y>
      <width>341</width>
      <height>32</height>
     </rect>
+   </property>
+   <property name="toolTipDuration">
+    <number>0</number>
    </property>
    <property name="orientation">
     <enum>Qt::Horizontal</enum>
    </property>
    <property name="standardButtons">
-    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+   </property>
+   <property name="centerButtons">
+    <bool>false</bool>
    </property>
   </widget>
   <widget class="QSpinBox" name="new_size">
    <property name="geometry">
     <rect>
      <x>110</x>
-     <y>80</y>
+     <y>110</y>
      <width>91</width>
      <height>22</height>
     </rect>
@@ -61,7 +67,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>80</y>
+     <y>110</y>
      <width>101</width>
      <height>21</height>
     </rect>
@@ -74,43 +80,43 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>60</y>
-     <width>101</width>
+     <y>90</y>
+     <width>291</width>
      <height>17</height>
     </rect>
    </property>
    <property name="text">
-    <string>Format USER</string>
+    <string>Format USER (all data in partition will be lost)</string>
    </property>
   </widget>
-  <widget class="QLineEdit" name="lineEdit">
+  <widget class="QLineEdit" name="output">
    <property name="geometry">
     <rect>
-     <x>10</x>
-     <y>140</y>
-     <width>301</width>
+     <x>70</x>
+     <y>160</y>
+     <width>231</width>
      <height>20</height>
     </rect>
    </property>
   </widget>
-  <widget class="QPushButton" name="pushButton">
+  <widget class="QPushButton" name="selectFileButton">
    <property name="geometry">
     <rect>
-     <x>320</x>
-     <y>140</y>
-     <width>75</width>
+     <x>310</x>
+     <y>160</y>
+     <width>81</width>
      <height>23</height>
     </rect>
    </property>
    <property name="text">
-    <string>Select</string>
+    <string>Save as...</string>
    </property>
   </widget>
   <widget class="QLabel" name="label">
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>120</y>
+     <y>160</y>
      <width>71</width>
      <height>16</height>
     </rect>
@@ -123,13 +129,71 @@
    <property name="geometry">
     <rect>
      <x>210</x>
-     <y>80</y>
+     <y>110</y>
      <width>181</width>
      <height>21</height>
     </rect>
    </property>
    <property name="text">
     <string/>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_2">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>10</y>
+     <width>381</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;This will create a new image file for your NAND with resized USER partition.&lt;br/&gt;Input NAND will not be affected. The default minimum size for new partition &lt;br/&gt;is the current used space in USER, but if you choose to format USER (check-&lt;br/&gt;box), minimum size is 64 Mb.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+   </property>
+   <property name="textFormat">
+    <enum>Qt::AutoText</enum>
+   </property>
+   <property name="scaledContents">
+    <bool>false</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_3">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>136</y>
+     <width>121</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Total size for new file :</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_total_size">
+   <property name="geometry">
+    <rect>
+     <x>130</x>
+     <y>136</y>
+     <width>121</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>size</string>
+   </property>
+  </widget>
+  <widget class="Line" name="line">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>70</y>
+     <width>381</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Horizontal</enum>
    </property>
   </widget>
  </widget>

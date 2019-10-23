@@ -624,6 +624,19 @@ void MainWindow::driveSet(QString drive)
 	workThread->start();
 }
 
+void MainWindow::resizeUser(QString file, int new_size, bool format)
+{
+    if(workInProgress)
+    {
+        error(ERR_WORK_RUNNING);
+        return;
+    }
+    selected_io = nullptr;
+    // Open new thread
+    workThread = new Worker(this, input, file, new_size, format);
+    workThread->start();
+}
+
 void MainWindow::error(int err, QString label)
 {
 	if(err != ERR_WORK_RUNNING)
@@ -695,6 +708,7 @@ void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount,
     {
         QString label;
         if(mode == RESTORE) label.append("Restored");
+        else if(mode == RESIZE) label.append("Resized");
         else label.append("Dumped");
         if(mode == MD5_HASH)
             label.append(" & verified");
@@ -721,6 +735,7 @@ void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount,
     QString stepLabel;
     if(mode == MD5_HASH) stepLabel.append("Computing hash");
     else if (mode == RESTORE) stepLabel.append("Restoring ");
+    else if(mode == RESIZE) stepLabel.append("Resizing ");
     else stepLabel.append("Copying ");
     if(mode != MD5_HASH) stepLabel.append(storage_name);
 

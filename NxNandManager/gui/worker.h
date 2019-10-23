@@ -7,6 +7,7 @@
 //#define RESTORE			103
 #define DUMP_PART		104
 #define RESTORE_PART    105
+#define RESIZE          106
 
 #include <QMainWindow>
 #include <QThread>
@@ -21,6 +22,7 @@ public:
     explicit Worker(QDialog *pParent);
 	explicit Worker(QMainWindow *pParent, QString filename);
     explicit Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, int crypto_mode);
+    explicit Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, int new_size, bool format);
     explicit Worker(QMainWindow *pParent, NxStorage* pNxInput, NxStorage* pNxOutput, int crypto_mode);
     explicit Worker(QMainWindow *pParent, NxPartition* pNxInPart, QString filename, int crypto_mode);
     explicit Worker(QMainWindow *pParent, NxPartition* pNxInPart, NxStorage* pNxOutput, int crypto_mode);
@@ -31,6 +33,7 @@ protected:
     void dumpStorage(NxStorage* storage, QString file);
     void restorePartition(NxPartition* out_partition, NxStorage* in_storage);
     void restoreStorage(NxStorage* out_storage, NxStorage* in_storage);
+    void resizeUser(NxStorage* storage, QString file);
 	void cancel();
     void connect_slots();
 
@@ -61,6 +64,8 @@ private:
 	QString partition;
 	bool bypassMD5;
 	HANDLE hDisk, hDiskOut;
+    bool m_format;
+    int m_new_size;
 
 public:
     timepoint_t begin_time;
