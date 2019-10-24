@@ -1323,7 +1323,7 @@ std::string ListPhysicalDrives()
     int num_drive = 0;
     std::string compatibleDrives;
 
-    for (int drive = 0; drive < 26; drive++)
+    for (int drive = 0; drive < 16; drive++)
     {
         char driveName[256];
         sprintf_s(driveName, 256, "\\\\.\\PhysicalDrive%d", drive);

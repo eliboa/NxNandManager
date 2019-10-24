@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
 {
     
     std::setlocale(LC_ALL, "en_US.utf8");
-    printf("[ NxNandManager v3.0.0-a by eliboa ]\n\n");
+    printf("[ NxNandManager v3.0.0 by eliboa ]\n\n");
     const char *input = NULL, *output = NULL, *partitions = NULL, *keyset = NULL, *user_resize = NULL;
     BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE;
     int io_num = 1;

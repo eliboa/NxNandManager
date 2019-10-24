@@ -14,5 +14,7 @@
         <file>images/decrypt.png</file>
         <file>images/restore.png</file>
         <file>images/incognito.png</file>
+        <file>images/autorcm.png</file>
+        <file>images/resize.png</file>
     </qresource>
 </RCC>

@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2019 eliboa
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QtWidgets>
@@ -602,13 +618,24 @@ void MainWindow::on_partition_table_itemSelectionChanged()
         }
 
         // AutoRCM action
-        if(nullptr != input->getNxPartition(BOOT0))
+        if(selected_part->type() == BOOT0)
         {
+            const QIcon rcmIcon = QIcon::fromTheme("document-open", QIcon(":/images/autorcm.png"));
             ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
-            QAction* action = new QAction(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM");
+            QAction* action = new QAction(rcmIcon, input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM");
             action->setStatusTip(tr(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM"));
             ui->partition_table->connect(action, SIGNAL(triggered()), this, SLOT(toggleAutoRCM()));
             ui->partition_table->addAction(action);
+        }
+
+        // Incognito action
+        if(selected_part->type() == PRODINFO)
+        {
+            const QIcon icon = QIcon::fromTheme("document-open", QIcon(":/images/incognito.png"));
+            QAction* incoAction = new QAction(icon, "Apply incognito");
+            incoAction->setStatusTip(tr("Wipe personnal information from PRODINFO"));
+            ui->partition_table->connect(incoAction, SIGNAL(triggered()), this, SLOT(incognito()));
+            ui->partition_table->addAction(incoAction);
         }
     }
 }
@@ -845,12 +872,16 @@ void MainWindow::createActions()
     connect(ui->menuTools->actions().at(1), &QAction::triggered, this, &MainWindow::incognito);
 
     // Toggle autoRCM
+    const QIcon rcmIcon = QIcon::fromTheme("document-open", QIcon(":/images/autorcm.png"));
+    ui->menuTools->actions().at(2)->setIcon(rcmIcon);
     ui->menuTools->actions().at(2)->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_A));
     ui->menuTools->actions().at(2)->setStatusTip(tr("Enable/Disable autoRCM (BOOT0 only)"));
     ui->menuTools->actions().at(2)->setDisabled(true);
     connect(ui->menuTools->actions().at(2), &QAction::triggered, this, &MainWindow::toggleAutoRCM);
 
     // Resize NAND
+    const QIcon resizeIcon = QIcon::fromTheme("document-open", QIcon(":/images/resize.png"));
+    ui->menuTools->actions().at(3)->setIcon(resizeIcon);
     ui->menuTools->actions().at(3)->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_R));
     ui->menuTools->actions().at(3)->setStatusTip(tr("Resize USER partition"));
     ui->menuTools->actions().at(3)->setDisabled(true);
