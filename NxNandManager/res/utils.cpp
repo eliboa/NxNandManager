@@ -131,12 +131,11 @@ std::string GetReadableSize(u64 size)
 std::string GetReadableElapsedTime(std::chrono::duration<double> elapsed_seconds)
 {
 	char buf[64];
-	int seconds = (int)elapsed_seconds.count();
+	u32 seconds = (u32)elapsed_seconds.count();
 	int minutes = seconds / 60;
 	if (minutes > 0) seconds = seconds % 60;
 	int hours = minutes / 60;
-	if (hours > 0) minutes = minutes % 60;
-
+	if (hours > 0) minutes = minutes % 60;    
 	if ((int)elapsed_seconds.count() > 1)
 	{
 		sprintf_s(buf, 64, "%02d:%02d:%02d", hours, minutes, seconds);

@@ -136,12 +136,14 @@ void printCopyProgress(int mode, const char *storage_name, timepoint_t begin_tim
 
     elapsed_seconds = tmp_elapsed_seconds.count();
     std::chrono::duration<double> remaining_seconds = (tmp_elapsed_seconds / bytesCount) * (bytesTotal - bytesCount);
+    std::string buf = GetReadableElapsedTime(remaining_seconds).c_str();
     char label[0x40];
     if(mode == MD5_HASH) sprintf(label, "Computing MD5 hash for");
     else if (mode == RESTORE) sprintf(label, "Restoring to");
     else sprintf(label, "Copying");
-    printf("%s %s... %s /%s (%d%%) - Remaining time: %s          \r", label, storage_name, GetReadableSize(bytesCount).c_str(), 
-        GetReadableSize(bytesTotal).c_str(), bytesCount * 100 / bytesTotal, GetReadableElapsedTime(remaining_seconds).c_str());
+    printf("%s %s... %s /%s (%d%%) - Remaining time:", label, storage_name, GetReadableSize(bytesCount).c_str(), 
+        GetReadableSize(bytesTotal).c_str(), bytesCount * 100 / bytesTotal);
+    printf(" %s          \r", buf.c_str());
 }
 
 int main(int argc, char *argv[])
