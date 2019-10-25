@@ -373,3 +373,8 @@ u64 NxPartition::fat32_getFreeSpace()
 
     return (u64)cluster_free_count * CLUSTER_SIZE;
 }
+
+void NxPartition::clearHandles()
+{
+    p_ofstream.close();
+}

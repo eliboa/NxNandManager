@@ -273,6 +273,7 @@ class NxStorage
         int resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *bytesToRead, bool format = false);
         bool setAutoRcm(bool enable);
         int applyIncognito();
+        void clearHandles();
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);

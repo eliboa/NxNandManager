@@ -160,7 +160,6 @@ void MainWindow::openKeySet()
     keysetDialog->exec();
 }
 
-
 void MainWindow::openResizeDialog()
 {
     ResizeUserDialog = new ResizeUser(this, input);
@@ -168,7 +167,6 @@ void MainWindow::openResizeDialog()
     ResizeUserDialog->show();
     ResizeUserDialog->exec();
 }
-
 
 void MainWindow::incognito()
 {
@@ -661,7 +659,7 @@ void MainWindow::resizeUser(QString file, int new_size, bool format)
     selected_io = nullptr;
     // Open new thread
     workThread = new Worker(this, input, file, new_size, format);
-    workThread->start();
+    startWorkThread();
 }
 
 void MainWindow::error(int err, QString label)
@@ -728,6 +726,9 @@ void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount,
 */
 void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal)
 {
+    if(!workInProgress)
+        return;
+
     auto time = std::chrono::system_clock::now();
     std::chrono::duration<double> tmp_elapsed_seconds = time - workThread->begin_time;
 
@@ -917,7 +918,7 @@ void MainWindow::on_stop_button_clicked()
 	}
 
 	workThread->terminate();
-	workThread->wait();
+    workThread->wait();
 	endWorkThread();
 	ui->progressBar->setFormat("");
 	ui->progressBar->setValue(0);

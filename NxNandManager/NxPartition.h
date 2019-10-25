@@ -114,6 +114,7 @@ class NxPartition
         int compare(NxPartition *partition);
         int dumpToFile(const char *file, int crypt_mode, u64 *bytesCount);
         int restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount);
+        void clearHandles();
 };
 
 #endif

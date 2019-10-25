@@ -82,6 +82,7 @@ Worker::Worker(QMainWindow *pParent, NxPartition* pNxOutPart, NxStorage* pNxInpu
 
 Worker::~Worker()
 {
+
 }
 
 void Worker::connect_slots()
@@ -128,13 +129,10 @@ void Worker::run()
 
 }
 
-void Worker::terminate()
-{
-    bCanceled = true;
-}
-
 void Worker::dumpPartition(NxPartition* partition, QString file)
 {
+
+
     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
     u64 bytesCount = 0, bytesToRead = partition->size();
     begin_time = std::chrono::system_clock::now();
@@ -143,6 +141,13 @@ void Worker::dumpPartition(NxPartition* partition, QString file)
     emit sendProgress(DUMP, QString(partition->partitionName().c_str()), &bytesCount, &bytesToRead);
     while (!(rc = partition->dumpToFile(file.toUtf8().constData(), m_crypto_mode, &bytesCount)))
     {
+        if (bCanceled)
+        {
+            SetThreadExecutionState(ES_CONTINUOUS);
+            partition->clearHandles();
+            return;
+        }
+
         emit sendProgress(DUMP, QString(partition->partitionName().c_str()), &bytesCount, &bytesToRead);
     }
 
@@ -162,6 +167,13 @@ void Worker::dumpPartition(NxPartition* partition, QString file)
         emit sendProgress(MD5_HASH, QString(partition->partitionName().c_str()), &bytesCount, &bytesToRead);
         while (!out_storage.nxHandle->hash(&bytesCount))
         {
+            if (bCanceled)
+            {
+                SetThreadExecutionState(ES_CONTINUOUS);
+                partition->clearHandles();
+                return;
+            }
+
             emit sendProgress(MD5_HASH, QString(partition->partitionName().c_str()), &bytesCount, &bytesToRead);
         }
 
@@ -192,6 +204,12 @@ void Worker::dumpStorage(NxStorage* storage, QString file)
     emit sendProgress(DUMP, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
     while (!(rc = storage->dumpToFile(file.toUtf8().constData(), m_crypto_mode, &bytesCount)))
     {
+        if (bCanceled)
+        {
+            SetThreadExecutionState(ES_CONTINUOUS);
+            storage->clearHandles();
+            return;
+        }
         emit sendProgress(DUMP, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
     }
 
@@ -209,6 +227,12 @@ void Worker::dumpStorage(NxStorage* storage, QString file)
         emit sendProgress(MD5_HASH, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
         while (!out_storage.nxHandle->hash(&bytesCount))
         {
+            if (bCanceled)
+            {
+                SetThreadExecutionState(ES_CONTINUOUS);
+                storage->clearHandles();
+                return;
+            }
             emit sendProgress(MD5_HASH, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
         }
 
@@ -238,6 +262,12 @@ void Worker::restorePartition(NxPartition* partition, NxStorage* in_storage)
     emit sendProgress(RESTORE, QString(partition->partitionName().c_str()), &bytesCount, &bytesToRead);
     while (!(rc = partition->restoreFromStorage(in_storage, m_crypto_mode, &bytesCount)))
     {
+        if (bCanceled)
+        {
+            SetThreadExecutionState(ES_CONTINUOUS);
+            sleep(1);
+            return;
+        }
         emit sendProgress(RESTORE, QString(partition->partitionName().c_str()), &bytesCount, &bytesToRead);
     }
 
@@ -259,6 +289,12 @@ void Worker::restoreStorage(NxStorage* storage, NxStorage* in_storage)
     emit sendProgress(RESTORE, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
     while (!(rc = storage->restoreFromStorage(in_storage, m_crypto_mode, &bytesCount)))
     {
+        if (bCanceled)
+        {
+            SetThreadExecutionState(ES_CONTINUOUS);
+            sleep(1);
+            return;
+        }
         emit sendProgress(RESTORE, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
     }
 
@@ -283,6 +319,12 @@ void Worker::resizeUser(NxStorage* storage, QString file)
     emit sendProgress(RESIZE, QString(nxInput->getNxTypeAsStr()), &bytesCount, &bytesToRead);
     while (!(rc = storage->resizeUser(file.toUtf8().constData(), user_new_size, &bytesCount, &bytesToRead, m_format)))
     {
+        if (bCanceled)
+        {
+            SetThreadExecutionState(ES_CONTINUOUS);
+            storage->clearHandles();
+            return;
+        }
         emit sendProgress(RESIZE, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
     }
 
@@ -293,4 +335,8 @@ void Worker::resizeUser(NxStorage* storage, QString file)
     SetThreadExecutionState(ES_CONTINUOUS);
     sleep(1);
     emit finished();
+}
+void Worker::terminate()
+{
+    bCanceled = true;
 }

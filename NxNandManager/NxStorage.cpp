@@ -910,6 +910,7 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
         // Read first cluster
         if (!nxHandle->read(m_buffer, &bytesRead, m_buff_size))
         {
+            p_ofstream->close();
             delete[] m_buffer;
             delete p_ofstream;
             return ERR_WHILE_COPY;
@@ -1292,6 +1293,11 @@ int NxStorage::applyIncognito()
     setStorageInfo(PRODINFO);
     delete[] buffer;
     return SUCCESS;
+}
+
+void NxStorage::clearHandles()
+{
+    p_ofstream->close();
 }
 
 std::string BuildChecksum(HCRYPTHASH hHash)
