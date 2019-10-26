@@ -407,6 +407,9 @@ void MainWindow::initButtons()
 
 void MainWindow::inputSet(NxStorage *storage)
 {
+    if(nullptr != input)
+        delete input;
+
 	input = storage;
 
     if(bKeyset)

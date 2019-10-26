@@ -3,8 +3,8 @@
 #ifndef __NxNandManager_h__
 #define __NxNandManager_h__
 
-//#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
-#if defined(ENABLE_GUI)
+#define ENABLE_GUI  1 // Comment this line to compile for CLI version only
+//#if defined(ENABLE_GUI)
 #include "gui/mainwindow.h"
 #include <QApplication>
 #include <QtCore>

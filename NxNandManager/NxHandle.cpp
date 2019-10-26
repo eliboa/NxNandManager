@@ -84,6 +84,7 @@ NxHandle::NxHandle(NxStorage *p)
 NxHandle::~NxHandle()
 {
     //printf("NxHandle::~NxHandle() DESTRUCTOR\n");
+    clearHandle();
     NxSplitFile *current = m_lastSplitFile, *next;
     while (nullptr != current)
     {

@@ -1014,8 +1014,9 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
             // Fill with empty buffer until GPT backup offset
             if (cur_off < bck_gpt_off)
             {
-                p_ofstream->write((char *)&m_buffer[0], CLUSTER_SIZE);
-                *bytesCount += CLUSTER_SIZE;
+                u64 size = cur_off + CLUSTER_SIZE > bck_gpt_off ? bck_gpt_off - cur_off : CLUSTER_SIZE;
+                p_ofstream->write((char *)&m_buffer[0], size);
+                *bytesCount += size;
 
                 return SUCCESS;
             }

@@ -273,8 +273,7 @@ void Worker::restorePartition(NxPartition* partition, NxStorage* in_storage)
 
     if (rc != NO_MORE_BYTES_TO_COPY)
         emit error(rc);
-
-    emit sendProgress(RESTORE, QString(partition->partitionName().c_str()), &bytesToRead, &bytesToRead);
+    else emit sendProgress(RESTORE, QString(partition->partitionName().c_str()), &bytesToRead, &bytesToRead);
     SetThreadExecutionState(ES_CONTINUOUS);
     sleep(1);
     emit finished();
@@ -330,8 +329,8 @@ void Worker::resizeUser(NxStorage* storage, QString file)
 
     if (rc != NO_MORE_BYTES_TO_COPY)
         emit error(rc);
+    else emit sendProgress(RESIZE, QString(storage->getNxTypeAsStr()), &bytesToRead, &bytesToRead);
 
-    emit sendProgress(RESIZE, QString(storage->getNxTypeAsStr()), &bytesToRead, &bytesToRead);
     SetThreadExecutionState(ES_CONTINUOUS);
     sleep(1);
     emit finished();
