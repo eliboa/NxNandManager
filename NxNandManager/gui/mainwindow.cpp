@@ -200,7 +200,7 @@ void MainWindow::incognito()
 
 }
 
-void MainWindow::on_rawdump_button_clicked(int crypto_mode)
+void MainWindow::on_rawdump_button_clicked(int crypto_mode, bool rawnand_dump)
 {
 	if(workInProgress)
 	{
@@ -214,6 +214,7 @@ void MainWindow::on_rawdump_button_clicked(int crypto_mode)
 	QFileDialog fd(this);
 	fd.setAcceptMode(QFileDialog::AcceptSave); // Ask overwrite
     QString save_filename(input->getNxTypeAsStr());
+    if(rawnand_dump) save_filename = "RAWNAND";
     QString ext("");
     if(crypto_mode == ENCRYPT)
         ext.append(".enc");
@@ -234,19 +235,29 @@ void MainWindow::on_rawdump_button_clicked(int crypto_mode)
         MySettings.setValue("default_dir", CurrentDir.absoluteFilePath(fileName));
 
         // Open new thread to copy data
-        workThread = new Worker(this, input, fileName, MD5_HASH);
+        workThread = new Worker(this, input, fileName, rawnand_dump, MD5_HASH);
 		startWorkThread();
 	}
 }
 
+void MainWindow::on_rawdump_button()
+{
+    on_rawdump_button_clicked(NO_CRYPTO, false);
+}
+
 void MainWindow::on_rawdumpDec_button_clicked()
 {    
-    on_rawdump_button_clicked(DECRYPT);
+    on_rawdump_button_clicked(DECRYPT, false);
 }
 
 void MainWindow::on_rawdumpEnc_button_clicked()
 {
-    on_rawdump_button_clicked(ENCRYPT);
+    on_rawdump_button_clicked(ENCRYPT, false);
+}
+
+void MainWindow::dumpRAWNAND()
+{
+    on_rawdump_button_clicked(NO_CRYPTO, true);
 }
 
 void MainWindow::dumpPartition(int crypto_mode)
@@ -407,7 +418,7 @@ void MainWindow::initButtons()
 
 void MainWindow::inputSet(NxStorage *storage)
 {
-    if(nullptr != input)
+    if(nullptr != input && storage != input)
         delete input;
 
 	input = storage;
@@ -430,6 +441,7 @@ void MainWindow::inputSet(NxStorage *storage)
     ui->menuTools->actions().at(1)->setDisabled(true);
     ui->menuTools->actions().at(2)->setDisabled(true);
     ui->menuTools->actions().at(3)->setDisabled(true);
+    ui->menuTools->actions().at(4)->setDisabled(true);
 
     QString path = QString::fromWCharArray(input->m_path), input_label;
     QFileInfo fi(path);
@@ -509,6 +521,9 @@ void MainWindow::inputSet(NxStorage *storage)
     // Resize NAND menu
     if(is_in(input->type, {RAWNAND, RAWMMC}))
         ui->menuTools->actions().at(3)->setEnabled(true);
+
+    if(input->type == RAWMMC)
+        ui->menuTools->actions().at(4)->setEnabled(true);
 
     // Fill partition TableWidget
     for (NxPartition *part : input->partitions)
@@ -827,7 +842,7 @@ void MainWindow::createActions()
     ui->menuFile->actions().at(3)->setIcon(dumpIcon);
     ui->menuFile->actions().at(3)->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_S));
     ui->menuFile->actions().at(3)->setStatusTip(tr("Dump as file..."));
-    connect(ui->menuFile->actions().at(3), &QAction::triggered, this, &MainWindow::on_rawdump_button_clicked);
+    connect(ui->menuFile->actions().at(3), &QAction::triggered, this, &MainWindow::on_rawdump_button);
     ui->menuFile->actions().at(3)->setDisabled(true);
 
     // Decrypt & Save as
@@ -890,6 +905,11 @@ void MainWindow::createActions()
     ui->menuTools->actions().at(3)->setStatusTip(tr("Resize USER partition"));
     ui->menuTools->actions().at(3)->setDisabled(true);
     connect(ui->menuTools->actions().at(3), &QAction::triggered, this, &MainWindow::openResizeDialog);
+
+    // Dump RAWNAND only
+    ui->menuTools->actions().at(4)->setStatusTip(tr("Dump RAWNAND from FULL NAND"));
+    ui->menuTools->actions().at(4)->setDisabled(true);
+    connect(ui->menuTools->actions().at(4), &QAction::triggered, this, &MainWindow::dumpRAWNAND);
 
 }
 
@@ -1041,4 +1061,9 @@ void MainWindow::on_moreinfo_button_clicked()
 {
     if(nullptr != input && input->type != INVALID && input->type != UNKNOWN)
         Properties();
+}
+
+void MainWindow::on_rawdump_button_clicked()
+{
+    on_rawdump_button_clicked(NO_CRYPTO, false);
 }

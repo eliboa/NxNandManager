@@ -98,13 +98,17 @@ private slots:
     void dumpEncPartition();
 	void restorePartition();
 	void toggleAutoRCM();
-    void on_rawdump_button_clicked(int crypto_mode=NULL);
+    void on_rawdump_button_clicked(int crypto_mode, bool rawnand_dump);
     void on_rawdumpDec_button_clicked();
     void on_rawdumpEnc_button_clicked();
+    void on_rawdump_button();
+    void dumpRAWNAND();
 	void on_stop_button_clicked();
 	void on_fullrestore_button_clicked();
 	void on_partition_table_itemSelectionChanged();
     void on_moreinfo_button_clicked();    
+
+    void on_rawdump_button_clicked();
 
 public slots:
     void endWorkThread();

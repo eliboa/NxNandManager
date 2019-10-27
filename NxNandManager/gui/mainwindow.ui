@@ -63,7 +63,7 @@
      <rect>
       <x>10</x>
       <y>445</y>
-      <width>331</width>
+      <width>335</width>
       <height>21</height>
      </rect>
     </property>
@@ -578,7 +578,7 @@
      <rect>
       <x>10</x>
       <y>420</y>
-      <width>171</width>
+      <width>180</width>
       <height>22</height>
      </rect>
     </property>
@@ -610,9 +610,9 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>200</x>
+      <x>190</x>
       <y>420</y>
-      <width>171</width>
+      <width>180</width>
       <height>22</height>
      </rect>
     </property>
@@ -1465,6 +1465,7 @@
     <addaction name="actionIncognito"/>
     <addaction name="actionToogle_autoRCM_BOOT0"/>
     <addaction name="actionResize_NAND"/>
+    <addaction name="actionDump_RAWNAND_only_FULL_NAND"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -1523,6 +1524,11 @@
   <action name="actionResize_NAND">
    <property name="text">
     <string>Resize NAND (RAWNAND, FULL NAND)</string>
+   </property>
+  </action>
+  <action name="actionDump_RAWNAND_only_FULL_NAND">
+   <property name="text">
+    <string>Dump RAWNAND only (FULL NAND)</string>
    </property>
   </action>
  </widget>

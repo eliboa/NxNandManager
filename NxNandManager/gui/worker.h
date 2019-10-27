@@ -37,7 +37,7 @@ class Worker : public QThread {
 public:
     explicit Worker(QDialog *pParent);
 	explicit Worker(QMainWindow *pParent, QString filename);
-    explicit Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, int crypto_mode);
+    explicit Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, bool dump_rawnand, int crypto_mode);
     explicit Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, int new_size, bool format);
     explicit Worker(QMainWindow *pParent, NxStorage* pNxInput, NxStorage* pNxOutput, int crypto_mode);
     explicit Worker(QMainWindow *pParent, NxPartition* pNxInPart, QString filename, int crypto_mode);
@@ -82,6 +82,7 @@ private:
 	HANDLE hDisk, hDiskOut;
     bool m_format;
     int m_new_size;
+    bool m_dump_rawnand;
 
 public:
     timepoint_t begin_time;

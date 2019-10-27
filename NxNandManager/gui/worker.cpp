@@ -30,13 +30,14 @@ Worker::Worker(QMainWindow *pParent, QString filename)
 	connect(this, SIGNAL(finished(NxStorage*)), parent, SLOT(inputSet(NxStorage*)));
 }
 
-Worker::Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, int crypto_mode)
+Worker::Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, bool dump_rawnand, int crypto_mode)
 {
     work = DUMP;
     parent = pParent;
     nxInput = pNxInput;
     file = filename;
     m_crypto_mode = crypto_mode;
+    m_dump_rawnand = dump_rawnand;
     connect_slots();
 }
 
@@ -198,11 +199,11 @@ void Worker::dumpPartition(NxPartition* partition, QString file)
 void Worker::dumpStorage(NxStorage* storage, QString file)
 {
     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
-    u64 bytesCount = 0, bytesToRead = storage->size();
+    u64 bytesCount = 0, bytesToRead = m_dump_rawnand ? storage->size() - 0x800000 : storage->size();
     int rc = 0;
 
     emit sendProgress(DUMP, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
-    while (!(rc = storage->dumpToFile(file.toUtf8().constData(), m_crypto_mode, &bytesCount)))
+    while (!(rc = storage->dumpToFile(file.toUtf8().constData(), m_crypto_mode, &bytesCount, m_dump_rawnand)))
     {
         if (bCanceled)
         {

@@ -628,26 +628,6 @@ void NxStorage::setStorageInfo(int partition)
             }        
         }
     }
-    /*
-    if (partition == USER || !partition)
-    {
-        NxPartition *user = getNxPartition(USER);
-        if (nullptr != user && !user->badCrypto() && (!user->isEncryptedPartition() || nullptr != user->crypto()))
-        {
-            dbg_printf("USER - free space/total space : %s/%s\n", GetReadableSize(user->fat32_getFreeSpace()).c_str(), GetReadableSize(user->size()).c_str());
-
-            std::vector<fat32::dir_entry> dir_entries;
-            if (user->fat32_dir(&dir_entries, "/"))
-            {
-                for (fat32::dir_entry file : dir_entries)
-                {
-                    dbg_printf("-%s\n", file.filename.c_str());
-                }
-            }
-
-        }
-    }
-    */
 }
 
 int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount, bool rawnand_only)
@@ -791,14 +771,6 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
         // Adjust new_size if too small
         if (new_total_size < user_min_size)
             new_total_size = user_min_size;
-
-        // Align new size (64 Mb)
-        /*
-        if (new_total_size / 0x20000 < 1)
-            new_total_size = 0x20000;
-        else if (new_total_size % 0x20000)
-            new_total_size = (new_total_size / 0x20000) * 0x20000 + 0x20000;
-        */
 
         m_user_new_size = new_total_size - 32; // Subtract reserved sectores for full size
         m_user_new_size = m_user_new_size - (m_user_new_size / 0x1001); // Substract FAT size
