@@ -704,7 +704,7 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
         this->nxHandle->initHandle(NO_CRYPTO);
         
         // Restoring to RAWMMC, allow restore from larger input
-        if (type == RAWMMC && m_freeSpace)
+        if (type == RAWMMC && m_freeSpace && input->size() > size())
             this->nxHandle->setOffMax(m_freeSpace);
 
         m_buff_size = input->nxHandle->getDefaultBuffSize();
