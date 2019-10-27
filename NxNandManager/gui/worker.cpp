@@ -300,8 +300,7 @@ void Worker::restoreStorage(NxStorage* storage, NxStorage* in_storage)
 
     if (rc != NO_MORE_BYTES_TO_COPY)
         emit error(rc);
-
-    emit sendProgress(RESTORE, QString(storage->getNxTypeAsStr()), &bytesToRead, &bytesToRead);
+    else emit sendProgress(RESTORE, QString(storage->getNxTypeAsStr()), &bytesToRead, &bytesToRead);
     SetThreadExecutionState(ES_CONTINUOUS);
     sleep(1);
     emit finished();

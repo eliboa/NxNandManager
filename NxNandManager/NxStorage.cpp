@@ -690,7 +690,7 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
         if (crypto_mode == DECRYPT || crypto_mode == ENCRYPT)
             return ERR_CRYPTO_RAW_COPY;
 
-        if ((input->size() > size() && !m_freeSpace) || (m_freeSpace && input->size() > m_freeSpace)) // Alow restore overflow if freeSpace is available
+        if ((input->size() > size() && !m_freeSpace) || (input->size() > size() && input->size() > m_freeSpace)) // Alow restore overflow if freeSpace is available
             return ERR_IO_MISMATCH;
 
         if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && input->isEncrypted() && !isEncrypted())
