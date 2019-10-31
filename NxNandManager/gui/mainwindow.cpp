@@ -959,7 +959,7 @@ void MainWindow::on_fullrestore_button_clicked()
 	QString fileName = QFileDialog::getOpenFileName(this);
 	if (!fileName.isEmpty())
 	{
-		//New output storage
+        //New input storage
 		selected_io = new NxStorage(fileName.toUtf8().constData());
 
         if(!selected_io->isNxStorage())
@@ -1014,7 +1014,7 @@ void MainWindow::on_fullrestore_button_clicked()
         else
         {
             // Open new thread to restore data
-            workThread = new Worker(this, input, selected_io, NO_CRYPTO);
+            workThread = new Worker(this, selected_io, input, NO_CRYPTO);
         }
 		startWorkThread();
 	}

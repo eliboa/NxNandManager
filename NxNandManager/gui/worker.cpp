@@ -179,7 +179,7 @@ void Worker::dumpPartition(NxPartition* partition, QString file)
         }
 
         if (bytesCount != bytesToRead)
-            emit error(rc);
+            emit error(ERR_MD5_COMPARE);
 
         else
         {
@@ -238,7 +238,7 @@ void Worker::dumpStorage(NxStorage* storage, QString file)
         }
 
         if (bytesCount != bytesToRead)
-            emit error(rc);
+            emit error(ERR_MD5_COMPARE);
 
         else
         {
