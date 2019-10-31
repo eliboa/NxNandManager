@@ -18,8 +18,6 @@
 
 NxHandle::NxHandle(NxStorage *p)
 {
-    //dbg_printf("NxHandle::NxHandle() begins\n");
-
     if (nullptr == p)
         return;
 
@@ -83,7 +81,6 @@ NxHandle::NxHandle(NxStorage *p)
 
 NxHandle::~NxHandle()
 {
-    //printf("NxHandle::~NxHandle() DESTRUCTOR\n");
     clearHandle();
     NxSplitFile *current = m_lastSplitFile, *next;
     while (nullptr != current)
@@ -251,20 +248,25 @@ bool NxHandle::createFile(wchar_t *path, int io_mode)
     if (io_mode != GENERIC_READ && io_mode != GENERIC_WRITE)
         return false;
 
-    m_h = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
-    /*
     if (io_mode == GENERIC_READ)
-        m_h = CreateFileW(parent->m_path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);    
+        m_h = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
     else
-        m_h = CreateFileW(parent->m_path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-    */
+        m_h = CreateFileW(parent->m_path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+    
     if (m_h == INVALID_HANDLE_VALUE)
     {
-        //dbg_printf("NxHandle::createFile() ERROR\n");
+        dbg_wprintf(L"NxHandle::createFile() for %s ERROR %s\n", path, GetLastErrorAsString().c_str());
         CloseHandle(m_h);
         return false;
     }
 
+    
+    if (!lockVolume())
+        dbg_printf("failed to lock volume\n");
+    
+    if (!dismountVolume())
+        dbg_printf("failed to dismount volume\n");
+    
     return true;
 }
 
@@ -300,7 +302,10 @@ bool NxHandle::setPointer(u64 offset)
     {
         li_DistanceToMove.QuadPart = m_off_start + offset;
         if (SetFilePointerEx(m_h, li_DistanceToMove, &lp_CurrentPointer, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+        {
+            dbg_printf("INVALID POINTER\n");
             return false;
+        }
     }
 
     //dbg_printf("NxHandle::setPointer(%s) real offset = %s\n", n2hexstr(offset, 12).c_str(), n2hexstr(m_off_start + offset, 12).c_str());
@@ -340,21 +345,21 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
     // eof
     if (lp_CurrentPointer.QuadPart > m_off_end) {        
         
-        /*dbg_printf("NxHandle::read reach eof (cur = %s, m_off_end = %s)\n",
+        dbg_printf("NxHandle::read reach eof (cur = %s, m_off_end = %s)\n",
             n2hexstr(lp_CurrentPointer.QuadPart, 10).c_str(),
-            n2hexstr(m_off_end, 10).c_str());*/
+            n2hexstr(m_off_end, 10).c_str());
         
         return false;
     }
 
     if (!ReadFile(m_h, buffer, length, &bytesRead, NULL)) {
-        //dbg_printf("NxHandle::read ReadFile error\n");
+        dbg_printf("NxHandle::read ReadFile error\n");
         return false;
     }
 
     if (bytesRead == 0)
     {
-        //dbg_printf("NxHandle::read 0 BYTE read\n");
+        dbg_printf("NxHandle::read 0 BYTE read\n");
         return false;
     }
 
@@ -380,8 +385,8 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
         if (lp_CurrentPointer.QuadPart > m_off_end)
         {
             u32 bytes = lp_CurrentPointer.QuadPart - m_off_end - 1;
-            /*printf("Resize buffer original %I32d b, new %I32d b (cur_off = %s, m_off_end = %s)\n", bytesRead, bytes, 
-                n2hexstr(lp_CurrentPointer.QuadPart, 10).c_str(), n2hexstr(m_off_end, 10).c_str());*/
+            printf("Resize buffer original %I32d b, new %I32d b (cur_off = %s, m_off_end = %s)\n", bytesRead, bytes, 
+                n2hexstr(lp_CurrentPointer.QuadPart, 10).c_str(), n2hexstr(m_off_end, 10).c_str());
             *br = bytesRead - bytes;
         }
         else *br = bytesRead;
@@ -444,12 +449,15 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     /*
     dbg_printf("NxHandle::write(buffer, bytesRead=%I64d, length=%s) at offset %s - crypto_mode = %d\n",
         nullptr != bw ? *bw : 0, n2hexstr(length, 6).c_str(), n2hexstr(lp_CurrentPointer.QuadPart, 10).c_str(), m_crypto);
+    
+    dbg_printf("NxHandle::write - buffer is \n%s\n", hexStr((unsigned char*)buffer, length).c_str());
     */
     // Resize buffer if eof
     if (lp_CurrentPointer.QuadPart + length > m_off_end)
     {
         u32 bytes = lp_CurrentPointer.QuadPart + length - m_off_end - 1;
         length -= bytes;
+        dbg_printf("NxHandle::write - buffer resized to %I32d bytes\n", length);
     }
 
     // Encrypt buffer
@@ -461,7 +469,8 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
 
     if (!WriteFile(m_h, buffer, length, &bytesWrite, NULL))
     {
-        dbg_printf("NxHandle::write - FAILED WriteFile %s", GetLastErrorAsString().c_str());
+        DWORD errorMessageID = ::GetLastError();
+        dbg_printf("NxHandle::write - FAILED WriteFile - %I32d : %s", errorMessageID, GetLastErrorAsString().c_str());
         return false;
     }
     if (bytesWrite == 0) {
@@ -500,7 +509,6 @@ bool NxHandle::hash(u64* bytesCount)
         success = true;
 
     *bytesCount += bytesRead;
-    //printf("NxHandle::hash bytes counts %I64d, returns %s\n", *bytesCount, success ? "true" : "false");
     return success;
 }
 
@@ -523,7 +531,7 @@ NxSplitFile* NxHandle::getSplitFile(u64 offset)
 
 void NxHandle::clearHandle()
 {
-    dbg_printf("NxHandle::clearHandle()\n");
+    //dbg_printf("NxHandle::clearHandle()\n");
     DWORD lpdwFlags[100];
     if (GetHandleInformation(m_h, lpdwFlags))
     {
@@ -541,3 +549,169 @@ int NxHandle::getDefaultBuffSize()
     //printf("getDefaultBuffSize crypto_mode = %d, returns %s\n", m_crypto, n2hexstr(size, 10).c_str());
     return size;
 }
+
+void NxHandle::closeHandle()
+{
+    CloseHandle(m_h);
+}
+
+bool NxHandle::dismountVolume()
+{
+    DWORD dwBytesReturned;
+
+    return DeviceIoControl(m_h,
+        FSCTL_DISMOUNT_VOLUME,
+        NULL, 0,
+        NULL, 0,
+        &dwBytesReturned,
+        NULL);
+}
+
+#define LOCK_TIMEOUT 10000 // 10 Seconds
+#define LOCK_RETRIES 20
+
+bool NxHandle::lockVolume()
+{
+   
+    DWORD dwBytesReturned;
+    DWORD dwSleepAmount;
+    int nTryCount;
+
+    dwSleepAmount = LOCK_TIMEOUT / LOCK_RETRIES;
+
+    // Do this in a loop until a timeout period has expired
+    for (nTryCount = 0; nTryCount < LOCK_RETRIES; nTryCount++) 
+    {
+        dbg_printf("try %d to lock volume\n", nTryCount);
+        if (DeviceIoControl(m_h,
+            FSCTL_LOCK_VOLUME,
+            NULL, 0,
+            NULL, 0,
+            &dwBytesReturned,
+            NULL))
+            return TRUE;
+
+        Sleep(dwSleepAmount);
+    }
+    return FALSE;
+}
+
+bool NxHandle::lockFile()
+{
+    LARGE_INTEGER off, size;
+    off.QuadPart = m_off_start;
+    size.QuadPart = m_off_max - m_off_start;
+    OVERLAPPED sOverlapped;
+    sOverlapped.Offset = off.LowPart;
+    sOverlapped.OffsetHigh = off.HighPart;
+
+    //dbg_printf("lockFile() ");
+
+    if (LockFileEx(
+        m_h,
+        LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
+        0,
+        size.LowPart,
+        size.HighPart,
+        &sOverlapped
+    )) return true; 
+     
+    dbg_printf("failed to LockFileEx %d : %s\n", GetLastError(), GetLastErrorAsString().c_str());
+    return false;
+}
+
+bool NxHandle::ejectVolume()
+{
+    DWORD dwBytesReturned;
+
+    return DeviceIoControl(m_h,
+        IOCTL_STORAGE_EJECT_MEDIA,
+        NULL, 0,
+        NULL, 0,
+        &dwBytesReturned,
+        NULL);
+}
+
+bool NxHandle::getVolumeName(WCHAR *pVolumeName, u32 start_sector)
+{
+    std::wstring drive(parent->m_path);
+    std::size_t pos = drive.find(L"PhysicalDrive");
+    if (pos == std::string::npos)
+        return false;
+
+    int driveNumber = stoi(drive.substr(pos + 13, 2));
+    dbg_printf("Drive number is %d\n", driveNumber);
+
+    HANDLE handle = INVALID_HANDLE_VALUE;
+    WCHAR  VolumeName[MAX_PATH] = L"";
+    size_t Index = 0;
+    BOOL   Success = FALSE;
+
+    // Get handle to first volume
+    handle = FindFirstVolumeW(VolumeName, ARRAYSIZE(VolumeName));
+
+    if (handle == INVALID_HANDLE_VALUE)
+        return false;
+
+    for (;;)
+    {
+        Index = wcslen(VolumeName) - 1;
+
+        if (VolumeName[0] != L'\\' || VolumeName[1] != L'\\' || VolumeName[2] != L'?'  || 
+            VolumeName[3] != L'\\' || VolumeName[Index] != L'\\')
+        {
+            dbg_printf("FindFirstVolumeW/FindNextVolumeW returned a bad path: %s\n", VolumeName);
+            break;
+        }
+
+        VolumeName[Index] = L'\0'; //remove trailing backslash
+        //dbg_wprintf(L"Volume name: %s\n", VolumeName);
+
+        HANDLE hHandle = CreateFile(VolumeName
+            , GENERIC_READ | GENERIC_WRITE
+            , FILE_SHARE_WRITE | FILE_SHARE_READ
+            , NULL
+            , OPEN_EXISTING
+            , FILE_ATTRIBUTE_NORMAL
+            , NULL);
+
+        DWORD dwBytesReturned = 0;
+        VOLUME_DISK_EXTENTS volumeDiskExtents;
+
+        BOOL bResult = DeviceIoControl(
+            hHandle,
+            IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS,
+            NULL,
+            0,
+            &volumeDiskExtents,
+            sizeof(volumeDiskExtents),
+            &dwBytesReturned,
+            NULL);
+        CloseHandle(hHandle);
+
+        if (!bResult)
+            break;
+
+        for (DWORD n = 0; n < volumeDiskExtents.NumberOfDiskExtents; ++n)
+        {
+            PDISK_EXTENT pDiskExtent = &volumeDiskExtents.Extents[n];
+            //dbg_printf("Disk number: %d\n", pDiskExtent->DiskNumber);
+            //dbg_printf("DBR start sector: %I64d\n", pDiskExtent->StartingOffset.QuadPart / 512);
+
+            // If volume found 
+            if (pDiskExtent->DiskNumber == driveNumber && pDiskExtent->StartingOffset.QuadPart / 512 == (u64)start_sector)
+            {
+                wcscpy(pVolumeName, VolumeName);
+                return true;
+            }
+        }
+
+        // Get handle to next volume
+        if (!FindNextVolumeW(handle, VolumeName, ARRAYSIZE(VolumeName)))
+            break;
+    }
+
+    FindVolumeClose(handle);
+    return false;
+}
+
