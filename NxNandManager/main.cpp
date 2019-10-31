@@ -59,7 +59,7 @@ void printStorageInfo(NxStorage *storage)
     else 
         printf("File/Disk      : %s", storage->isDrive() ? "Disk" : "File");
     if (storage->type == RAWMMC)
-        printf(" (0x%s - 0x%s)\n", n2hexstr(u64(storage->mmc_b0_lba_start * NX_BLOCKSIZE), 10).c_str(), n2hexstr(u64(storage->mmc_b0_lba_start * NX_BLOCKSIZE) + storage->size() - 1, 10).c_str());
+        printf(" (0x%s - 0x%s)\n", n2hexstr((u64)storage->mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str(), n2hexstr((u64)storage->mmc_b0_lba_start * NX_BLOCKSIZE + storage->size() - 1, 10).c_str());
     else printf("\n");
     if(storage->type != INVALID) 
     {
@@ -364,6 +364,17 @@ int main(int argc, char *argv[])
     // Set keys for input
     if (nullptr != keyset && is_in(nx_input.setKeys(keyset), { ERR_KEYSET_NOT_EXISTS, ERR_KEYSET_EMPTY }))
         throwException("Failed to get keys from %s", (void*)keyset);
+
+    wchar_t input_path[MAX_PATH];
+    int nSize = MultiByteToWideChar(CP_UTF8, 0, input, -1, NULL, 0);
+    MultiByteToWideChar(CP_UTF8, 0, input, -1, input_path, nSize > MAX_PATH ? MAX_PATH : nSize);
+
+    if (wcscmp(nx_input.m_path, input_path))
+    {
+        char c_path[MAX_PATH] = { 0 };
+        std::wcstombs(c_path, nx_input.m_path, wcslen(nx_input.m_path));
+        wprintf(L"-i automatically replaced by %s\n", c_path);
+    }
 
 
     // Input specific actions

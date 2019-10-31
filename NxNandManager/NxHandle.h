@@ -114,6 +114,7 @@ class NxHandle {
         void initHandle(int crypto_mode = NO_CRYPTO, NxPartition *partition = nullptr);
         bool detectSplittedStorage();        
         void clearHandle();
+        void closeHandle();
         bool read(void *buffer, DWORD* bytesRead, DWORD length = 0);
         bool read(u64 offset, void *buffer, DWORD* bytesRead, DWORD length = 0);
         bool read(u32 lba, void *buffer, DWORD* bytesRead, DWORD length = 0);
@@ -122,6 +123,11 @@ class NxHandle {
         bool createFile(wchar_t *path, int io_mode = GENERIC_READ);
         bool hash(u64* bytesCount);
         bool setPointer(u64 offset);
+        bool dismountVolume();
+        bool lockVolume();
+        bool lockFile();
+        bool ejectVolume();
+        bool getVolumeName(WCHAR *pVolumeName, u32 start_sector);
 };
 
 #endif

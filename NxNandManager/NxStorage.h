@@ -44,6 +44,7 @@ static MagicOffsets mgkOffArr[] =
     { 0x200, "4546492050415254", 8, RAWNAND, 0 }, // RAWNAND ("EFI PART" at offset 0x200)    
     //{ 0x200, "54584E414E44", 6, TXNAND, 0}, // TX hidden paritition ("TXNAND" at offset 0x200)    
     { 0x800200, "4546492050415254", 8, RAWMMC, 0}, // RAWMMC ("EFI PART" at offset 0x80000, i.e after 2 x 0x40000 for each BOOT)    
+    { 0x1800200, "4546492050415254", 8, EMMC_PART, 0}, // RAWMMC 
     { 0x0530, "010021000E00000009000000", 12, BOOT0, 0}, // BOOT0 (boot_data_version + block_size_log2 + page_size_log2 at offset 0x530)
     // BOOT1 => Look for PK11 magic
     { 0x13B4, "504B3131", 4, BOOT1, 1},

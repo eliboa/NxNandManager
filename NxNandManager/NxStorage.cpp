@@ -53,7 +53,7 @@ NxStorage::NxStorage(const char *p_path)
     {
         if (mgk.offset > m_size)
             continue;
-
+        dbg_printf("NxStorage::NxStorage() - Looking for magic %s at offset %s\n", mgk.magic, n2hexstr(mgk.offset, 10).c_str());
         int remain = mgk.offset % NX_BLOCKSIZE; // Block align
         if (nxHandle->read(mgk.offset - remain, buff, &bytesRead, NX_BLOCKSIZE) && hexStr(&buff[remain], mgk.size) == mgk.magic)
         {            
@@ -111,7 +111,6 @@ NxStorage::NxStorage(const char *p_path)
         }
     }
     
-
     // Look for emuMMC partition
     if (type == UNKNOWN)
     {        
@@ -134,25 +133,31 @@ NxStorage::NxStorage(const char *p_path)
                 if (!sector_start)
                     continue;
 
-                if (nxHandle->read(sector_start + 0xC001, efi_part, &bytesRead, NX_BLOCKSIZE)
-                    && !memcmp(efi_part, "EFI PART", 8)) //GPT header
+                // Get volume name for partition
+                wchar_t volumeName[MAX_PATH];
+                if (nxHandle->getVolumeName(volumeName, sector_start))
                 {
-                    type = RAWMMC;
-                    mmc_b0_lba_start = sector_start + 0x8000;
-                    m_size = (u64)(sector_count - 0x8000) * NX_BLOCKSIZE;
-                    m_freeSpace = m_size;
-                    dbg_printf("NxStorage::NxStorage() - emuMMC found at offset %s\n", n2hexstr(mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str());
-                    break;
-                }
-                else if (nxHandle->read((u32)sector_start + 0x4001, efi_part, &bytesRead, NX_BLOCKSIZE)
-                    && !memcmp(efi_part, "EFI PART", 8)) //GPT header
-                {
-                    type = RAWMMC;
-                    mmc_b0_lba_start = sector_start;                    
-                    m_size = (u64)sector_count * NX_BLOCKSIZE;
-                    m_freeSpace = m_size;
-                    dbg_printf("NxStorage::NxStorage() - emuMMC found at offset %s\n", n2hexstr(mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str());
-                    break;
+                    // Recreate new NxHandle for volume
+                    wcscpy(m_path, volumeName);
+                    delete nxHandle;
+                    nxHandle = new NxHandle(this);
+
+                    if (nxHandle->read((u32)0xC001, efi_part, &bytesRead, NX_BLOCKSIZE)
+                        && !memcmp(efi_part, "EFI PART", 8)) //GPT header
+                    {
+                        type = RAWMMC;
+                        mmc_b0_lba_start = 0x8000;
+                        m_size = (u64)(sector_count - 0x8000) * NX_BLOCKSIZE;
+                        break;
+                    }
+                    else if (nxHandle->read((u32)sector_start + 0x4001, efi_part, &bytesRead, NX_BLOCKSIZE)
+                        && !memcmp(efi_part, "EFI PART", 8)) //GPT header
+                    {
+                        type = RAWMMC;
+                        mmc_b0_lba_start = 0;
+                        m_size = (u64)sector_count * NX_BLOCKSIZE;
+                        break;
+                    }
                 }
             }
 
@@ -162,8 +167,7 @@ NxStorage::NxStorage(const char *p_path)
                 type = RAWMMC;
                 mmc_b0_lba_start = 2;
                 sector_start = *(u32 *)&mbr[0x08];
-                m_freeSpace = (u64)(sector_start - mmc_b0_lba_start) * NX_BLOCKSIZE;
-                dbg_printf("NxStorage::NxStorage() - foreign emuNAND found at offset %s\n", n2hexstr(mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str());
+                m_freeSpace = (u64)(sector_start - mmc_b0_lba_start) * NX_BLOCKSIZE;                
             }
             free(efi_part);
         }
@@ -171,8 +175,14 @@ NxStorage::NxStorage(const char *p_path)
     }
 
     // RAWNAND or FULL NAND : Add NxPartition for each GPP or BOOT partition
-    if(is_in(type, {RAWNAND, RAWMMC}))
+    if(is_in(type, {RAWNAND, RAWMMC, EMMC_PART }))
     {        
+        if (type == EMMC_PART)
+        {
+            mmc_b0_lba_start = 0x8000;
+            type = RAWMMC;
+        }
+
         nxHandle->initHandle();
         u32 gpt_sector = type == RAWMMC ? 0x4001 : 1;
         unsigned char buff[0x4200];
@@ -192,6 +202,7 @@ NxStorage::NxStorage(const char *p_path)
             }
             GptHeader *hdr = (GptHeader *)buff;
             
+            /*
             if(isdebug)
             {
                 dbg_printf("-- GPT header --\nstarts at lba %I64d (off 0x%s)\n", hdr->my_lba, n2hexstr((u64)hdr->my_lba * NX_BLOCKSIZE, 10).c_str());
@@ -215,6 +226,7 @@ NxStorage::NxStorage(const char *p_path)
                 dbg_printf("Table CRC32 new hash = %I32d\n", crc32Hash(table, hdr->num_part_ents * hdr->part_ent_size));
                 delete[] table;
             }
+            */
 
             // Iterate GPP 
             for (int i = 0; i < hdr->num_part_ents; i++)
@@ -235,6 +247,7 @@ NxStorage::NxStorage(const char *p_path)
                 u32 lba_start = 0;
                 if (type == RAWMMC)
                     lba_start += 0x4000;
+
                 // Add new Nxpartition
                 NxPartition *part = new NxPartition(this, part_name, lba_start + ent->lba_start, lba_start + ent->lba_end);
                 partitions_total_size += part->size();
@@ -252,17 +265,10 @@ NxStorage::NxStorage(const char *p_path)
                 // Look for backup GPT                
                 //u64 off = m_size - NX_BLOCKSIZE;
                 u64 off = (u64)hdr->alt_lba * NX_BLOCKSIZE;
-                if (type == RAWMMC) off += 0x4000 * NX_BLOCKSIZE;
-                /*
-                if (nxHandle->isDrive())
-                {                   
-                    off = (u64)last_sector * NX_BLOCKSIZE + 0x20400000;
-                    if (off > nxHandle->size()) {
-                        m_size = off + NX_BLOCKSIZE;
-                        nxHandle->setSize(off + NX_BLOCKSIZE);
-                    }
-                } 
-                */
+                dbg_printf("Offset from hdr->alt_lba is %s\n", n2hexstr(off, 12).c_str());
+                if (type == RAWMMC)
+                    off += 0x4000 * NX_BLOCKSIZE;
+               
                 nxHandle->initHandle();
 
                 memset(buff, 0, 8);
@@ -271,7 +277,9 @@ NxStorage::NxStorage(const char *p_path)
                     m_backupGPT = off;
                     m_size = off + NX_BLOCKSIZE;
                     dbg_printf("NxStorage::NxStorage() - backup GPT found at offset %s\n", n2hexstr(m_backupGPT, 10).c_str());
+                    if (type == EMMC_PART) type = RAWMMC;
                 }
+                dbg_printf("GPTbackup buff\n%s\n", hexStr(buff, 0x200).c_str());
             }
         }
 
@@ -1167,7 +1175,7 @@ bool NxStorage::setAutoRcm(bool enable)
             while (!randomXor); // Avoid the lottery.
             buff[0x10] ^= randomXor;
         }
-        else buff[0x10] = 0xF7;
+        else buff[0x10] = 0xF7;  
 
         if (nxHandle->write((u64)0x200, buff, &bytesRead, 0x200))
         {

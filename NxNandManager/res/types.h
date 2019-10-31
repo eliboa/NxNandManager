@@ -40,6 +40,7 @@
 #define SAFE      1016
 #define SYSTEM    1017
 #define USER      1018
+#define EMMC_PART 1019
 #define UNKNOWN   1004
 
 #define NO_CRYPTO 0
