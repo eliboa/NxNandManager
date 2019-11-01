@@ -375,7 +375,7 @@ int main(int argc, char *argv[])
     {
         char c_path[MAX_PATH] = { 0 };
         std::wcstombs(c_path, nx_input.m_path, wcslen(nx_input.m_path));
-        wprintf(L"-i automatically replaced by %s\n", c_path);
+        printf("-i automatically replaced by %s\n", c_path);
     }
 
 
