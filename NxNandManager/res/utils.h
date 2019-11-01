@@ -20,6 +20,9 @@ extern bool isdebug;
 #include <algorithm>
 #include <sstream>
 #include <tchar.h>
+#include <locale>
+#include <codecvt>
+
 
 typedef std::chrono::duration< double > double_prec_seconds;
 typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds > timepoint_t;
@@ -216,5 +219,4 @@ std::string trim(const std::string& s);
 bool is_file(const char* path);
 bool is_dir(const char* path);
 int parseKeySetFile(const char *keyset_file, KeySet *biskeys);
-
 #endif

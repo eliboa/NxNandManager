@@ -18,7 +18,7 @@
 #include "NxPartition.h"
 
 #include "res/utils.h"
-#include <clocale>
+
 
 BOOL BYPASS_MD5SUM = FALSE;
 bool isdebug = FALSE;
@@ -149,8 +149,10 @@ void printCopyProgress(int mode, const char *storage_name, timepoint_t begin_tim
 int main(int argc, char *argv[])
 {
     
-    std::setlocale(LC_ALL, "en_US.utf8");
-    printf("[ NxNandManager v3.0.0 by eliboa ]\n\n");
+    //std::setlocale(LC_ALL, "en_US.utf8");
+    std::setlocale(LC_ALL, "");
+    std::locale::global(std::locale(""));
+    printf("[ NxNandManager v3.0.1 by eliboa ]\n\n");
     const char *input = NULL, *output = NULL, *partitions = NULL, *keyset = NULL, *user_resize = NULL;
     BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE;
     int io_num = 1;

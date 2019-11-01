@@ -27,11 +27,11 @@ NxStorage::NxStorage(const char *p_path)
     m_size = 0;
 
     // Convert char buff (p_buff) to wchar array (m_path)
-    int nSize = MultiByteToWideChar(CP_UTF8, 0, p_path, -1, NULL, 0);
-    if (nSize > MAX_PATH) nSize = MAX_PATH;
-    if (nSize == 0)
-        return;
-    MultiByteToWideChar(CP_UTF8, 0, p_path, -1, m_path, nSize);
+    std::string s(p_path);
+
+    wchar_t w_p[MAX_PATH];
+    mbstowcs(m_path, p_path, MAX_PATH);
+    dbg_wprintf(L"NxStorage::NxStorage() m_path is %s\n", m_path);
 
     // Get handle to file/disk
     nxHandle = new NxHandle(this);
@@ -116,6 +116,7 @@ NxStorage::NxStorage(const char *p_path)
     {        
         nxHandle->initHandle();
         u8 *mbr = (u8 *)malloc(0x200);
+        WCHAR  volumeName[MAX_PATH] = L"";
 
         // If first sector is MBR
         if (nxHandle->read(mbr, &bytesRead, NX_BLOCKSIZE) && hexStr(&mbr[0x200 - 2], 2) == "55AA")
@@ -134,9 +135,10 @@ NxStorage::NxStorage(const char *p_path)
                     continue;
 
                 // Get volume name for partition
-                wchar_t volumeName[MAX_PATH];
                 if (nxHandle->getVolumeName(volumeName, sector_start))
                 {
+                    dbg_wprintf(L"getVolumeName() returns %s", volumeName);
+
                     // Recreate new NxHandle for volume
                     wcscpy(m_path, volumeName);
                     delete nxHandle;
@@ -279,7 +281,7 @@ NxStorage::NxStorage(const char *p_path)
                     dbg_printf("NxStorage::NxStorage() - backup GPT found at offset %s\n", n2hexstr(m_backupGPT, 10).c_str());
                     if (type == EMMC_PART) type = RAWMMC;
                 }
-                dbg_printf("GPTbackup buff\n%s\n", hexStr(buff, 0x200).c_str());
+                //dbg_printf("GPTbackup buff\n%s\n", hexStr(buff, 0x200).c_str());
             }
         }
 
@@ -680,7 +682,12 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount, bo
         return ERR_WHILE_COPY;
     }
 
-    p_ofstream->write((char *)&m_buffer[0], bytesRead);
+    if (!p_ofstream->write((char *)&m_buffer[0], bytesRead))
+    {
+        p_ofstream->close();
+        delete[] m_buffer;
+        return ERR_WHILE_COPY;
+    }
     *bytesCount += bytesRead;
     return SUCCESS;
 }

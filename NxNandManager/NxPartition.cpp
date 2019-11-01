@@ -85,8 +85,7 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
     //dbg_printf("NxPartition::setCrypto() for %s\n", partitionName().c_str());
     
     m_bad_crypto = false;
-    nxCrypto = new NxCrypto(crypto, tweak);
-   
+    nxCrypto = new NxCrypto(crypto, tweak);   
     nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
 
     // Validate first cluster
@@ -104,7 +103,6 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
     }
     
     //dbg_printf("NxPartition::setCrypto() ends %s %s\n", partitionName().c_str(), m_bad_crypto ? "BAD CRYPTO" : "GOOD CRYPTO");
-
     return m_bad_crypto ? false : true;
 }
 
@@ -166,19 +164,27 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, u64 *bytesCount)
         dbg_printf("NxPartition::dumpToFile(file=%s, crypto_mode=%d, bytes_count=0)\n", file, crypto_mode);
     }    
 
+    if (*bytesCount == size())
+    {
+        p_ofstream.close();
+        delete[] m_buffer;
+        return NO_MORE_BYTES_TO_COPY;
+    }
+
     DWORD bytesRead = 0;
     if (!nxHandle->read(m_buffer, &bytesRead, m_buff_size))
     {
         p_ofstream.close();
         delete[] m_buffer;
-
-        if (*bytesCount == size())
-            return NO_MORE_BYTES_TO_COPY;
-
         return ERR_WHILE_COPY;
     }
     
-    p_ofstream.write((char *)&m_buffer[0], bytesRead);
+    if (!p_ofstream.write((char *)&m_buffer[0], bytesRead))
+    {
+        p_ofstream.close();
+        delete[] m_buffer;
+        return ERR_WHILE_COPY;        
+    }
     *bytesCount += bytesRead;
 
     //dbg_printf("NxPartition::dumpToFile(%s, %d, %s)\n", file, crypto_mode, n2hexstr(*bytesCount, 8).c_str());
@@ -353,6 +359,7 @@ u64 NxPartition::fat32_getFreeSpace()
         }
     }
 
+    /*
     dbg_printf("fs.bytes_per_sector = %I32d\n", fs.bytes_per_sector);
     dbg_printf("fs.sectors_per_cluster = %I32d\n", fs.sectors_per_cluster);
     dbg_printf("fs.num_fats = %I32d\n", fs.num_fats);
@@ -367,9 +374,9 @@ u64 NxPartition::fat32_getFreeSpace()
     dbg_printf("clusters to address %I32d (%s)\n", u_size / 0x20, GetReadableSize((u64)u_size / 0x20 * 0x4000).c_str());
     dbg_printf("size of fat in clusters %I32d (%s)\n", u_size / 0x20 / 0x1000, GetReadableSize((u64)u_size / 0x20 / 0x1000 * 0x4000).c_str());
     dbg_printf("size of fat in sectors %I32d (%s)\n", u_size / 0x1000, GetReadableSize((u64)u_size / 0x1000 * 0x200).c_str());
-
+    */
     u32 free_cluster_count = cluster_count - first_empty_cluster;
-    dbg_printf("%s first_empty_cluster is %I32d / %I32d (%s available)\n", m_name, first_empty_cluster, cluster_count, GetReadableSize((u64)free_cluster_count * CLUSTER_SIZE).c_str());
+    //dbg_printf("%s first_empty_cluster is %I32d / %I32d (%s available)\n", m_name, first_empty_cluster, cluster_count, GetReadableSize((u64)free_cluster_count * CLUSTER_SIZE).c_str());
 
     return (u64)cluster_free_count * CLUSTER_SIZE;
 }

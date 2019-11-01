@@ -20,7 +20,9 @@
 #include <windows.h>
 #include <winioctl.h>
 #include <Wincrypt.h>
+#include <iostream>
 #include <string>
+
 #include <string.h> 
 #include "res/types.h"
 #include "NxPartition.h"

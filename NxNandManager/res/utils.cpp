@@ -16,7 +16,6 @@ LPWSTR convertCharArrayToLPWSTR(const char* charArray)
 	return wString;
 }
 
-
 u64 GetFilePointerEx (HANDLE hFile) {
 	LARGE_INTEGER liOfs={0};
 	LARGE_INTEGER liNew={0};
@@ -516,3 +515,4 @@ DWORD crc32Hash(const void *data, DWORD size)
   for(register DWORD i = 0; i < size; i++)cc = (cc >> 8) ^ crc32table[(((LPBYTE)data)[i] ^ cc) & 0xFF];
   return ~cc;
 }
+
