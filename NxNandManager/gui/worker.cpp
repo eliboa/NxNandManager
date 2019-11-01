@@ -98,7 +98,7 @@ void Worker::run()
 {    
 	if (work == NEW_STORAGE)
 	{        
-        storage = new NxStorage(file.toUtf8().constData());
+        storage = new NxStorage(file.toLocal8Bit().constData());
         QFile kfile("keys.dat");
         if (kfile.exists())
             storage->setKeys("keys.dat");
@@ -137,10 +137,9 @@ void Worker::dumpPartition(NxPartition* partition, QString file)
     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
     u64 bytesCount = 0, bytesToRead = partition->size();
     begin_time = std::chrono::system_clock::now();
-    int rc = 0;
-
+    int rc = 0;    
     emit sendProgress(DUMP, QString(partition->partitionName().c_str()), &bytesCount, &bytesToRead);
-    while (!(rc = partition->dumpToFile(file.toUtf8().constData(), m_crypto_mode, &bytesCount)))
+    while (!(rc = partition->dumpToFile(file.toLocal8Bit().constData(), m_crypto_mode, &bytesCount)))
     {
         if (bCanceled)
         {
@@ -161,7 +160,7 @@ void Worker::dumpPartition(NxPartition* partition, QString file)
         HCRYPTHASH in_hash = partition->nxHandle->md5Hash();
         std::string in_sum = BuildChecksum(in_hash);
         bytesCount = 0;
-        NxStorage out_storage = NxStorage(file.toUtf8().constData());
+        NxStorage out_storage = NxStorage(file.toLocal8Bit().constData());
         begin_time = std::chrono::system_clock::now();
 
         // Send progress with bytesCount=0 to init progress
@@ -203,7 +202,7 @@ void Worker::dumpStorage(NxStorage* storage, QString file)
     int rc = 0;
 
     emit sendProgress(DUMP, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
-    while (!(rc = storage->dumpToFile(file.toUtf8().constData(), m_crypto_mode, &bytesCount, m_dump_rawnand)))
+    while (!(rc = storage->dumpToFile(file.toLocal8Bit().constData(), m_crypto_mode, &bytesCount, m_dump_rawnand)))
     {
         if (bCanceled)
         {
@@ -222,7 +221,7 @@ void Worker::dumpStorage(NxStorage* storage, QString file)
         HCRYPTHASH in_hash = storage->nxHandle->md5Hash();
         std::string in_sum = BuildChecksum(in_hash);
         bytesCount = 0;
-        NxStorage out_storage = NxStorage(file.toUtf8().constData());
+        NxStorage out_storage = NxStorage(file.toLocal8Bit().constData());
         begin_time = std::chrono::system_clock::now();
         // Send progress with bytesCount=0 to init progress
         emit sendProgress(MD5_HASH, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
@@ -316,7 +315,7 @@ void Worker::resizeUser(NxStorage* storage, QString file)
     int rc = 0;
 
     emit sendProgress(RESIZE, QString(nxInput->getNxTypeAsStr()), &bytesCount, &bytesToRead);
-    while (!(rc = storage->resizeUser(file.toUtf8().constData(), user_new_size, &bytesCount, &bytesToRead, m_format)))
+    while (!(rc = storage->resizeUser(file.toLocal8Bit().constData(), user_new_size, &bytesCount, &bytesToRead, m_format)))
     {
         if (bCanceled)
         {

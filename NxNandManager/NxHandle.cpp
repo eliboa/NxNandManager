@@ -251,7 +251,7 @@ bool NxHandle::createFile(wchar_t *path, int io_mode)
     if (io_mode == GENERIC_READ)
         m_h = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
     else
-        m_h = CreateFileW(parent->m_path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+        m_h = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
     
     if (m_h == INVALID_HANDLE_VALUE)
     {
@@ -260,13 +260,12 @@ bool NxHandle::createFile(wchar_t *path, int io_mode)
         return false;
     }
 
-    
-    if (!lockVolume())
+    if (b_isDrive && !lockVolume())
         dbg_printf("failed to lock volume\n");
     
-    if (!dismountVolume())
+    if (b_isDrive && !dismountVolume())
         dbg_printf("failed to dismount volume\n");
-    
+
     return true;
 }
 
@@ -635,7 +634,8 @@ bool NxHandle::ejectVolume()
 bool NxHandle::getVolumeName(WCHAR *pVolumeName, u32 start_sector)
 {
     std::wstring drive(parent->m_path);
-    std::size_t pos = drive.find(L"PhysicalDrive");
+    std::transform(drive.begin(), drive.end(), drive.begin(), ::toupper);
+    std::size_t pos = drive.find(L"PHYSICALDRIVE");
     if (pos == std::string::npos)
         return false;
 
@@ -701,7 +701,9 @@ bool NxHandle::getVolumeName(WCHAR *pVolumeName, u32 start_sector)
             // If volume found 
             if (pDiskExtent->DiskNumber == driveNumber && pDiskExtent->StartingOffset.QuadPart / 512 == (u64)start_sector)
             {
-                wcscpy(pVolumeName, VolumeName);
+                //wcscpy(pVolumeName, VolumeName);
+                memcpy(pVolumeName, VolumeName, MAX_PATH);
+                FindVolumeClose(handle);
                 return true;
             }
         }

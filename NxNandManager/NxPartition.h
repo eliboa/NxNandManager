@@ -26,8 +26,6 @@
 #include "NxCrypto.h"
 #include "NxStorage.h"
 
-using namespace std;
-
 typedef struct NxPart NxPart;
 struct NxPart {
     s8 name[37];

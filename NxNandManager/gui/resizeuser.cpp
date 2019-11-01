@@ -94,8 +94,8 @@ void ResizeUser::on_selectFileButton_clicked()
 
 void ResizeUser::on_buttonBox_accepted()
 {
-    if(is_file(ui->output->text().toUtf8().constData()))
-        remove(ui->output->text().toUtf8().constData());
+    if(is_file(ui->output->text().toLocal8Bit().constData()))
+        remove(ui->output->text().toLocal8Bit().constData());
 
     emit finished(ui->output->text(), ui->new_size->value(), ui->checkBox->isChecked());
 }

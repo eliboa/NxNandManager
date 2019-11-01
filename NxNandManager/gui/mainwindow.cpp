@@ -228,8 +228,8 @@ void MainWindow::on_rawdump_button_clicked(int crypto_mode, bool rawnand_dump)
     QString fileName = fd.getSaveFileName(this, "Save as", "default_dir\\" + save_filename + ext);
 	if (!fileName.isEmpty())
 	{
-        if(is_file(fileName.toUtf8().constData()))
-            remove(fileName.toUtf8().constData());
+        if(is_file(fileName.toLocal8Bit().constData()))
+            remove(fileName.toLocal8Bit().constData());
 
         QDir CurrentDir;
         MySettings.setValue("default_dir", CurrentDir.absoluteFilePath(fileName));
@@ -275,7 +275,7 @@ void MainWindow::dumpPartition(int crypto_mode)
 	{
 		// Get partition name
 		QString cur_partition(ui->partition_table->item(indexes.at(i).row(), 0)->text());
-        NxPartition *curPartition = input->getNxPartition(cur_partition.toUtf8().constData());
+        NxPartition *curPartition = input->getNxPartition(cur_partition.toLocal8Bit().constData());
         QString ext("");
         if(nullptr != curPartition)
         {
@@ -292,8 +292,8 @@ void MainWindow::dumpPartition(int crypto_mode)
         QString fileName = fd.getSaveFileName(this, "Save as", "default_dir\\" + cur_partition + ext); // Default filename is partition name
 		if (!fileName.isEmpty())
 		{
-            if(is_file(fileName.toUtf8().constData()))
-                remove(fileName.toUtf8().constData());
+            if(is_file(fileName.toLocal8Bit().constData()))
+                remove(fileName.toLocal8Bit().constData());
 
             QDir CurrentDir;
             MySettings.setValue("default_dir", CurrentDir.absoluteFilePath(fileName));
@@ -332,12 +332,12 @@ void MainWindow::restorePartition()
 	{
         // Get partition
 		QString cur_partition(ui->partition_table->item(indexes.at(i).row(), 0)->text());
-        NxPartition *curPartition = input->getNxPartition(cur_partition.toUtf8().constData());
+        NxPartition *curPartition = input->getNxPartition(cur_partition.toLocal8Bit().constData());
 
 		QString fileName = QFileDialog::getOpenFileName(this);
 		if (!fileName.isEmpty())
 		{
-            selected_io = new NxStorage(fileName.toUtf8().constData());
+            selected_io = new NxStorage(fileName.toLocal8Bit().constData());
             if(!selected_io->isNxStorage())
             {
                 error(ERR_INPUT_HANDLE, "Not a valid Nx Storage");
@@ -449,11 +449,21 @@ void MainWindow::inputSet(NxStorage *storage)
 
     if(input->isDrive() && input->type == RAWMMC)
     {
+        if(path.length() > 20)
+        {
+            path.resize(20);
+            path.append("...");
+        }
         path.append(" [");
         path.append(n2hexstr(input->mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str());
         path.append(" -> ");
         path.append(n2hexstr(u64(input->mmc_b0_lba_start * NX_BLOCKSIZE) + storage->size() - 1, 10).c_str());
         path.append("]");
+    }
+    else if(path.length() > 50)
+    {
+        path.resize(50);
+        path.append("...");
     }
 
     ui->filedisk_value->setText(path);
@@ -591,7 +601,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     QList<QTableWidgetItem *> list = ui->partition_table->selectedItems();
     for(auto &item : list)
     {
-        NxPartition *selected_part = input->getNxPartition(item->text().toUtf8().constData());
+        NxPartition *selected_part = input->getNxPartition(item->text().toLocal8Bit().constData());
         if(nullptr == selected_part)
             return;
 
@@ -960,7 +970,7 @@ void MainWindow::on_fullrestore_button_clicked()
 	if (!fileName.isEmpty())
 	{
         //New input storage
-		selected_io = new NxStorage(fileName.toUtf8().constData());
+        selected_io = new NxStorage(fileName.toLocal8Bit().constData());
 
         if(!selected_io->isNxStorage())
         {
