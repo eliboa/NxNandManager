@@ -149,6 +149,7 @@ NxStorage::NxStorage(const char *p_path)
                     {
                         type = RAWMMC;
                         mmc_b0_lba_start = 0x8000;
+                        m_freeSpace = m_size;
                         m_size = (u64)(sector_count - 0x8000) * NX_BLOCKSIZE;
                         break;
                     }
@@ -157,7 +158,30 @@ NxStorage::NxStorage(const char *p_path)
                     {
                         type = RAWMMC;
                         mmc_b0_lba_start = 0;
+                        m_freeSpace = m_size;
                         m_size = (u64)sector_count * NX_BLOCKSIZE;
+                        break;
+                    }
+                }
+                // No volume found for partition, stay on physical drive
+                else
+                {
+                    if (nxHandle->read(sector_start + 0xC001, efi_part, &bytesRead, NX_BLOCKSIZE)
+                        && !memcmp(efi_part, "EFI PART", 8)) //GPT header
+                    {
+                        type = RAWMMC;
+                        mmc_b0_lba_start = sector_start + 0x8000;
+                        m_size = (u64)(sector_count - 0x8000) * NX_BLOCKSIZE;
+                        m_freeSpace = m_size;
+                        break;
+                    }
+                    else if (nxHandle->read((u32)sector_start + 0x4001, efi_part, &bytesRead, NX_BLOCKSIZE)
+                        && !memcmp(efi_part, "EFI PART", 8)) //GPT header
+                    {
+                        type = RAWMMC;
+                        mmc_b0_lba_start = sector_start;
+                        m_size = (u64)sector_count * NX_BLOCKSIZE;
+                        m_freeSpace = m_size;
                         break;
                     }
                 }

@@ -695,8 +695,8 @@ bool NxHandle::getVolumeName(WCHAR *pVolumeName, u32 start_sector)
         for (DWORD n = 0; n < volumeDiskExtents.NumberOfDiskExtents; ++n)
         {
             PDISK_EXTENT pDiskExtent = &volumeDiskExtents.Extents[n];
-            //dbg_printf("Disk number: %d\n", pDiskExtent->DiskNumber);
-            //dbg_printf("DBR start sector: %I64d\n", pDiskExtent->StartingOffset.QuadPart / 512);
+            dbg_printf("Disk number: %d\n", pDiskExtent->DiskNumber);
+            dbg_printf("DBR start sector: %I64d\n", pDiskExtent->StartingOffset.QuadPart / 512);
 
             // If volume found 
             if (pDiskExtent->DiskNumber == driveNumber && pDiskExtent->StartingOffset.QuadPart / 512 == (u64)start_sector)
