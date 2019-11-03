@@ -131,7 +131,7 @@ Properties::Properties(NxStorage *in) :
         i++;
     }
 
-    if (input->type == RAWNAND)
+    if (input->type == RAWNAND || input->type == RAWMMC)
     {
         ui->PropertiesTable->setRowCount(i+1);
         ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Backup GPT"));

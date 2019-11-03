@@ -31,6 +31,7 @@
 #include "properties.h"
 #include "resizeuser.h"
 
+//#include "explorer.h"
 //#define DUMP	102
 //#define RESTORE 103
 
@@ -60,8 +61,10 @@ private:
     KeySetDialog* keysetDialog;
     Properties* PropertiesDialog;
     ResizeUser* ResizeUserDialog;
+    //Explorer* ExplorerDialog;
 	NxStorage* input;
 	NxStorage* selected_io;
+    NxPartition *selected_part;
 	bool m_ready;
 	Worker* workThread;
 	timepoint_t startWork;
@@ -115,6 +118,7 @@ public slots:
 	void inputSet(NxStorage *storage = nullptr);
 	void driveSet(QString);
     void resizeUser(QString file, int new_size, bool format);
+    void openExplorer();
     void keySetSet();
 	void error(int err, QString label = nullptr);
     void updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal);

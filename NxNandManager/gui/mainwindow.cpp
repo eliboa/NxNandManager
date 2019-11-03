@@ -118,7 +118,8 @@ void MainWindow::open()
 		ui->progressBar->setFormat("Analysing input... please wait.");
 		ui->progressBar->setValue(100);
 		qApp->processEvents();
-
+        workInProgress = true;
+        if(input != nullptr) delete input;
 		// Open new thread to init storage (callback => inputSet(NxStorage))
 		workThread = new Worker(this, fileName);
 		workThread->start();
@@ -343,7 +344,7 @@ void MainWindow::restorePartition()
                 error(ERR_INPUT_HANDLE, "Not a valid Nx Storage");
                 return;
             }
-            NxPartition *selected_part = selected_io->getNxPartition(curPartition->type());
+            selected_part = selected_io->getNxPartition(curPartition->type());
             if(nullptr == selected_part)
             {
                 error(ERR_IN_PART_NOT_FOUND);
@@ -418,13 +419,8 @@ void MainWindow::initButtons()
 
 void MainWindow::inputSet(NxStorage *storage)
 {
-    if(nullptr != input && storage != input)
-        delete input;
-
+    workInProgress = false;
 	input = storage;
-
-    if(bKeyset)
-        storage->setKeys("keys.dat");
 
 	// Clear table
     ui->partition_table->setRowCount(0);
@@ -601,9 +597,11 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     QList<QTableWidgetItem *> list = ui->partition_table->selectedItems();
     for(auto &item : list)
     {
-        NxPartition *selected_part = input->getNxPartition(item->text().toLocal8Bit().constData());
-        if(nullptr == selected_part)
+        NxPartition* t_selected_part = input->getNxPartition(item->text().toLocal8Bit().constData());
+        if(nullptr == t_selected_part)
             return;
+
+        selected_part = t_selected_part;
 
         // Dump action
         const QIcon dumpIcon = QIcon::fromTheme("document-open", QIcon(":/images/save.png"));
@@ -663,6 +661,16 @@ void MainWindow::on_partition_table_itemSelectionChanged()
             ui->partition_table->connect(incoAction, SIGNAL(triggered()), this, SLOT(incognito()));
             ui->partition_table->addAction(incoAction);
         }
+
+        // Explorer action
+        /*
+        if(is_in(selected_part->type(), {USER, SYSTEM}))
+        {
+            QAction* explAction = new QAction("Explore partition");
+            ui->partition_table->connect(explAction, SIGNAL(triggered()), this, SLOT(openExplorer()));
+            ui->partition_table->addAction(explAction);
+        }
+        */
     }
 }
 
@@ -671,7 +679,7 @@ void MainWindow::driveSet(QString drive)
 	ui->progressBar->setFormat("Analysing input... please wait.");
 	ui->progressBar->setValue(100);
 	qApp->processEvents();
-
+    if(input != nullptr) delete input;
 	// Open new thread to init storage (callback => inputSet(NxStorage))
 	workThread = new Worker(this, drive);
 	workThread->start();
@@ -688,6 +696,21 @@ void MainWindow::resizeUser(QString file, int new_size, bool format)
     // Open new thread
     workThread = new Worker(this, input, file, new_size, format);
     startWorkThread();
+}
+
+void MainWindow::openExplorer()
+{
+    if(workInProgress)
+    {
+        error(ERR_WORK_RUNNING);
+        return;
+    }
+    /*
+    ExplorerDialog = new Explorer(this, selected_part);
+    ExplorerDialog->setWindowTitle("Explorer");
+    ExplorerDialog->show();
+    ExplorerDialog->exec();
+    */
 }
 
 void MainWindow::error(int err, QString label)
@@ -1050,7 +1073,15 @@ void MainWindow::toggleAutoRCM()
 		QMessageBox::critical(nullptr,"Error", "Error while toggling autoRCM");
     else {
 		QMessageBox::information(this, "Success", "AutoRCM is "  + QString(input->autoRcm ? "enabled" : "disabled"));
-        inputSet(input);
+        ui->progressBar->setFormat("Analysing input... please wait.");
+        ui->progressBar->setValue(100);
+        qApp->processEvents();
+        QString filename = QString::fromWCharArray(input->m_path);
+        delete input;
+        workInProgress = true;
+        workThread = new Worker(this, filename);
+        workThread->start();
+
     }
 }
 
@@ -1063,7 +1094,14 @@ void MainWindow::keySetSet()
 
     if(nullptr != input && input->type != UNKNOWN && input->type != INVALID)
     {
-        inputSet(input);
+        ui->progressBar->setFormat("Analysing input... please wait.");
+        ui->progressBar->setValue(100);
+        qApp->processEvents();
+        QString filename = QString::fromWCharArray(input->m_path);
+        workInProgress = true;
+        delete input;
+        workThread = new Worker(this, filename);
+        workThread->start();
     }
 }
 

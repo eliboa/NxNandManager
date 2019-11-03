@@ -26,12 +26,12 @@ bool isdebug = FALSE;
 BOOL FORCE = FALSE;
 BOOL LIST = FALSE;
 BOOL FORMAT_USER = FALSE;
-
 int startGUI(int argc, char *argv[])
 {
 #if defined(ENABLE_GUI)
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication a(argc, argv);
+
     a.setApplicationName("NxNandManager");
     MainWindow w;
     a.setStyleSheet("QMessageBox {messagebox-text-interaction-flags: 12;}");
@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
     //std::setlocale(LC_ALL, "en_US.utf8");
     std::setlocale(LC_ALL, "");
     std::locale::global(std::locale(""));
-    printf("[ NxNandManager v3.0.1 by eliboa ]\n\n");
+    printf("[ NxNandManager v3.0.2 by eliboa ]\n\n");
     const char *input = NULL, *output = NULL, *partitions = NULL, *keyset = NULL, *user_resize = NULL;
     BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE;
     int io_num = 1;

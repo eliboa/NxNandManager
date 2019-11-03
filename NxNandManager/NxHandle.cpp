@@ -258,13 +258,10 @@ bool NxHandle::createFile(wchar_t *path, int io_mode)
         dbg_wprintf(L"NxHandle::createFile() for %s ERROR %s\n", path, GetLastErrorAsString().c_str());
         CloseHandle(m_h);
         return false;
-    }
-
-    if (b_isDrive && !lockVolume())
-        dbg_printf("failed to lock volume\n");
+    }    
     
-    if (b_isDrive && !dismountVolume())
-        dbg_printf("failed to dismount volume\n");
+    //if (b_isDrive && !dismountVolume())
+    //    dbg_printf("failed to dismount volume\n");
 
     return true;
 }
@@ -381,10 +378,10 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
     if (nullptr != br)
     {
         // Resize buffer length if eof is reached
-        if (lp_CurrentPointer.QuadPart > m_off_end)
+        if (lp_CurrentPointer.QuadPart > m_off_end + 1)
         {
             u32 bytes = lp_CurrentPointer.QuadPart - m_off_end - 1;
-            printf("Resize buffer original %I32d b, new %I32d b (cur_off = %s, m_off_end = %s)\n", bytesRead, bytes, 
+            dbg_printf("Resize buffer original %I32d b, new %I32d b (cur_off = %s, m_off_end = %s)\n", bytesRead, bytes, 
                 n2hexstr(lp_CurrentPointer.QuadPart, 10).c_str(), n2hexstr(m_off_end, 10).c_str());
             *br = bytesRead - bytes;
         }
@@ -584,6 +581,31 @@ bool NxHandle::lockVolume()
         dbg_printf("try %d to lock volume\n", nTryCount);
         if (DeviceIoControl(m_h,
             FSCTL_LOCK_VOLUME,
+            NULL, 0,
+            NULL, 0,
+            &dwBytesReturned,
+            NULL))
+            return TRUE;
+
+        Sleep(dwSleepAmount);
+    }
+    return FALSE;
+}
+
+bool NxHandle::unlockVolume()
+{
+    DWORD dwBytesReturned;
+    DWORD dwSleepAmount;
+    int nTryCount;
+
+    dwSleepAmount = LOCK_TIMEOUT / LOCK_RETRIES;
+
+    // Do this in a loop until a timeout period has expired
+    for (nTryCount = 0; nTryCount < LOCK_RETRIES; nTryCount++)
+    {
+        dbg_printf("try %d to unlock volume\n", nTryCount);
+        if (DeviceIoControl(m_h,
+            FSCTL_UNLOCK_VOLUME,
             NULL, 0,
             NULL, 0,
             &dwBytesReturned,

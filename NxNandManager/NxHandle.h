@@ -127,6 +127,7 @@ class NxHandle {
         bool setPointer(u64 offset);
         bool dismountVolume();
         bool lockVolume();
+        bool unlockVolume();
         bool lockFile();
         bool ejectVolume();
         bool getVolumeName(WCHAR *pVolumeName, u32 start_sector);

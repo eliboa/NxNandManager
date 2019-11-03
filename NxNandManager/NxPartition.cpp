@@ -40,7 +40,12 @@ NxPartition::NxPartition(NxStorage *p, const char* p_name, u32 lba_start, u32 lb
 
     for( NxPart part : NxPartArr )
     {
-        if(strcmp(part.name, m_name) == 0) 
+        std::string sm_name(m_name);
+        std::transform(sm_name.begin(), sm_name.end(), sm_name.begin(), ::toupper);
+        std::string sp_name = part.name;
+        std::transform(sp_name.begin(), sp_name.end(), sp_name.begin(), ::toupper);
+
+        if(!sm_name.compare(sp_name))
         {
             m_isValidPartition = true;
             m_isEncrypted = part.isEncrypted;
@@ -157,6 +162,8 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, u64 *bytesCount)
         }
 
         p_ofstream = std::ofstream(file, std::ofstream::binary);
+        if (parent->isDrive() && !nxHandle->lockVolume())
+            dbg_printf("failed to lock volume\n");
         nxHandle->initHandle(crypto_mode, this);
         m_buff_size = nxHandle->getDefaultBuffSize();
         m_buffer = new BYTE[m_buff_size];
@@ -168,6 +175,8 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, u64 *bytesCount)
     {
         p_ofstream.close();
         delete[] m_buffer;
+        if (parent->isDrive() && !nxHandle->unlockVolume())
+            dbg_printf("failed to unlock volume\n");
         return NO_MORE_BYTES_TO_COPY;
     }
 
@@ -176,6 +185,8 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, u64 *bytesCount)
     {
         p_ofstream.close();
         delete[] m_buffer;
+        if (parent->isDrive() && !nxHandle->unlockVolume())
+            dbg_printf("failed to unlock volume\n");
         return ERR_WHILE_COPY;
     }
     
@@ -183,6 +194,8 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, u64 *bytesCount)
     {
         p_ofstream.close();
         delete[] m_buffer;
+        if (parent->isDrive() && !nxHandle->unlockVolume())
+            dbg_printf("failed to unlock volume\n");
         return ERR_WHILE_COPY;        
     }
     *bytesCount += bytesRead;
@@ -216,6 +229,8 @@ int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *byte
             return ERR_IO_MISMATCH;
 
         // Init handles for both input & output
+        if (parent->isDrive() && !nxHandle->lockVolume())
+            dbg_printf("failed to lock volume\n");
         input->nxHandle->initHandle(crypto_mode, input_part);
         this->nxHandle->initHandle(NO_CRYPTO, this);
         m_buff_size = input->nxHandle->getDefaultBuffSize();
@@ -229,6 +244,8 @@ int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *byte
     if (!input->nxHandle->read(m_buffer, &bytesRead, m_buff_size))
     {
         delete[] m_buffer;
+        if (parent->isDrive() && !nxHandle->unlockVolume())
+            dbg_printf("failed to unlock volume\n");
         return ERR_WHILE_COPY;
     }
 
@@ -236,6 +253,8 @@ int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *byte
     if (!this->nxHandle->write(m_buffer, &bytesWrite, bytesRead))
     {
         delete[] m_buffer;
+        if (parent->isDrive() && !nxHandle->unlockVolume())
+            dbg_printf("failed to unlock volume\n");
 
         if(*bytesCount + bytesWrite != size())
             return ERR_WHILE_COPY;
@@ -244,8 +263,12 @@ int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *byte
     *bytesCount += bytesWrite;
 
     if (*bytesCount == input_part->size())
-        return NO_MORE_BYTES_TO_COPY;
+    {
+        if (parent->isDrive() && !nxHandle->unlockVolume())
+            dbg_printf("failed to unlock volume\n");
 
+        return NO_MORE_BYTES_TO_COPY;
+    }
     return SUCCESS;
 }
 

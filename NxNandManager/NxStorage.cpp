@@ -294,6 +294,7 @@ NxStorage::NxStorage(const char *p_path)
                 dbg_printf("Offset from hdr->alt_lba is %s\n", n2hexstr(off, 12).c_str());
                 if (type == RAWMMC)
                     off += 0x4000 * NX_BLOCKSIZE;
+                m_size = off + NX_BLOCKSIZE;
                
                 nxHandle->initHandle();
 
@@ -301,7 +302,6 @@ NxStorage::NxStorage(const char *p_path)
                 if (nxHandle->read(off, buff, &bytesRead, 0x200) && !memcmp(&buff[0], "EFI PART", 8))
                 {
                     m_backupGPT = off;
-                    m_size = off + NX_BLOCKSIZE;
                     dbg_printf("NxStorage::NxStorage() - backup GPT found at offset %s\n", n2hexstr(m_backupGPT, 10).c_str());
                     if (type == EMMC_PART) type = RAWMMC;
                 }
@@ -317,6 +317,8 @@ NxStorage::NxStorage(const char *p_path)
         }
     }
 
+
+    dbg_printf("NxStorage::NxStorage() - TYPE IS %s\n", getNxTypeAsStr());
     // Look for splitted dump
     if (type == RAWNAND && !m_backupGPT && !nxHandle->isDrive()) 
     {        
@@ -364,7 +366,7 @@ NxStorage::NxStorage(const char *p_path)
     if (not_in(type, { UNKNOWN, INVALID }))
         setStorageInfo();
     
-    dbg_printf("NxStorage::NxStorage() size is %I64d (diskFreeBytes = %I64d)\n", m_size, m_freeSpace);
+    dbg_printf("NxStorage::NxStorage() size is %I64d (diskFreeBytes = %I64d). type is %s\n", m_size, m_freeSpace, getNxTypeAsStr());
 }
 
 NxStorage::~NxStorage()
@@ -679,6 +681,10 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount, bo
         }
 
         p_ofstream = new std::ofstream(file, std::ofstream::binary);
+
+        if (isDrive() && !nxHandle->lockVolume())
+            dbg_printf("failed to lock volume\n");
+
         nxHandle->initHandle(crypto_mode);
 
         // Skip boot partitions if rawnanand_only
@@ -698,6 +704,8 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount, bo
         p_ofstream->close();
         delete p_ofstream;
         delete[] m_buffer;
+        if (isDrive() && !nxHandle->unlockVolume())
+            dbg_printf("failed to unlock volume\n");
 
         if (*bytesCount == size() || (rawnand_only && type == RAWMMC && *bytesCount == size() - (u64)0x4000 * NX_BLOCKSIZE))
             return NO_MORE_BYTES_TO_COPY;
@@ -738,6 +746,9 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
         if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && !input->isEncrypted() && isEncrypted())
             return ERR_RESTORE_CRYPTO_MISSING;
 
+        if (isDrive() && !nxHandle->lockVolume())
+            dbg_printf("failed to lock volume\n");
+
         // Init handles for both input & output
         input->nxHandle->initHandle(crypto_mode);
         this->nxHandle->initHandle(NO_CRYPTO);
@@ -757,6 +768,9 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
     if (!input->nxHandle->read(m_buffer, &bytesRead, m_buff_size))
     {
         delete[] m_buffer;
+        if (isDrive() && !nxHandle->unlockVolume())
+            dbg_printf("failed to unlock volume\n");
+
         dbg_printf("NxStorage::restoreFromStorage() ERROR, failed to read storage at bytesCount %s\n", n2hexstr(*bytesCount, 8).c_str());        
         return ERR_WHILE_COPY;
     }
@@ -765,6 +779,8 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesC
     if (!this->nxHandle->write(m_buffer, &bytesWrite, bytesRead))
     {
         delete[] m_buffer;
+        if (isDrive() && !nxHandle->unlockVolume())
+            dbg_printf("failed to unlock volume\n");
 
         if (*bytesCount + bytesWrite != size())
         {
@@ -834,6 +850,9 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
         m_user_lba_end = user->lbaEnd() - (u32)(user->freeSpace / NX_BLOCKSIZE + NX_BLOCKSIZE);
 
         // Init input handle & buffer
+        if (isDrive() && !nxHandle->lockVolume())
+            dbg_printf("failed to lock volume\n");
+
         nxHandle->initHandle(NO_CRYPTO);
         m_buff_size = DEFAULT_BUFF_SIZE;
         m_buffer = new BYTE[DEFAULT_BUFF_SIZE];
@@ -853,7 +872,10 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
         {
             delete[] m_buffer;
             delete p_ofstream;
+            if (isDrive() && !nxHandle->unlockVolume())
+                dbg_printf("failed to unlock volume\n");
             return ERR_WHILE_COPY;
+
         }
         *bytesCount += m_buff_size;
 
@@ -924,6 +946,8 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
             p_ofstream->close();
             delete[] m_buffer;
             delete p_ofstream;
+            if (isDrive() && !nxHandle->unlockVolume())
+                dbg_printf("failed to unlock volume\n");
             return ERR_WHILE_COPY;
         }
         *bytesCount += CLUSTER_SIZE;
@@ -1042,6 +1066,8 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
                 p_ofstream->close();
                 delete[] m_buffer;
                 delete p_ofstream;
+                if (isDrive() && !nxHandle->unlockVolume())
+                    dbg_printf("failed to unlock volume\n");
 
                 return cur_off == bck_gpt_off ? NO_MORE_BYTES_TO_COPY : ERR_WHILE_COPY;
             }
@@ -1057,6 +1083,9 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
         {
             delete[] m_buffer;
             delete p_ofstream;
+            if (isDrive() && !nxHandle->unlockVolume())
+                dbg_printf("failed to unlock volume\n");
+
             dbg_printf("NxStorage::resizeUser() - ERROR UNTYPED BUFFER\n");
             return ERR_WHILE_COPY;
         }
@@ -1208,11 +1237,18 @@ bool NxStorage::setAutoRcm(bool enable)
         }
         else buff[0x10] = 0xF7;  
 
+        if (isDrive() && !nxHandle->lockVolume())
+            dbg_printf("failed to lock volume\n");
+
         if (nxHandle->write((u64)0x200, buff, &bytesRead, 0x200))
         {
             autoRcm = enable;
+            if (isDrive() && !nxHandle->unlockVolume())
+                dbg_printf("failed to unlock volume\n");
             return true;
         }
+        if (isDrive() && !nxHandle->unlockVolume())
+            dbg_printf("failed to unlock volume\n");
     }
     return false;
 }
@@ -1233,6 +1269,9 @@ int NxStorage::applyIncognito()
     // Read first cluster
     if (!nxHandle->read(cl_buffer, &bytesRead, CLUSTER_SIZE)) 
         return ERR_INPUT_HANDLE;
+
+    if (isDrive() && !nxHandle->lockVolume())
+        dbg_printf("failed to lock volume\n");
     
     // Read cal0 data size
     uint32_t calib_data_size;
@@ -1298,12 +1337,16 @@ int NxStorage::applyIncognito()
         if (!nxHandle->write(cl_buffer, &bytesRead, CLUSTER_SIZE))
         {
             delete[] buffer;
+            if (isDrive() && !nxHandle->unlockVolume())
+                dbg_printf("failed to unlock volume\n");
             return ERR_INPUT_HANDLE;
         }
     }
 
     setStorageInfo(PRODINFO);
     delete[] buffer;
+    if (isDrive() && !nxHandle->unlockVolume())
+        dbg_printf("failed to unlock volume\n");
     return SUCCESS;
 }
 
