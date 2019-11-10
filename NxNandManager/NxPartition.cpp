@@ -382,9 +382,11 @@ u64 NxPartition::fat32_getFreeSpace()
         }
     }
 
-    /*
+    
     dbg_printf("fs.bytes_per_sector = %I32d\n", fs.bytes_per_sector);
     dbg_printf("fs.sectors_per_cluster = %I32d\n", fs.sectors_per_cluster);
+    dbg_printf("fs.sectors_count = %I32d (%s)\n", fs.sectors_count, GetReadableSize((u64)fs.sectors_count * NX_BLOCKSIZE).c_str());
+    dbg_printf("fs.info_sector = %I32d\n", fs.info_sector);
     dbg_printf("fs.num_fats = %I32d\n", fs.num_fats);
     dbg_printf("fs.reserved_sector_count = %I32d\n", fs.reserved_sector_count);
     dbg_printf("fs.fat_size = %I32d (%s)\n", fs.fat_size, GetReadableSize((u64)fs.fat_size * 0x200).c_str());
@@ -397,9 +399,9 @@ u64 NxPartition::fat32_getFreeSpace()
     dbg_printf("clusters to address %I32d (%s)\n", u_size / 0x20, GetReadableSize((u64)u_size / 0x20 * 0x4000).c_str());
     dbg_printf("size of fat in clusters %I32d (%s)\n", u_size / 0x20 / 0x1000, GetReadableSize((u64)u_size / 0x20 / 0x1000 * 0x4000).c_str());
     dbg_printf("size of fat in sectors %I32d (%s)\n", u_size / 0x1000, GetReadableSize((u64)u_size / 0x1000 * 0x200).c_str());
-    */
+    
     u32 free_cluster_count = cluster_count - first_empty_cluster;
-    //dbg_printf("%s first_empty_cluster is %I32d / %I32d (%s available)\n", m_name, first_empty_cluster, cluster_count, GetReadableSize((u64)free_cluster_count * CLUSTER_SIZE).c_str());
+    dbg_printf("%s first_empty_cluster is %I32d / %I32d (%s available)\n", m_name, first_empty_cluster, cluster_count, GetReadableSize((u64)free_cluster_count * CLUSTER_SIZE).c_str());
 
     return (u64)cluster_free_count * CLUSTER_SIZE;
 }

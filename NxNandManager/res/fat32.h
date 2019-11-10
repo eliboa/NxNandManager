@@ -32,6 +32,7 @@ namespace fat32 {
         unsigned char num_fats;
         unsigned short reserved_sector_count;
         unsigned int fat_size;
+        unsigned int sectors_count;
         unsigned short info_sector;
         char label[11];
     };

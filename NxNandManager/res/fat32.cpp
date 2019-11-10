@@ -25,6 +25,7 @@ void fat32::read_boot_sector(BYTE *cluster, fs_attr *fat32_attr)
     memcpy(&fat32_attr->fat_size, &cluster[0x24], 4);
     memcpy(&fat32_attr->info_sector, &cluster[0x30], 2);
     memcpy(&fat32_attr->label, &cluster[0x47], 11);
+    memcpy(&fat32_attr->sectors_count, &cluster[0x20], 4);
 }
 
 void fat32::parse_dir_table(BYTE *cluster, std::vector<dir_entry> *entries)

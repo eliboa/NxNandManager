@@ -228,7 +228,7 @@ NxStorage::NxStorage(const char *p_path)
             }
             GptHeader *hdr = (GptHeader *)buff;
             
-            /*
+            
             if(isdebug)
             {
                 dbg_printf("-- GPT header --\nstarts at lba %I64d (off 0x%s)\n", hdr->my_lba, n2hexstr((u64)hdr->my_lba * NX_BLOCKSIZE, 10).c_str());
@@ -252,7 +252,7 @@ NxStorage::NxStorage(const char *p_path)
                 dbg_printf("Table CRC32 new hash = %I32d\n", crc32Hash(table, hdr->num_part_ents * hdr->part_ent_size));
                 delete[] table;
             }
-            */
+            
 
             // Iterate GPP 
             for (int i = 0; i < hdr->num_part_ents; i++)
@@ -955,6 +955,7 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
         // Get FAT size from boot sector
         u32 fat_size;
         u8 num_fats;
+        u32 sectors_count;
         memcpy(&fat_size, &m_buffer[0x24], 4);
         memcpy(&num_fats, &m_buffer[0x10], 1);
         u32 cluster_num = fat_size * NX_BLOCKSIZE / CLUSTER_SIZE;
@@ -963,6 +964,9 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
         u32 new_fat_size = m_user_new_size / 0x1000; // each entry in cluster map is 4 bytes long
         u32 new_cluster_num = new_fat_size * NX_BLOCKSIZE / CLUSTER_SIZE;
         memcpy(&m_buffer[0x24], &new_fat_size, 4);
+        // New FAT total cluster count
+        memcpy(&m_buffer[0x20], &m_user_total_size, 4);
+
 
         dbg_printf("NxStorage::resizeUser() - new FAT size %I32d (previous %I32d)\n", new_fat_size, fat_size);
 
