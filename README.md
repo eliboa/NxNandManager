@@ -14,7 +14,7 @@
 
 ## Supported file format
 
-It should be noted that the program does not check the file extension to detect if a file is supported or not. It'll look for specific signature inside binary data (magic number) when possible. If the file is fully encrypted, the program will detect the format by inspecting the filename  (without extension) and the file size. Therefore, a single partition file (encrypted) should be named after the partition name ("SAFE.bin", "SAFE.enc" or "SAFE.whatever" will work, "SAFE_01.bin" will not).
+It should be noted that the program does not check the file extension to detect if a file is supported or not. It'll look for specific signature inside binary data (magic number) when possible. If the file is fully encrypted, the program will detect the type by inspecting the filename  (without extension) and the file size. Therefore, a single partition file (encrypted) should be named after the partition name ("SAFE.bin", "SAFE.enc" or "SAFE.whatever" will work, "SAFE_01.bin" will not).
 
 ## Supported drives
 
