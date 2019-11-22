@@ -77,9 +77,9 @@ void printStorageInfo(NxStorage *storage)
         printf("AutoRCM        : %s\n", storage->autoRcm ? "ENABLED" : "DISABLED");
         printf("Bootloader ver.: %d\n", static_cast<int>(storage->bootloader_ver));    
     }
-    if (strlen(storage->fw_version) > 0)
+    if (storage->firmware_version.major > 0)
     {
-        printf("Firmware ver.  : %s\n", storage->fw_version);
+        printf("Firmware ver.  : %s\n", storage->getFirmwareVersion().c_str());
         if (storage->type == RAWNAND || storage->type == RAWMMC || storage->type == SYSTEM) printf("ExFat driver   : %s\n", storage->exFat_driver ? "Detected" : "Undetected");
     }
     

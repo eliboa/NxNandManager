@@ -360,6 +360,61 @@ NxStorage::NxStorage(const char *p_path)
         // Get bootloader version
         if (nxHandle->read((u64)0x2200, buff, &bytesRead, NX_BLOCKSIZE))
             memcpy(&bootloader_ver, &buff[0x130], sizeof(unsigned char));
+
+        // Read package1loader header (copied from Atmosphere/fusee/fusee-secondary/src/nxboot.c)
+        if (nxHandle->read((u64)0x100000, buff, &bytesRead, NX_BLOCKSIZE))
+        {
+            package1ldr_header_t pk1ldr;
+            memcpy(&pk1ldr, &buff[0], 0x20);            
+            switch (pk1ldr.version) {
+                case 0x01:          /* 1.0.0 */
+                    firmware_version_boot0.major = 1;
+                    firmware_version_boot0.minor = 0;
+                    firmware_version_boot0.micro = 0;
+                    break;
+                case 0x02:          /* 2.0.0 - 2.3.0 */
+                    firmware_version_boot0.major = 2;
+                    break;
+                case 0x04:          /* 3.0.0 and 3.0.1 - 3.0.2 */
+                    firmware_version_boot0.major = 3;
+                    firmware_version_boot0.minor = 0;
+                    if (memcmp(pk1ldr.build_timestamp, "20170519", 8) == 0)
+                        firmware_version_boot0.micro = 0;
+                    break;
+                case 0x07:          /* 4.0.0 - 4.1.0 */
+                    firmware_version_boot0.major = 4;
+                    break;
+                case 0x0B:          /* 5.0.0 - 5.1.0 */
+                    firmware_version_boot0.major = 5;
+                    break;
+                case 0x0E:         /* 6.0.0 - 6.2.0 */
+                    firmware_version_boot0.major = 6;
+                    if (memcmp(pk1ldr.build_timestamp, "20181107", 8) == 0) {
+                        firmware_version_boot0.minor = 2;
+                        firmware_version_boot0.micro = 0;
+                    }
+                    break;      
+                case 0x0F:          /* 7.0.0 - 7.0.1 */
+                    firmware_version_boot0.major = 7;
+                    firmware_version_boot0.minor = 0;
+                    break;
+                case 0x10: {        /* 8.0.0 - 9.0.0 */
+                    if (memcmp(pk1ldr.build_timestamp, "20190314", 8) == 0) {
+                        firmware_version_boot0.major = 8;
+                        firmware_version_boot0.minor = 0;
+                    } else if (memcmp(pk1ldr.build_timestamp, "20190531", 8) == 0) {
+                        firmware_version_boot0.major = 8;
+                        firmware_version_boot0.minor = 1;
+                    } else if (memcmp(pk1ldr.build_timestamp, "20190809", 8) == 0) {
+                        firmware_version_boot0.major = 9;
+                    }
+                    break;
+                }
+            }
+            if(firmware_version_boot0.major > 0)
+                firmware_version = firmware_version_boot0;
+            dbg_printf("NxStorage::NxStorage() - firmware version = %s\n", getFirmwareVersion(&firmware_version_boot0).c_str());
+        }
     }
     
     // Retrieve info for decrypted partitions
@@ -586,8 +641,9 @@ void NxStorage::setStorageInfo(int partition)
                     {
                         if (!nca.filename.compare(std::string(title.nca_filename)))
                         {
-                            //dbg_printf("Found NCA for fw %s\n", title.fw_version);
+                            dbg_printf("Found NCA for fw %s\n", title.fw_version);
                             memcpy(fw_version, title.fw_version, strlen(title.fw_version));
+                            setFirmwareVersion(&firmware_version, title.fw_version);
                             break;
                         }
                     }
@@ -621,7 +677,7 @@ void NxStorage::setStorageInfo(int partition)
                     if (n != std::string::npos)
                     {
                         strcpy(fwv, haystack.substr(n + 10, 5).c_str());
-                        //dbg_printf("Reading /save/80000000000000d1 - OsVersion %s\n", fwv);
+                        dbg_printf("Reading /save/80000000000000d1 - OsVersion %s\n", fwv);
                         if (strcmp(fwv, fw_version) > 0) // Only overwrite for higher fw version
                             memcpy(fw_version, fwv, 5);
                     }
@@ -651,17 +707,36 @@ void NxStorage::setStorageInfo(int partition)
                     //dbg_printf("Reading /save/80000000000000a1\n"); 
                     std::string haystack(buff, buff + CLUSTER_SIZE);
                     
-                    // Find needle (firmware version) in haystacks
+                    // Find needle (firmware version) in haystack
                     std::size_t n = haystack.find("os_version");
                     if (n != std::string::npos)
                     {
-                        strcpy(fwv, haystack.substr(n + 11, 5).c_str());
-                        if (strcmp(fwv, fw_version) > 0) // Only overwrite for higher fw version
-                            memcpy(fw_version, fwv, 5);
+                        strcpy(fwv, haystack.substr(n + 11, 10).c_str());
+
+                        char *buf;
+                        if ((buf = strtok(fwv, "\xb1")) != nullptr) // 0xB1 terminated value (msgpack)
+                        {
+                            firmware_version_t fwv_tmp;
+                            setFirmwareVersion(&fwv_tmp, buf);
+
+                            if (fwv_cmp(fwv_tmp, firmware_version) > 0)
+                            {
+                                dbg_printf("%s is greater than %s\n", getFirmwareVersion(&fwv_tmp).c_str(), getFirmwareVersion().c_str());
+                                firmware_version = fwv_tmp;
+                                
+                                // temp
+                                memcpy(fw_version, getFirmwareVersion().c_str(), 10);
+                            }
+                        }
                     }
                     cur_off += bytesRead;
                 }
-            }        
+            }
+
+            // overwrite fw version if value found in journal/play report is greater than fw version in 
+            // package1ldr (trick for downgraded NAND, only works for FULL NAND)
+            if(firmware_version_boot0.major > 0 && fwv_cmp(firmware_version_boot0, firmware_version) < 0)
+                firmware_version = firmware_version_boot0;
         }
     }
 }
@@ -1359,6 +1434,81 @@ void NxStorage::clearHandles()
     p_ofstream->close();
 }
 
+std::string NxStorage::getFirmwareVersion(firmware_version_t* fmv)
+{
+    if(nullptr == fmv)
+        fmv = &firmware_version;
+
+    if(fmv->major <= 0)
+        return "unknown";
+
+    std::string s;
+
+    char buff[100];
+    snprintf(buff, sizeof(buff), "%d.", fmv->major);
+    s.append(buff);
+
+    if(fmv->minor > -1)
+    {
+        snprintf(buff, sizeof(buff), "%d", fmv->minor);
+        s.append(buff);
+        if(fmv->micro > -1)
+        {
+            s.append(".");
+            snprintf(buff, sizeof(buff), "%d", fmv->micro);
+            s.append(buff);
+        }
+    }
+    else s.append("x");
+    
+    return s;
+}
+
+void NxStorage::setFirmwareVersion(firmware_version_t *fwv, const char* fwv_string)
+{
+    int i(0);
+    char *buf2, *buf = strdup(fwv_string);
+    while((buf2 = strtok(buf, ".")) != nullptr)
+    {
+        buf = nullptr;
+        try {
+            int number = std::stoi(std::string(buf2));
+            switch(i) {
+                case 0:
+                    fwv->major = number;
+                    break;
+                case 1:
+                    fwv->minor = number;
+                    break;
+                case 2:
+                    fwv->micro = number;
+                    break;
+            }
+        } catch (std::exception const &e) {
+            break;
+        }
+        i++;
+    }
+}
+
+int NxStorage::fwv_cmp(firmware_version_t fwv1, firmware_version_t fwv2)
+{
+    if(fwv1.major > fwv2.major)
+        return 1;
+    if(fwv1.major < fwv2.major)
+        return -1;
+    if(fwv1.minor > fwv2.minor)
+        return 1;
+    if(fwv1.minor < fwv2.minor)
+        return -1;
+    if(fwv1.micro > fwv2.micro)
+        return 1;
+    if(fwv1.micro < fwv2.micro)
+        return -1;
+    
+    return 0;
+}
+
 std::string BuildChecksum(HCRYPTHASH hHash)
 {
     std::string md5hash;
@@ -1401,3 +1551,5 @@ std::string ListPhysicalDrives()
     }
     return compatibleDrives;
 }
+
+

@@ -196,6 +196,21 @@ struct NxKeys {
     char tweak3[33];
 };
 
+typedef struct {
+    uint32_t package1loader_hash;
+    uint32_t secmon_hash;
+    uint32_t nx_bootloader_hash;
+    uint32_t _0xC;
+    char build_timestamp[0x0E];
+    uint8_t _0x1E;
+    uint8_t version;
+} package1ldr_header_t;
+
+typedef struct {
+    int major = -1;
+    int minor = -1;
+    int micro = -1;
+} firmware_version_t;
 
 class NxHandle;
 class NxCrypto;
@@ -235,6 +250,8 @@ class NxStorage
         wchar_t m_path[MAX_PATH];        
         int type = INVALID;
         s8 fw_version[48];
+        firmware_version_t firmware_version;
+        firmware_version_t firmware_version_boot0;
         s8 serial_number[18];
         s8 deviceId[21];
         std::string macAddress;
@@ -275,6 +292,9 @@ class NxStorage
         bool setAutoRcm(bool enable);
         int applyIncognito();
         void clearHandles();
+        std::string getFirmwareVersion(firmware_version_t *fmv = nullptr);
+        void setFirmwareVersion(firmware_version_t *fwv, const char* fwv_string);
+        int fwv_cmp(firmware_version_t fwv1, firmware_version_t fwv2);
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);
