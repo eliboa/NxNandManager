@@ -36,6 +36,7 @@ struct NxPart {
     u64 magic_off;
 };
 
+
 static NxPart NxPartArr[] =
 {
     { "BOOT0",                   BOOT0    ,0x00400000 , false , NULL, 0},
@@ -110,9 +111,13 @@ class NxPartition
         u64 fat32_getFreeSpace();   
         bool setCrypto(char* crypto, char* tweak);
         int compare(NxPartition *partition);
+        ProgressInfo pi;
+        int dumpToFile(const char *file, int crypto_mode, void(&updateProgress)(ProgressInfo* pi));
         int dumpToFile(const char *file, int crypt_mode, u64 *bytesCount);
+        int restoreFromStorage(NxStorage* input, int crypto_mode, void(&updateProgress)(ProgressInfo*));
         int restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount);
         void clearHandles();
+        
 };
 
 #endif

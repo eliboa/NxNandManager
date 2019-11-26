@@ -23,6 +23,7 @@ extern bool isdebug;
 #include "res/utils.h"
 #include "res/types.h"
 #include "res/fat32.h"
+#include "res/mbr.h"
 #include "NxHandle.h"
 #include "NxPartition.h"
 #include "NxCrypto.h"
@@ -123,6 +124,8 @@ struct NxSystemTitles {
     const char nca_filename[40];
 };
 
+
+
 static NxSystemTitles systemTitlesArr[] = {
     { "9.0.1", "fd1ffb82dc1da76346343de22edbc97c.nca"},
     { "9.0.0", "a6af05b33f8f903aab90c8b0fcbcc6a4.nca"},
@@ -182,6 +185,19 @@ static NxSystemTitles exFatTitlesArr[] = {
     {"2.0.0", "f55a04978465ebf5666ca93e21b26dd2.nca" },
     {"1.0.0", "3b7cd379e18e2ee7e1c6d0449d540841.nca" }
 };
+
+static u8 tx_sector[85] = {
+    0x54, 0x58, 0x4E, 0x41, 0x4E, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x41, 0x74, 0x6D, 0x6F, 0x73, 0x70, 0x68, 0x65,
+    0x72, 0x65, 0x2D, 0x4E, 0x58, 0x20, 0x20, 0x52, 0x6F, 0x63, 0x6B, 0x69,
+    0x6E, 0x67, 0x20, 0x74, 0x68, 0x65, 0x20, 0x53, 0x77, 0x69, 0x74, 0x63,
+    0x68, 0x20, 0x66, 0x6F, 0x72, 0x65, 0x76, 0x65, 0x72, 0x20, 0x61, 0x6E,
+    0x64, 0x20, 0x62, 0x65, 0x79, 0x6F, 0x6E, 0x64, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0xA4, 0x03,
+    0x02
+};
+
+
 
 typedef struct NxKeys NxKeys;
 struct NxKeys {
@@ -286,7 +302,9 @@ class NxStorage
         NxPartition* getNxPartition(const char* part_name);
         int getNxTypeAsInt(const char* type = nullptr);
         bool isSinglePartType(int type = 0);
+        int dumpToFile(const char *file, int crypt_mode, void(&updateProgress)(ProgressInfo*), bool rawnand_only = false);
         int dumpToFile(const char *file, int crypt_mode, u64 *bytesCount, bool rawnand_only = false);
+        int restoreFromStorage(NxStorage* input, int crypto_mode, void(&updateProgress)(ProgressInfo*));
         int restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount);
         int resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *bytesToRead, bool format = false);
         bool setAutoRcm(bool enable);
@@ -295,6 +313,7 @@ class NxStorage
         std::string getFirmwareVersion(firmware_version_t *fmv = nullptr);
         void setFirmwareVersion(firmware_version_t *fwv, const char* fwv_string);
         int fwv_cmp(firmware_version_t fwv1, firmware_version_t fwv2);
+        int createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&updateProgress)(ProgressInfo*));
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);

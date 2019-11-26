@@ -144,6 +144,107 @@ bool NxPartition::isEncryptedPartition()
     return m_isEncrypted;
 }
 
+int NxPartition::dumpToFile(const char *file, int crypto_mode, void(&updateProgress)(ProgressInfo*))
+{
+    // Crypto check
+    if (crypto_mode == DECRYPT && !m_isEncrypted)
+        return ERR_CRYPTO_DECRYPTED_YET;
+    if (crypto_mode == ENCRYPT && m_isEncrypted)
+        return ERR_CRYPTO_ENCRYPTED_YET;
+
+    // Test if file already exists
+    std::ifstream infile(file);
+    if (infile.good())
+    {
+        infile.close();
+        return ERR_FILE_ALREADY_EXISTS;
+    }
+
+    // Open new stream for output file
+    std::ofstream out_file = std::ofstream(file, std::ofstream::binary);
+
+    // Lock volume (drive only)
+    if (parent->isDrive())
+        nxHandle->lockVolume();
+
+    // Init input handle
+    nxHandle->initHandle(crypto_mode, this);
+
+    // Set new buffer
+    int buff_size = nxHandle->getDefaultBuffSize();
+    BYTE* buffer = new BYTE[buff_size];
+    memset(buffer, 0, buff_size);
+    DWORD bytesRead = 0;
+
+    // Init progress info    
+    ProgressInfo pi;
+    pi.mode = COPY;
+    pi.storage_name = partitionName();
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.bytesCount = 0;
+    pi.bytesTotal = size();
+    updateProgress(&pi);
+
+    // Copy
+    while (nxHandle->read(buffer, &bytesRead, buff_size))
+    {
+        if (!out_file.write((char *)&buffer[0], bytesRead))
+            break;
+
+        pi.bytesCount += bytesRead;
+        updateProgress(&pi);
+    }
+
+    // Clean & unlock volume
+    out_file.close();
+    delete[] m_buffer;
+    if (parent->isDrive())
+        nxHandle->unlockVolume();
+
+    // Check completeness
+    if (pi.bytesCount != pi.bytesTotal)
+        return ERR_WHILE_COPY;
+
+    // Compute & compare md5 hashes
+    if (crypto_mode == MD5_HASH)
+    {
+        // Get checksum for input
+        HCRYPTHASH in_hash = nxHandle->md5Hash();
+        std::string in_sum = BuildChecksum(in_hash);
+        
+        // Set new NxStorage for output
+        NxStorage out_storage = NxStorage(file);
+
+        // Init Progress Info
+        pi.mode = MD5_HASH;
+        pi.begin_time = std::chrono::system_clock::now();
+        pi.bytesCount = 0;
+        pi.bytesTotal = out_storage.size();
+        pi.elapsed_seconds = 0;
+        updateProgress(&pi);
+
+        // Hash output file
+        while (!out_storage.nxHandle->hash(&pi.bytesCount))
+        {
+            dbg_printf("out_storage.nxHandle->hash \n");
+            updateProgress(&pi);
+        }
+        // Check completeness
+        if (pi.bytesCount != pi.bytesTotal)
+            return ERR_MD5_COMPARE;
+
+        // Get checksum for output
+        HCRYPTHASH out_hash = out_storage.nxHandle->md5Hash();
+        std::string out_sum = BuildChecksum(out_hash);
+
+        // Compare checksums
+        if (in_sum.compare(out_sum))
+            return ERR_MD5_COMPARE;
+    }
+
+    return SUCCESS;
+}
+
 int NxPartition::dumpToFile(const char *file, int crypto_mode, u64 *bytesCount)
 {
     if (!*bytesCount)
@@ -201,6 +302,80 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, u64 *bytesCount)
     *bytesCount += bytesRead;
 
     //dbg_printf("NxPartition::dumpToFile(%s, %d, %s)\n", file, crypto_mode, n2hexstr(*bytesCount, 8).c_str());
+    return SUCCESS;
+}
+
+int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, void(&updateProgress)(ProgressInfo*))
+{
+    // Get handle to input NxPartition
+    NxPartition *input_part = input->getNxPartition(m_type);
+
+    // Controls
+    if (nullptr == input_part)
+        return ERR_IN_PART_NOT_FOUND;
+
+    if (crypto_mode == DECRYPT && !input_part->isEncryptedPartition())
+        return ERR_CRYPTO_DECRYPTED_YET;
+
+    if (crypto_mode == ENCRYPT && input_part->isEncryptedPartition())
+        return ERR_CRYPTO_ENCRYPTED_YET;
+
+    if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && isEncryptedPartition() && !input_part->isEncryptedPartition())
+        return ERR_RESTORE_CRYPTO_MISSING;
+
+    if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && !isEncryptedPartition() && input_part->isEncryptedPartition())
+        return ERR_RESTORE_CRYPTO_MISSIN2;
+
+    if (input_part->size() > size())
+        return ERR_IO_MISMATCH;
+
+    // Lock output volume
+    if (parent->isDrive())
+        nxHandle->lockVolume();
+
+    // Lock input volume
+    if (input->isDrive())
+        input->nxHandle->lockVolume();
+    
+    // Init handles for both input & output
+    input->nxHandle->initHandle(crypto_mode, input_part);
+    this->nxHandle->initHandle(NO_CRYPTO, this);
+
+    // Set new buffer
+    int buff_size = nxHandle->getDefaultBuffSize();
+    BYTE* buffer = new BYTE[buff_size];
+    memset(buffer, 0, buff_size);
+    DWORD bytesRead = 0, bytesWrite = 0;
+
+    // Init progress info    
+    ProgressInfo pi;
+    pi.mode = RESTORE;
+    pi.storage_name = partitionName();
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.bytesCount = 0;
+    pi.bytesTotal = input_part->size();
+    updateProgress(&pi);
+
+    while(input->nxHandle->read(buffer, &bytesRead, buff_size))
+    {
+        if (!this->nxHandle->write(buffer, &bytesWrite, bytesRead))
+            break;
+
+        pi.bytesCount += bytesWrite;
+        updateProgress(&pi);
+    }
+
+    // Clean & unlock volume
+    delete[] buffer;
+    if (parent->isDrive())
+        nxHandle->unlockVolume();
+    if (input->isDrive())
+        input->nxHandle->unlockVolume();
+
+    // Check completeness
+    if (pi.bytesCount != pi.bytesTotal)
+        return ERR_WHILE_COPY;
+
     return SUCCESS;
 }
 
@@ -298,6 +473,33 @@ bool NxPartition::fat32_dir(std::vector<fat32::dir_entry> *entries, const char *
     fat32::read_boot_sector(buff, &fs);
     u64 root_addr = (fs.num_fats * fs.fat_size * fs.bytes_per_sector) + (fs.reserved_sector_count * fs.bytes_per_sector);
     
+
+    // TEST
+    /*
+    fat32::boot_sector *bs = (fat32::boot_sector*)(buff); 
+    dbg_printf("fs = \n%s\n", hexStr((u8*)buff, 0x60).c_str());
+    dbg_printf("bs = \n%s\n", hexStr((u8*)bs, 0x60).c_str());     
+    dbg_printf("fs.bytes_per_sector = %d\n", fs.bytes_per_sector);
+    dbg_printf("bs->bytes_per_sector = %d\n", *(u16*)&bs->bytes_per_sector);
+    dbg_printf("bs->bytes_per_sector = %s, sizeof %I32d / u16 %I32d\n", hexStr((u8*)&bs->bytes_per_sector, 
+        sizeof(bs->bytes_per_sector)).c_str(), sizeof(bs->bytes_per_sector), sizeof(unsigned short));
+    dbg_printf("bs = \n%s\n", hexStr((u8*)&bs + 0xB, 0x10).c_str());
+    dbg_printf("fs.sectors_per_cluster = %d\n", fs.sectors_per_cluster);
+    dbg_printf("bs->sectors_per_cluster = %d\n", bs->sectors_per_cluster);
+    dbg_printf("fs.reserved_sector_count = %d\n", fs.reserved_sector_count);    
+    dbg_printf("bs->reserved_sector_count = %d\n", bs->reserved_sector_count);
+    bs->reserved_sector_count = 3;
+    fat32::read_boot_sector(buff, &fs);
+    dbg_printf("fs.reserved_sector_count(2) = %d\n", fs.reserved_sector_count);
+    dbg_printf("bs->reserved_sector_count(2) = %d\n", bs->reserved_sector_count);
+    dbg_printf("fs.num_fats = %d\n", fs.num_fats);
+    dbg_printf("bs->num_fats = %d\n", bs->num_fats);
+    dbg_printf("fs.sectors_count = %I32d\n", fs.sectors_count);
+    dbg_printf("bs->sectors_count = %I32d\n", bs->sectors_count);
+    dbg_printf("fs.label = %s\n", fs.label);
+    dbg_printf("bs->label = %s\n", bs->label);
+    */
+
     // Read root cluster
     if (!nxHandle->read(root_addr, buff, nullptr, CLUSTER_SIZE))
         return false;

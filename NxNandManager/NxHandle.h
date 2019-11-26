@@ -94,6 +94,7 @@ class NxHandle {
 
         // Public variables
         bool exists = false;
+        DISK_GEOMETRY pdg;
 
         // Getters
         bool isDrive() { return b_isDrive; };
@@ -122,15 +123,18 @@ class NxHandle {
         bool read(u32 lba, void *buffer, DWORD* bytesRead, DWORD length = 0);
         bool write(void *buffer, DWORD* bytesWrite, DWORD length = 0);
         bool write(u64 offset, void *buffer, DWORD* bytesWrite, DWORD length = 0);
+        bool write(u32 sector, void *buffer, DWORD* bw, DWORD length);
         bool createFile(wchar_t *path, int io_mode = GENERIC_READ);
         bool hash(u64* bytesCount);
         bool setPointer(u64 offset);
         bool dismountVolume();
+        bool dismountAllVolumes();
         bool lockVolume();
         bool unlockVolume();
         bool lockFile();
         bool ejectVolume();
         bool getVolumeName(WCHAR *pVolumeName, u32 start_sector);
+        bool getDisksProperty(PSTORAGE_DEVICE_DESCRIPTOR pDevDesc, HANDLE hDevice = nullptr);
 };
 
 #endif

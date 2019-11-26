@@ -29,7 +29,7 @@ NxHandle::NxHandle(NxStorage *p)
     if (m_h != INVALID_HANDLE_VALUE)
     {        
         // Get drive geometry
-        DISK_GEOMETRY pdg;
+        
         DWORD junk = 0;
         if (DeviceIoControl(m_h, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED)NULL))
         {
@@ -304,7 +304,7 @@ bool NxHandle::setPointer(u64 offset)
         }
     }
 
-    //dbg_printf("NxHandle::setPointer(%s) real offset = %s\n", n2hexstr(offset, 12).c_str(), n2hexstr(m_off_start + offset, 12).c_str());
+    dbg_printf("NxHandle::setPointer(%s) real offset = %s\n", n2hexstr(offset, 12).c_str(), n2hexstr(m_off_start + offset, 12).c_str());
 
     return true;
 }
@@ -461,6 +461,7 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     {
         m_cur_block = (lp_CurrentPointer.QuadPart - m_off_start) / CLUSTER_SIZE;
         nxCrypto->encrypt((unsigned char*)buffer, m_cur_block);
+
     }
 
     if (!WriteFile(m_h, buffer, length, &bytesWrite, NULL))
@@ -485,10 +486,19 @@ bool NxHandle::write(u64 offset, void *buffer, DWORD* bw, DWORD length)
         return false;
 
     // Set new pointer if needed
-    if (lp_CurrentPointer.QuadPart != m_off_start + offset && !setPointer(offset))
-        return false;
+    if (lp_CurrentPointer.QuadPart != m_off_start + offset)
+    {
+        if (!setPointer(offset))
+            return false;
+    }
 
     return write(buffer, bw, length);
+}
+
+bool NxHandle::write(u32 sector, void *buffer, DWORD* bw, DWORD length)
+{
+    u64 offset = (u64)sector * NX_BLOCKSIZE;
+    return write(offset, buffer, bw, length);
 }
 
 bool NxHandle::hash(u64* bytesCount)
@@ -653,8 +663,118 @@ bool NxHandle::ejectVolume()
         NULL);
 }
 
+bool NxHandle::dismountAllVolumes()
+{
+    std::wstring drive(parent->m_path);
+    std::transform(drive.begin(), drive.end(), drive.begin(), ::toupper);
+    std::size_t pos = drive.find(L"PHYSICALDRIVE");
+    if (pos == std::string::npos)
+        return false;
+
+    int driveNumber = stoi(drive.substr(pos + 13, 2));
+    HANDLE handle = INVALID_HANDLE_VALUE;
+    WCHAR  VolumeName[MAX_PATH] = L"";
+    DWORD dwBytesReturned;
+    size_t Index = 0;
+    BOOL   Success = FALSE;
+
+    // Get handle to first volume
+    handle = FindFirstVolumeW(VolumeName, ARRAYSIZE(VolumeName));
+
+    if (handle == INVALID_HANDLE_VALUE)
+        return false;
+
+    for (;;)
+    {
+
+        Index = wcslen(VolumeName) - 1;
+
+        if (VolumeName[0] != L'\\' || VolumeName[1] != L'\\' || VolumeName[2] != L'?' ||
+            VolumeName[3] != L'\\' || VolumeName[Index] != L'\\')
+        {
+            FindVolumeClose(handle);
+            return false;
+        }
+
+        VolumeName[Index] = L'\0'; //remove trailing backslash
+
+        HANDLE hHandle = CreateFile(VolumeName
+            , GENERIC_READ | GENERIC_WRITE
+            , FILE_SHARE_WRITE | FILE_SHARE_READ
+            , NULL
+            , OPEN_EXISTING
+            , FILE_ATTRIBUTE_NORMAL
+            , NULL);
+
+        VOLUME_DISK_EXTENTS volumeDiskExtents;
+
+        BOOL bResult = DeviceIoControl(
+            hHandle,
+            IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS,
+            NULL,
+            0,
+            &volumeDiskExtents,
+            sizeof(volumeDiskExtents),
+            &dwBytesReturned,
+            NULL);
+        
+
+        if (!bResult)
+        {
+            FindVolumeClose(handle);
+            return false;
+        }
+        for (DWORD n = 0; n < volumeDiskExtents.NumberOfDiskExtents; ++n)
+        {
+            PDISK_EXTENT pDiskExtent = &volumeDiskExtents.Extents[n];
+            // If volume found for physical drive
+            if (pDiskExtent->DiskNumber == driveNumber)
+            {
+                dbg_wprintf(L"Dismount volume %s\n", VolumeName);
+                if (!DeviceIoControl(hHandle,
+                    FSCTL_DISMOUNT_VOLUME,
+                    NULL, 0,
+                    NULL, 0,
+                    &dwBytesReturned,
+                    NULL))
+                {
+
+                    dbg_wprintf(L"Failed to dismount volume %s\n", VolumeName);
+                    CloseHandle(hHandle);
+                    FindVolumeClose(handle);                    
+                    return false;
+                }
+
+                if (!DeviceIoControl(hHandle,
+                    FSCTL_LOCK_VOLUME,
+                    NULL, 0,
+                    NULL, 0,
+                    &dwBytesReturned,
+                    NULL))
+                {
+
+                    dbg_wprintf(L"Failed to lock volume %s\n", VolumeName);
+                    CloseHandle(hHandle);
+                    FindVolumeClose(handle);
+                    return false;
+                }
+            }
+        }        
+        CloseHandle(hHandle);
+        // Get handle to next volume
+        if (!FindNextVolumeW(handle, VolumeName, ARRAYSIZE(VolumeName)))
+            break;
+    }
+
+    FindVolumeClose(handle);
+    return true;
+}
+
 bool NxHandle::getVolumeName(WCHAR *pVolumeName, u32 start_sector)
 {
+
+    PSTORAGE_DEVICE_DESCRIPTOR t;
+    //dbg_printf("getVolumeName(WCHAR *pVolumeName, start_sector = %I32d\n", start_sector);
     std::wstring drive(parent->m_path);
     std::transform(drive.begin(), drive.end(), drive.begin(), ::toupper);
     std::size_t pos = drive.find(L"PHYSICALDRIVE");
@@ -717,13 +837,12 @@ bool NxHandle::getVolumeName(WCHAR *pVolumeName, u32 start_sector)
         for (DWORD n = 0; n < volumeDiskExtents.NumberOfDiskExtents; ++n)
         {
             PDISK_EXTENT pDiskExtent = &volumeDiskExtents.Extents[n];
-            dbg_printf("Disk number: %d\n", pDiskExtent->DiskNumber);
-            dbg_printf("DBR start sector: %I64d\n", pDiskExtent->StartingOffset.QuadPart / 512);
+            //dbg_printf("Disk number: %d\n", pDiskExtent->DiskNumber);
+            //dbg_printf("DBR start sector: %I64d\n", pDiskExtent->StartingOffset.QuadPart / 512);
 
             // If volume found 
             if (pDiskExtent->DiskNumber == driveNumber && pDiskExtent->StartingOffset.QuadPart / 512 == (u64)start_sector)
             {
-                //wcscpy(pVolumeName, VolumeName);
                 memcpy(pVolumeName, VolumeName, MAX_PATH);
                 FindVolumeClose(handle);
                 return true;
@@ -739,3 +858,25 @@ bool NxHandle::getVolumeName(WCHAR *pVolumeName, u32 start_sector)
     return false;
 }
 
+bool NxHandle::getDisksProperty(PSTORAGE_DEVICE_DESCRIPTOR pDevDesc, HANDLE hDevice)
+{
+    STORAGE_PROPERTY_QUERY Query; // input param for query
+    DWORD dwOutBytes; // IOCTL output length
+    BOOL bResult; // IOCTL return val
+
+    // specify the query type
+    Query.PropertyId = StorageDeviceProperty;
+    Query.QueryType = PropertyStandardQuery;
+
+    // Query using IOCTL_STORAGE_QUERY_PROPERTY 
+    bResult = DeviceIoControl(nullptr == hDevice ? m_h : hDevice, // device handle
+        IOCTL_STORAGE_QUERY_PROPERTY, // info of device property
+        &Query, sizeof(STORAGE_PROPERTY_QUERY), // input data buffer
+        pDevDesc, pDevDesc->Size, // output data buffer
+        &dwOutBytes, // out's length
+        (LPOVERLAPPED)NULL);
+
+    dbg_printf("Replace hDevice results = %d\n", bResult);
+
+    return bResult;
+}

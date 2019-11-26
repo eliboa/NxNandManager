@@ -145,6 +145,39 @@ void printCopyProgress(int mode, const char *storage_name, timepoint_t begin_tim
         GetReadableSize(bytesTotal).c_str(), bytesCount * 100 / bytesTotal);
     printf(" %s          \r", buf.c_str());
 }
+void printProgress(ProgressInfo* pi)
+{
+   // printCopyProgress(pi.mode, pi.storage_name.c_str(), pi.begin_time, pi.bytesCount, pi.bytesTotal);    
+    auto time = std::chrono::system_clock::now();
+    std::chrono::duration<double> tmp_elapsed_seconds = time - pi->begin_time;
+
+    if (!((int)tmp_elapsed_seconds.count() > pi->elapsed_seconds) && pi->bytesCount != 0 && pi->bytesCount != pi->bytesTotal)
+        return;
+
+    pi->elapsed_seconds = tmp_elapsed_seconds.count();
+    std::chrono::duration<double> remaining_seconds = (tmp_elapsed_seconds / pi->bytesCount) * (pi->bytesTotal - pi->bytesCount);
+    std::string buf = GetReadableElapsedTime(remaining_seconds).c_str();
+    char label[0x40];
+
+    if (pi->bytesCount == pi->bytesTotal)
+    {
+        if (pi->mode == MD5_HASH) sprintf(label, "verified");
+        else if (pi->mode == RESTORE) sprintf(label, "restored");
+        else sprintf(label, "dumped");
+        printf("%s %s. %s - Elapsed time: %s                                              \n", pi->storage_name.c_str(), label,
+            GetReadableSize(pi->bytesTotal).c_str(), GetReadableElapsedTime(tmp_elapsed_seconds).c_str());
+    }
+    else
+    {
+        if (pi->mode == MD5_HASH) sprintf(label, "Computing MD5 hash for");
+        else if (pi->mode == RESTORE) sprintf(label, "Restoring to");
+        else sprintf(label, "Copying");
+        printf("%s %s... %s /%s (%d%%) - Remaining time:", label, pi->storage_name.c_str(), GetReadableSize(pi->bytesCount).c_str(),
+            GetReadableSize(pi->bytesTotal).c_str(), pi->bytesCount * 100 / pi->bytesTotal);
+        printf(" %s          \r", buf.c_str());
+    }
+    
+}
 
 int main(int argc, char *argv[])
 {
@@ -152,9 +185,9 @@ int main(int argc, char *argv[])
     //std::setlocale(LC_ALL, "en_US.utf8");
     std::setlocale(LC_ALL, "");
     std::locale::global(std::locale(""));
-    printf("[ NxNandManager v3.0.2 by eliboa ]\n\n");
+    printf("[ NxNandManager v3.0.3 by eliboa ]\n\n");
     const char *input = NULL, *output = NULL, *partitions = NULL, *keyset = NULL, *user_resize = NULL;
-    BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE;
+    BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE, createEmuNAND = FALSE;
     int io_num = 1;
 
     // Arguments, controls & usage
@@ -239,6 +272,7 @@ int main(int argc, char *argv[])
     const char INCOGNITO_ARGUMENT[] = "--incognito";
     const char RESIZE_USER_ARGUMENT[] = "-user_resize";
     const char FORMAT_USER_FLAG[] = "FORMAT_USER";
+    const char CREATE_EMUNAND_ARGUMENT[] = "--create_SD_emuNAND";
 
     for (int i = 1; i < argc; i++)
     {
@@ -248,6 +282,9 @@ int main(int argc, char *argv[])
 
         else if (!strncmp(currArg, GUI_ARGUMENT, array_countof(GUI_ARGUMENT) - 1))
             gui = TRUE;
+
+        else if (!strncmp(currArg, CREATE_EMUNAND_ARGUMENT, array_countof(CREATE_EMUNAND_ARGUMENT) - 1))
+            createEmuNAND = TRUE;
 
         else if (!strncmp(currArg, INPUT_ARGUMENT, array_countof(INPUT_ARGUMENT) - 1) && i < argc)
             input = argv[++i];
@@ -458,6 +495,14 @@ int main(int argc, char *argv[])
     }
 
     // Output specific actions
+    //
+    if (createEmuNAND)
+    {
+        dbg_printf("Main.cpp > createEmuNAND\n");
+        int res = nx_input.createMmcEmuNand(&nx_output, output, printProgress);
+        dbg_printf("Main.cpp > createEmuNAND returned %d\n", res);
+        exit(EXIT_SUCCESS);
+    }
     //
     if (nullptr != user_resize)
     {
@@ -728,60 +773,16 @@ int main(int argc, char *argv[])
         // Full dump
         if (!v_partitions.size())
         {
-            // Init some vars
-            int rc = 0;
-            u64 bytesCount = 0, bytesToRead = nx_input.size();
-            timepoint_t begin_time = std::chrono::system_clock::now();
-            elapsed_seconds = 0;
 
             if (dump_rawnand)
                 printf("BOOT0 & BOOT1 skipped (RAWNAND only)\n");
 
-            // Copy
-            printf("Copying %s...\r", nx_input.getNxTypeAsStr());
-            while (!(rc = nx_input.dumpToFile(output, crypto_mode, &bytesCount, dump_rawnand)))
-                printCopyProgress(COPY, nx_input.getNxTypeAsStr(), begin_time, bytesCount, bytesToRead);
-
-            std::chrono::duration<double> elapsed_total = std::chrono::system_clock::now() - begin_time;
+            int rc = nx_input.dumpToFile(output, crypto_mode, printProgress, dump_rawnand);
 
             // Failure
-            if (rc != NO_MORE_BYTES_TO_COPY)
+            if (rc != SUCCESS)
                 throwException(rc);
 
-            // EOF
-            printf("%s dumped. %s - Elapsed time: %s                         \n", nx_input.getNxTypeAsStr(),
-                GetReadableSize(bytesCount).c_str(), GetReadableElapsedTime(elapsed_total).c_str());
-
-            // Compute & compare md5 hashes
-            if (crypto_mode == MD5_HASH)
-            {
-                HCRYPTHASH in_hash = nx_input.nxHandle->md5Hash();
-                std::string in_sum = BuildChecksum(in_hash);
-                    
-                NxStorage out_storage = NxStorage(output);
-                timepoint_t md5_begin_time = std::chrono::system_clock::now();
-                bytesCount = 0;
-                elapsed_seconds = 0;
-                bytesToRead = out_storage.size();
-
-                printf("Computing MD5 hash for %s...\r", nx_input.getNxTypeAsStr());
-                while (!out_storage.nxHandle->hash(&bytesCount))
-                    printCopyProgress(MD5_HASH, nx_input.getNxTypeAsStr(), md5_begin_time, bytesCount, bytesToRead);
-
-                elapsed_total = std::chrono::system_clock::now() - md5_begin_time;
-
-                if (bytesCount != bytesToRead)
-                    throwException("Failed to compute MD5 hash for output");
-
-                HCRYPTHASH out_hash = out_storage.nxHandle->md5Hash();
-                std::string out_sum = BuildChecksum(out_hash);
-                if (!in_sum.compare(out_sum))
-                    printf("Verified (MD5 checksums are the same : \"%s\"). Elapsed time: %s          \n", 
-                        out_sum.c_str(), GetReadableElapsedTime(elapsed_total).c_str());
-                else
-                    throwException("Failed to validate integrity (MD5 checksums are different %s != %s)",
-                        (void*)in_sum.c_str(), (void*)out_sum.c_str());
-            }
         }
         // Dump one or several partitions (-part is provided)
         else
@@ -835,59 +836,14 @@ int main(int argc, char *argv[])
                     strcat(new_out, "\\");
                     strcat(new_out, part_name);
                 }
-                else strcpy(new_out, output);;
-                
-                // Init some vars
-                timepoint_t begin_time = std::chrono::system_clock::now();
-                u64 bytesCount = 0, bytesToRead = partition->size();
-                elapsed_seconds = 0;
-                int rc = 0;                
+                else strcpy(new_out, output);              
 
                 // Copy
-                printf("Copying %s...\r", partition->partitionName().c_str());
-                while (!(rc = partition->dumpToFile(new_out, crypto_mode, &bytesCount)))
-                    printCopyProgress(COPY, partition->partitionName().c_str(), begin_time, bytesCount, bytesToRead);
-
-                std::chrono::duration<double> elapsed_total = std::chrono::system_clock::now() - begin_time;
+                int rc = partition->dumpToFile(new_out, crypto_mode, printProgress);
 
                 // Failure
-                if (rc != NO_MORE_BYTES_TO_COPY)
+                if (rc != SUCCESS)
                     throwException(rc);
-                
-                // EOF
-                printf("%s dumped. %s - Elapsed time: %s                         \n", partition->partitionName().c_str(),
-                    GetReadableSize(bytesCount).c_str(), GetReadableElapsedTime(elapsed_total).c_str());
-                
-                // Compute & compare md5 hashes
-                if (crypto_mode == MD5_HASH)
-                {
-                    HCRYPTHASH in_hash = nx_input.nxHandle->md5Hash();
-                    std::string in_sum = BuildChecksum(in_hash);
-
-                    NxStorage out_storage = NxStorage(new_out);
-                    timepoint_t md5_begin_time = std::chrono::system_clock::now();
-                    bytesCount = 0;
-                    elapsed_seconds = 0;
-                    bytesToRead = out_storage.size();
-
-                    printf("Computing MD5 hash for %s...\r", partition->partitionName().c_str());
-                    while (!out_storage.nxHandle->hash(&bytesCount))
-                        printCopyProgress(MD5_HASH, partition->partitionName().c_str(), md5_begin_time, bytesCount, bytesToRead);
-
-                    elapsed_total = std::chrono::system_clock::now() - md5_begin_time;
-
-                    if (bytesCount != bytesToRead)
-                        throwException("Failed to compute MD5 hash for output");
-
-                    HCRYPTHASH out_hash = out_storage.nxHandle->md5Hash();
-                    std::string out_sum = BuildChecksum(out_hash);
-                    if (!in_sum.compare(out_sum))
-                        printf("Verified (MD5 checksums are the same : \"%s\"). Elapsed time: %s          \n",
-                            out_sum.c_str(), GetReadableElapsedTime(elapsed_total).c_str());
-                    else
-                        throwException("Failed to validate integrity (MD5 checksums are different %s != %s)",
-                        (void*)in_sum.c_str(), (void*)out_sum.c_str());
-                }
             }
         }
     }
@@ -903,27 +859,11 @@ int main(int argc, char *argv[])
             if (!FORCE && !AskYesNoQuestion("%s to be fully restored. Are you sure you want to continue ?", (void*)nx_output.getNxTypeAsStr()))
                 throwException("Operation cancelled");
 
-            // Init some vars
-            crypto_mode = NO_CRYPTO;
-            int rc = 0;
-            u64 bytesCount = 0, bytesToRead = nx_input.size();
-            timepoint_t begin_time = std::chrono::system_clock::now();
-            elapsed_seconds = 0;
-
-            // Copy
-            printf("Restoring to %s...\r", nx_output.getNxTypeAsStr());            
-            while (!(rc = nx_output.restoreFromStorage(&nx_input, crypto_mode, &bytesCount)))
-                printCopyProgress(RESTORE, nx_output.getNxTypeAsStr(), begin_time, bytesCount, bytesToRead);
-
-            std::chrono::duration<double> elapsed_total = std::chrono::system_clock::now() - begin_time;
+            int rc = nx_output.restoreFromStorage(&nx_input, NO_CRYPTO, printProgress);
 
             // Failure
-            if (rc != NO_MORE_BYTES_TO_COPY)
+            if (rc != SUCCESS)
                 throwException(rc);
-
-            // EOF
-            printf("%s restored. %s - Elapsed time: %s                         \n", nx_output.getNxTypeAsStr(),
-                GetReadableSize(bytesCount).c_str(), GetReadableElapsedTime(elapsed_total).c_str());
         }
         // Restore one or several partitions
         else
@@ -947,26 +887,11 @@ int main(int argc, char *argv[])
                 else
                     crypto_mode = BYPASS_MD5SUM ? NO_CRYPTO : MD5_HASH;
 
-                // Init some vars
-                timepoint_t begin_time = std::chrono::system_clock::now();
-                u64 bytesCount = 0, bytesToRead = in_part->size();
-                elapsed_seconds = 0;
-                int rc = 0;
-
-                // Restore
-                printf("Restoring %s...\r", out_part->partitionName().c_str());
-                while (!(rc = out_part->restoreFromStorage(&nx_input, crypto_mode, &bytesCount)))
-                    printCopyProgress(COPY, in_part->partitionName().c_str(), begin_time, bytesCount, bytesToRead);
-
-                std::chrono::duration<double> elapsed_total = std::chrono::system_clock::now() - begin_time;
+                int rc = out_part->restoreFromStorage(&nx_input, crypto_mode, printProgress);
 
                 // Failure
-                if (rc != NO_MORE_BYTES_TO_COPY)
+                if (rc != SUCCESS)
                     throwException(rc);
-
-                // EOF
-                printf("%s restored. %s - Elapsed time: %s                         \n", out_part->partitionName().c_str(),
-                    GetReadableSize(bytesCount).c_str(), GetReadableElapsedTime(elapsed_total).c_str());
             }
         }
     }

@@ -27,6 +27,18 @@ extern bool isdebug;
 typedef std::chrono::duration< double > double_prec_seconds;
 typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds > timepoint_t;
 
+typedef struct ProgressInfo ProgressInfo;
+struct ProgressInfo {
+    int mode;
+    timepoint_t begin_time;
+    int elapsed_seconds = 0;
+    std::string message;
+    std::string storage_name;
+    u64 bytesCount = 0;
+    u64 bytesTotal = 0;
+    int percent = 0;
+};
+
 // MinGW
 #if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
 #define strcpy_s strcpy
@@ -73,6 +85,10 @@ typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds 
 #define ERR_FILE_ALREADY_EXISTS    -1032
 #define ERR_CRYPTO_RAW_COPY        -1033
 #define ERR_NX_TYPE_MISSMATCH      -1034
+#define ERR_OUTPUT_NOT_MMC         -1035
+#define ERR_OUT_DISMOUNT_VOL       -1036
+#define ERR_WHILE_WRITE			   -1037
+#define ERR_PART_CREATE_FAILED	   -1038
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -104,7 +120,11 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_IN_PART_NOT_FOUND, "Partition not found in \"input\""},
 	{ ERR_OUT_PART_NOT_FOUND, "Partition not found in \"output\""},
 	{ ERR_RESTORE_UNKNOWN_DISK, "Cannot restore to an unknown disk"},
-    { ERR_FILE_ALREADY_EXISTS, "File already exits"}
+    { ERR_FILE_ALREADY_EXISTS, "File already exits"},
+	{ ERR_OUTPUT_NOT_MMC, "Output must be removable media (MMC)"},
+	{ ERR_OUT_DISMOUNT_VOL, "Failed to dismount volume(s) in output drive"},
+	{ ERR_WHILE_WRITE, "Failed to write to output file/disk"},
+	{ ERR_PART_CREATE_FAILED, "Failed to create new partition"}
 };
 
 typedef struct KeySet KeySet;
@@ -219,4 +239,6 @@ std::string trim(const std::string& s);
 bool is_file(const char* path);
 bool is_dir(const char* path);
 int parseKeySetFile(const char *keyset_file, KeySet *biskeys);
+u32 u32_val(u8* buf);
+
 #endif

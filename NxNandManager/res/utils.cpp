@@ -516,3 +516,4 @@ DWORD crc32Hash(const void *data, DWORD size)
   return ~cc;
 }
 
+u32 u32_val(u8* buf) { return *(u32*)buf; }

@@ -114,22 +114,42 @@ NxStorage::NxStorage(const char *p_path)
     // Look for emuMMC partition
     if (type == UNKNOWN)
     {        
+        /*
         nxHandle->initHandle();
-        u8 *mbr = (u8 *)malloc(0x200);
+        mbr_t mbr2;
+        if (nxHandle->read(&mbr2, &bytesRead, NX_BLOCKSIZE))
+        {
+            dbg_printf("MBR2 =\n%s\n", hexStr((u8*)&mbr2, NX_BLOCKSIZE).c_str());
+            dbg_printf("MBR2.bootstrap =\n%s\n", hexStr((u8*)mbr2.bootstrap_area, 0x1BE).c_str());     
+            dbg_printf("MBR2.part1 = %s\n", hexStr(reinterpret_cast<unsigned char *>(&mbr2.parts[0]), 0x10).c_str());
+            u32 sector_start = u32_val(mbr2.parts[0].lba_start);
+            u64 size = (u64)u32_val(mbr2.parts[0].lba_count) * NX_BLOCKSIZE;
+            dbg_printf("MBR2.part1 sector_start = %I32d, size = %s\n", sector_start, GetReadableSize(size).c_str());
+            dbg_printf("MBR2.part2 = %s\n", hexStr(reinterpret_cast<unsigned char *>(&mbr2.parts[1]), 0x10).c_str());
+            dbg_printf("MBR2.part3 = %s\n", hexStr(reinterpret_cast<unsigned char *>(&mbr2.parts[2]), 0x10).c_str());
+            dbg_printf("MBR2.part4 = %s\n", hexStr(reinterpret_cast<unsigned char *>(&mbr2.parts[3]), 0x10).c_str());
+            dbg_printf("MBR SIGNATURE = %s\n", hexStr(mbr2.signature, 2).c_str());
+            dbg_printf("MBR2 mbr_t size %I32d, mbr_part_t size %I32d, bootstrap_area size %I32d, signature size %I32d \n", 
+                sizeof(mbr_t), sizeof(mbr_part_t), sizeof(mbr2.bootstrap_area), sizeof(mbr2.signature)); 
+            
+        }
+        */
+
+        nxHandle->initHandle();
+        mbr_t mbr;
         WCHAR  volumeName[MAX_PATH] = L"";
 
         // If first sector is MBR
-        if (nxHandle->read(mbr, &bytesRead, NX_BLOCKSIZE) && hexStr(&mbr[0x200 - 2], 2) == "55AA")
+        if (nxHandle->read(&mbr, &bytesRead, NX_BLOCKSIZE) && hexStr(mbr.signature, 2) == "55AA")
         {
             u8 *efi_part = (u8 *)malloc(0x200);            
-            u32 curr_part_size = 0, sector_start = 0, sector_count = 0;
-            memcpy(mbr, mbr + 0x1BE, 0x40); // Get partitions
+            u32 curr_part_size = 0, sector_start = 0, sector_count = 0;         
 
             // Iterate MBR primary partitions
             for (int i = 1; i < 4; i++)
             {                       
-                sector_start = *(u32 *)&mbr[0x08 + (0x10 * i)];
-                sector_count = *(u32 *)&mbr[0x0C + (0x10 * i)];
+                sector_start = u32_val(mbr.parts[i].lba_start);
+                sector_count = u32_val(mbr.parts[i].lba_count);
 
                 if (!sector_start)
                     continue;
@@ -142,7 +162,7 @@ NxStorage::NxStorage(const char *p_path)
                     // Recreate new NxHandle for volume
                     wcscpy(m_path, volumeName);
                     delete nxHandle;
-                    nxHandle = new NxHandle(this);
+                    nxHandle = new NxHandle(this);                    
 
                     if (nxHandle->read((u32)0xC001, efi_part, &bytesRead, NX_BLOCKSIZE)
                         && !memcmp(efi_part, "EFI PART", 8)) //GPT header
@@ -192,12 +212,11 @@ NxStorage::NxStorage(const char *p_path)
             {
                 type = RAWMMC;
                 mmc_b0_lba_start = 2;
-                sector_start = *(u32 *)&mbr[0x08];
+                sector_start = u32_val(mbr.parts[0].lba_start);
                 m_freeSpace = (u64)(sector_start - mmc_b0_lba_start) * NX_BLOCKSIZE;                
             }
             free(efi_part);
         }
-        free(mbr);        
     }
 
     // RAWNAND or FULL NAND : Add NxPartition for each GPP or BOOT partition
@@ -676,10 +695,20 @@ void NxStorage::setStorageInfo(int partition)
                     std::size_t n = haystack.find("OsVersion");
                     if (n != std::string::npos)
                     {
-                        strcpy(fwv, haystack.substr(n + 10, 5).c_str());
-                        dbg_printf("Reading /save/80000000000000d1 - OsVersion %s\n", fwv);
-                        if (strcmp(fwv, fw_version) > 0) // Only overwrite for higher fw version
-                            memcpy(fw_version, fwv, 5);
+                        strcpy(fwv, haystack.substr(n + 10, 10).c_str());
+                        char *buf;
+                        if ((buf = strtok(fwv, "\xb0")) != nullptr) // 0xB0 terminated value (msgpack)
+                        {
+                            firmware_version_t fwv_tmp;
+                            setFirmwareVersion(&fwv_tmp, buf);
+                            dbg_printf("Reading /save/80000000000000d1 - OsVersion %s\n", getFirmwareVersion(&fwv_tmp).c_str());
+
+                            if (fwv_cmp(fwv_tmp, firmware_version) > 0)
+                            {
+                                dbg_printf("%s is greater than %s\n", getFirmwareVersion(&fwv_tmp).c_str(), getFirmwareVersion().c_str());
+                                firmware_version = fwv_tmp;
+                            }
+                        }
                     }
 
                     // Find needle (serial number) in haystack
@@ -712,7 +741,6 @@ void NxStorage::setStorageInfo(int partition)
                     if (n != std::string::npos)
                     {
                         strcpy(fwv, haystack.substr(n + 11, 10).c_str());
-
                         char *buf;
                         if ((buf = strtok(fwv, "\xb1")) != nullptr) // 0xB1 terminated value (msgpack)
                         {
@@ -723,9 +751,6 @@ void NxStorage::setStorageInfo(int partition)
                             {
                                 dbg_printf("%s is greater than %s\n", getFirmwareVersion(&fwv_tmp).c_str(), getFirmwareVersion().c_str());
                                 firmware_version = fwv_tmp;
-                                
-                                // temp
-                                memcpy(fw_version, getFirmwareVersion().c_str(), 10);
                             }
                         }
                     }
@@ -735,10 +760,113 @@ void NxStorage::setStorageInfo(int partition)
 
             // overwrite fw version if value found in journal/play report is greater than fw version in 
             // package1ldr (trick for downgraded NAND, only works for FULL NAND)
-            if(firmware_version_boot0.major > 0 && fwv_cmp(firmware_version_boot0, firmware_version) < 0)
+            if(firmware_version_boot0.major > 0 && firmware_version_boot0.major < firmware_version.major)
                 firmware_version = firmware_version_boot0;
         }
     }
+}
+
+int NxStorage::dumpToFile(const char* file, int crypto_mode, void(&updateProgress)(ProgressInfo*), bool rawnand_only)
+{
+    // Crypto check
+    if (crypto_mode == DECRYPT || crypto_mode == ENCRYPT)
+        return ERR_CRYPTO_RAW_COPY;
+
+    // Test if file already exists
+    std::ifstream infile(file);
+    if (infile.good())
+    {
+        infile.close();
+        return ERR_FILE_ALREADY_EXISTS;
+    }
+
+    // Open new stream for output file
+    std::ofstream out_file = std::ofstream(file, std::ofstream::binary);
+
+    // Lock volume (drive only)
+    if (isDrive())
+        nxHandle->lockVolume();
+    
+    // Init input handle
+    nxHandle->initHandle(crypto_mode);
+
+    // Skip boot partitions if rawnanand_only
+    if (rawnand_only && type == RAWMMC)
+        nxHandle->setPointer((u64)0x4000 * NX_BLOCKSIZE);
+
+    // Set new buffer
+    int buff_size = nxHandle->getDefaultBuffSize();
+    BYTE* buffer = new BYTE[buff_size];
+    memset(buffer, 0, buff_size);
+    DWORD bytesRead = 0;
+
+    // Init progress info    
+    ProgressInfo pi;
+    pi.mode = COPY;
+    pi.storage_name = std::string(getNxTypeAsStr());
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.bytesCount = 0;
+    pi.bytesTotal = rawnand_only && type == RAWMMC ? size() - (u64)0x4000 * NX_BLOCKSIZE : size();
+    updateProgress(&pi);
+
+    // Copy
+    while (nxHandle->read(buffer, &bytesRead, buff_size))
+    {
+        if (!out_file.write((char *)&buffer[0], bytesRead))
+            break;
+
+        pi.bytesCount += bytesRead;
+        updateProgress(&pi);
+    }
+
+    // Clean & unlock volume
+    out_file.close();
+    delete[] m_buffer;
+    if (isDrive())
+        nxHandle->unlockVolume();
+
+    // Check completeness
+    if (pi.bytesCount != pi.bytesTotal)
+        return ERR_WHILE_COPY;
+
+    // Compute & compare md5 hashes
+    if (crypto_mode == MD5_HASH)
+    {
+        // Get checksum for input
+        HCRYPTHASH in_hash = nxHandle->md5Hash();
+        std::string in_sum = BuildChecksum(in_hash);
+        
+        // Set new NxStorage for output
+        NxStorage out_storage = NxStorage(file);
+
+        // Init Progress Info
+        pi.mode = MD5_HASH;
+        pi.begin_time = std::chrono::system_clock::now();
+        pi.bytesCount = 0;
+        pi.bytesTotal = out_storage.size();
+        pi.elapsed_seconds = 0;
+        updateProgress(&pi);
+
+        // Hash output file
+        while (!out_storage.nxHandle->hash(&pi.bytesCount))
+        {
+            dbg_printf("out_storage.nxHandle->hash \n");
+            updateProgress(&pi);
+        }
+        // Check completeness
+        if (pi.bytesCount != pi.bytesTotal)
+            return ERR_MD5_COMPARE;
+
+        // Get checksum for output
+        HCRYPTHASH out_hash = out_storage.nxHandle->md5Hash();
+        std::string out_sum = BuildChecksum(out_hash);
+
+        // Compare checksums
+        if (in_sum.compare(out_sum))
+            return ERR_MD5_COMPARE;
+    }
+
+    return SUCCESS;
 }
 
 int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount, bool rawnand_only)
@@ -796,6 +924,81 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount, bo
         return ERR_WHILE_COPY;
     }
     *bytesCount += bytesRead;
+    return SUCCESS;
+}
+
+int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, void(&updateProgress)(ProgressInfo*))
+{
+    // Controls
+    if (input->type == INVALID || input->type == UNKNOWN)
+        return ERR_INVALID_INPUT;
+
+    if (input->type != this->type)
+        return ERR_NX_TYPE_MISSMATCH;
+
+    if (crypto_mode == DECRYPT || crypto_mode == ENCRYPT)
+        return ERR_CRYPTO_RAW_COPY;
+
+    if ((input->size() > size() && !m_freeSpace) || (input->size() > size() && input->size() > m_freeSpace)) // Alow restore overflow if freeSpace is available
+        return ERR_IO_MISMATCH;
+
+    if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && input->isEncrypted() && !isEncrypted())
+        return ERR_RESTORE_CRYPTO_MISSIN2;
+
+    if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && !input->isEncrypted() && isEncrypted())
+        return ERR_RESTORE_CRYPTO_MISSING;
+
+    // Lock output volume
+    if (isDrive())
+        nxHandle->lockVolume();
+
+    // Lock input volume
+    if (input->isDrive())
+        input->nxHandle->lockVolume();
+
+    // Init handles for both input & output
+    input->nxHandle->initHandle(crypto_mode);
+    this->nxHandle->initHandle(NO_CRYPTO);
+    
+    // Restoring to RAWMMC, allow restore from larger input
+    if (type == RAWMMC && m_freeSpace && input->size() > size())
+        this->nxHandle->setOffMax(m_freeSpace);
+
+    // Set new buffer
+    int buff_size = nxHandle->getDefaultBuffSize();
+    BYTE* buffer = new BYTE[buff_size];
+    memset(buffer, 0, buff_size);
+    DWORD bytesRead = 0, bytesWrite = 0;
+
+    // Init progress info    
+    ProgressInfo pi;
+    pi.mode = RESTORE;
+    pi.storage_name = std::string(getNxTypeAsStr());
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.bytesCount = 0;
+    pi.bytesTotal = input->size();
+    updateProgress(&pi);
+
+    while(input->nxHandle->read(buffer, &bytesRead, buff_size))
+    {
+        if (!this->nxHandle->write(buffer, &bytesWrite, bytesRead))
+            break;
+
+        pi.bytesCount += bytesWrite;
+        updateProgress(&pi);
+    }
+
+    // Clean & unlock volume
+    delete[] buffer;
+    if (isDrive())
+        nxHandle->unlockVolume();
+    if (input->isDrive())
+        input->nxHandle->unlockVolume();
+
+    // Check completeness
+    if (pi.bytesCount != pi.bytesTotal)
+        return ERR_WHILE_COPY;
+
     return SUCCESS;
 }
 
@@ -1426,6 +1629,295 @@ int NxStorage::applyIncognito()
     delete[] buffer;
     if (isDrive() && !nxHandle->unlockVolume())
         dbg_printf("failed to unlock volume\n");
+    return SUCCESS;
+}
+
+int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&updateProgress)(ProgressInfo*))
+{
+    if (this->type != RAWMMC)
+        return -1;
+
+    if (!mmc->isDrive())
+        return ERR_OUTPUT_NOT_MMC;
+
+    // Recreate handle for mmc
+    mbstowcs(mmc->m_path, mmc_drive, MAX_PATH);
+    mmc->m_size = 0;
+    mmc->mmc_b0_lba_start = 0;
+    delete mmc->nxHandle;
+    mmc->nxHandle = new NxHandle(mmc);
+   
+    // Read boot sector
+    DWORD bytesRead;
+    mbr_t mbr;
+    if (!mmc->nxHandle->read(&mbr, &bytesRead, NX_BLOCKSIZE))
+        return ERR_OUTPUT_HANDLE;
+        
+    if (hexStr(mbr.signature, 2) != "55AA")
+        return ERR_OUTPUT_NOT_MMC;
+
+    ProgressInfo pi;
+    pi.mode = COPY;
+    pi.storage_name = std::string(getNxTypeAsStr());
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.bytesCount = 0;
+    pi.bytesTotal = size();
+    updateProgress(&pi);
+    
+    // Lock volume
+    mmc->nxHandle->lockVolume();
+
+    // Calculate new values for MBR
+    u32 nand_sector_count = (u32)(this->m_size / NX_BLOCKSIZE);
+    u32 mmc_sector_count = (u32)(mmc->nxHandle->size() / NX_BLOCKSIZE);
+    u32 first_part_lba_start = nand_sector_count + 3;
+    u32 first_part_lba_count = mmc_sector_count - first_part_lba_start;
+    chs_t first_part_chs_start;
+    LBAtoCHS(mmc->nxHandle->pdg, first_part_lba_start, first_part_chs_start);
+ 
+    // MMC not large enough
+    if (nand_sector_count + 0x200 > mmc_sector_count)
+        return ERR_NO_SPACE_LEFT; 
+
+    // Set new values for MBR first partition
+    memcpy(&mbr.parts[0].status, "\x00", 1);
+    memcpy(&mbr.parts[0].type, "\x0B", 1); // FAT32 with CHS
+    memcpy(mbr.parts[0].lba_start, &first_part_lba_start, 4);
+    memcpy(mbr.parts[0].lba_count, &first_part_lba_count, 4);
+    memcpy(&mbr.parts[0].first_sector, &first_part_chs_start, sizeof(chs_t));
+    memcpy(&mbr.parts[0].last_sector, "\xfe\xff\xff", sizeof(chs_t));
+
+    // Memset other partitions
+    for (int i(1); i < 4; i++)
+        memset(&mbr.parts[i], 0, sizeof(mbr_part_t));
+
+    // Dismount all volumes
+    if (!mmc->nxHandle->dismountAllVolumes())
+        return ERR_OUT_DISMOUNT_VOL;    
+
+    // Write MBR
+    if (!mmc->nxHandle->write((u32)0, &mbr, &bytesRead, NX_BLOCKSIZE))
+        return ERR_WHILE_WRITE;
+
+    // Write "TXNAND" sector (mandatory to boot emuNAND via SX OS)
+    u8 buffer[NX_BLOCKSIZE];
+    memset(buffer, 0, NX_BLOCKSIZE);
+    memcpy(buffer, tx_sector, ARRAYSIZE(tx_sector));
+    if (!mmc->nxHandle->write(buffer, &bytesRead, NX_BLOCKSIZE))
+        return ERR_WHILE_WRITE;    
+    // Write another empty sector
+    memset(buffer, 0, NX_BLOCKSIZE);
+    if (!mmc->nxHandle->write(buffer, &bytesRead, NX_BLOCKSIZE))
+        return ERR_WHILE_WRITE;
+
+    //
+    // Copy NAND
+    //
+
+    // Init and lock volume
+    this->nxHandle->initHandle(NO_CRYPTO);
+    if (isDrive())
+        nxHandle->lockVolume();
+    // Set new buffer
+    int buff_size = nxHandle->getDefaultBuffSize();
+    BYTE* cpy_buffer = new BYTE[buff_size];
+    memset(cpy_buffer, 0, buff_size);
+    bytesRead = 0;
+    DWORD bytesWrite = 0;
+    // Copy
+    while(this->nxHandle->read(cpy_buffer, &bytesRead, buff_size))
+    {
+        if (!mmc->nxHandle->write(cpy_buffer, &bytesWrite, bytesRead))
+            break;
+
+        pi.bytesCount += bytesWrite;
+        updateProgress(&pi);
+    }
+
+    delete[] cpy_buffer;
+    if (isDrive())
+        nxHandle->unlockVolume();
+
+    // Check completeness
+    if (pi.bytesCount != pi.bytesTotal)
+        return ERR_WHILE_COPY;
+
+    // Set new boot sector for user partition
+    u8 bts[NX_BLOCKSIZE];
+    memset(bts, 0, NX_BLOCKSIZE);
+    memcpy(bts, fat32::fat32_default_boot_sector, ARRAYSIZE(fat32::fat32_default_boot_sector));
+    u8 bs_sign[2] = { 0x55, 0xAA };
+    memcpy(bts + NX_BLOCKSIZE - 2, bs_sign, 2);
+    fat32::boot_sector *bs = (fat32::boot_sector*)(bts);
+    bs->sectors_count = first_part_lba_count;
+    u32 data_sectors_count = bs->sectors_count - bs->reserved_sector_count;
+    bs->fat_size = data_sectors_count / ((256 * bs->sectors_per_cluster + 2) / 2);
+
+    // Set pointer to user partition in mmc output
+    if (!mmc->nxHandle->setPointer((u64)first_part_lba_start * NX_BLOCKSIZE))
+        return ERR_WHILE_WRITE;
+
+    // Write boot & info sectors
+    for (int j(0); j < 2; j++)
+    {
+        // Write bs
+        if (!mmc->nxHandle->write(first_part_lba_start, bts, &bytesRead, NX_BLOCKSIZE))
+            return ERR_WHILE_WRITE;
+
+        // Write info sector
+        if (!mmc->nxHandle->write(&fat32::fat32_default_info_sector, &bytesRead, NX_BLOCKSIZE))
+            return ERR_WHILE_WRITE;
+
+        // Write 4 sectors
+        for (int i(0); i < 4; i++)
+        {
+            memset(buffer, 0, NX_BLOCKSIZE);
+            if (!i) memcpy(buffer + NX_BLOCKSIZE - 2, bs_sign, 2);
+            if (!mmc->nxHandle->write(&fat32::fat32_default_info_sector, &bytesRead, NX_BLOCKSIZE))
+                return ERR_WHILE_WRITE;
+        }
+    }
+    u32 cur_sector = 12;
+
+    // Write reserved sectors
+    memset(buffer, 0, NX_BLOCKSIZE);
+    int res = bs->reserved_sector_count - cur_sector;
+    for (int i(0); i < res; i++)
+    {
+        if (!mmc->nxHandle->write(buffer, &bytesRead, NX_BLOCKSIZE))
+            return ERR_WHILE_WRITE;
+    }
+
+    // Get Handle to user partition volume (to prevent unauthorized write access)
+    WCHAR  volumeName[MAX_PATH] = L"";
+    if (!mmc->nxHandle->getVolumeName(volumeName, first_part_lba_start))
+        return ERR_PART_CREATE_FAILED;
+
+    dbg_wprintf(L"Volume name: %s\n", volumeName);
+
+    // Recreate file for volume
+    mmc->nxHandle->closeHandle();
+    if (!mmc->nxHandle->createFile(volumeName))
+        return -16;
+    // Lock volume
+    mmc->nxHandle->lockVolume();
+    // Dismount volume
+    mmc->nxHandle->dismountVolume();    
+    // Set pointer to first sector FAT sector
+    if (!mmc->nxHandle->setPointer((u64)bs->reserved_sector_count * NX_BLOCKSIZE))
+        return ERR_WHILE_WRITE;    
+
+    // Write FAT
+    u64 fat_size = (u64)(bs->fat_size * NX_BLOCKSIZE);
+    u8 *buff = (u8*)malloc(CLUSTER_SIZE);
+    // For each FAT
+    for (int j(0); j < (unsigned int)bs->num_fats; j++)
+    {
+        u64 cur_off = 0;        
+        // Fill cluster map
+        while (cur_off < fat_size)
+        {
+            if(!cur_off)
+            {
+                u8 first_nybbles[12] = { 0xf8, 0xff, 0xff, 0x0f, 0xff, 0xff, 0xff, 0x0f, 0xf8, 0xff, 0xff, 0x0f };
+                memcpy(buff, first_nybbles, ARRAYSIZE(first_nybbles));
+            }
+
+            u32 buff_size = CLUSTER_SIZE;
+            if (cur_off + buff_size > fat_size) buff_size = fat_size - cur_off;
+
+            if (!mmc->nxHandle->write(buff, &bytesRead, buff_size))
+                return -12;
+
+            if (!cur_off) memset(buff, 0, CLUSTER_SIZE);
+
+            cur_off += buff_size;
+
+            dbg_printf("Writing %I64d bytes of FAT %d (%I64d)\r", cur_off, j, fat_size);
+        }
+        dbg_printf("\n");
+    }
+    free(buff);
+
+    TCHAR Buf[MAX_PATH];
+    TCHAR Drive[] = TEXT("d:\\");
+    TCHAR Volume[] = TEXT("");
+    TCHAR AvailableDrive[] = L"";
+    bool already_mounted = false;
+    TCHAR I;
+    wcscat(Volume, volumeName);
+    wcscat(Volume, L"\\\0");
+    dbg_wprintf(L"Volume name: %s\n", Volume);
+    
+    for (I = TEXT('d'); I < TEXT('z'); I++)
+    {
+        // Stamp the drive for the appropriate letter.
+        Drive[0] = I;
+
+        bool bFlag = GetVolumeNameForVolumeMountPoint(
+            Drive,     // input volume mount point or directory
+            Buf,       // output volume name buffer
+            MAX_PATH); // size of volume name buffer
+
+
+        if (bFlag)
+        {
+            dbg_wprintf(L"%s : %s\n", Drive, Buf);
+            if (!lstrcmp(Buf, Volume))
+            {
+                already_mounted = true;
+                break;
+            }
+        }
+        else if(!lstrlen(AvailableDrive)) AvailableDrive[0] = I;        
+    }
+    
+    if (!already_mounted && lstrlen(AvailableDrive))
+    {
+        BOOL  fResult;
+        TCHAR szDriveLetter[3];
+        TCHAR szUniqueVolumeName[MAX_PATH];
+        szDriveLetter[0] = AvailableDrive[0];
+        szDriveLetter[1] = TEXT(':');
+        szDriveLetter[2] = TEXT('\0');
+        TCHAR szDriveLetterAndSlash[4];
+        szDriveLetterAndSlash[0] = AvailableDrive[0];
+        szDriveLetterAndSlash[1] = TEXT(':');
+        szDriveLetterAndSlash[2] = TEXT('\\');
+        szDriveLetterAndSlash[3] = TEXT('\0');
+
+        dbg_wprintf(L"szDriveLetter = %s, szDriveLetterAndSlash = %s \n", szDriveLetter, szDriveLetterAndSlash);
+
+        
+        fResult = DefineDosDevice(DDD_RAW_TARGET_PATH, szDriveLetter, volumeName);
+        if (!fResult)
+            dbg_wprintf(TEXT("DefineDosDevice failed : %s\n"), GetLastErrorAsString().c_str());
+
+        if (!GetVolumeNameForVolumeMountPoint(szDriveLetterAndSlash,
+            szUniqueVolumeName,
+            MAX_PATH))
+        {
+            dbg_printf("GetVolumeNameForVolumeMountPoint failed : %s\n", GetLastErrorAsString().c_str());
+            szUniqueVolumeName[0] = '\0';
+        }
+        
+        fResult = DefineDosDevice(
+            DDD_RAW_TARGET_PATH | DDD_REMOVE_DEFINITION |
+            DDD_EXACT_MATCH_ON_REMOVE, szDriveLetter,
+            volumeName);
+
+        if (!fResult)
+            dbg_wprintf(TEXT("DefineDosDevice failed\n"),
+                GetLastError());
+
+        fResult = SetVolumeMountPoint(szDriveLetterAndSlash,
+            szUniqueVolumeName);
+
+        if (!fResult)
+            dbg_printf("SetVolumeMountPoint failed %s\n", GetLastErrorAsString().c_str());
+    }
+
+    mmc->nxHandle->unlockVolume();
     return SUCCESS;
 }
 
