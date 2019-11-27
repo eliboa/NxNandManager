@@ -821,7 +821,7 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, void(&updateProgres
 
     // Clean & unlock volume
     out_file.close();
-    delete[] m_buffer;
+    delete[] buffer;
     if (isDrive())
         nxHandle->unlockVolume();
 
