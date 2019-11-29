@@ -121,6 +121,7 @@ public slots:
     void openExplorer();
     void keySetSet();
 	void error(int err, QString label = nullptr);
+    void updateProgress(ProgressInfo *pi);
     void updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal);
 	void MD5begin();
 	void timer1000();

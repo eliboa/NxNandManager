@@ -29,6 +29,7 @@ SOURCES += \
     ../main.cpp \
     ../res/hex_string.cpp \
     ../res/fat32.cpp \
+    ../res/mbr.cpp \
     ../res/utils.cpp \
     ../NxStorage.cpp \
     ../NxCrypto.cpp \
@@ -45,10 +46,12 @@ HEADERS += \
     ../NxNandManager.h \
     ../res/hex_string.h \
     ../res/fat32.h \
+    ../res/mbr.h \
     ../res/utils.h \
     ../res/types.h \
     ../NxStorage.h \
     ../NxCrypto.h \
+    gui.h \
     keyset.h \
     mainwindow.h \
     properties.h \

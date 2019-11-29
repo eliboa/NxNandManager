@@ -89,6 +89,7 @@ struct ProgressInfo {
 #define ERR_OUT_DISMOUNT_VOL       -1036
 #define ERR_WHILE_WRITE			   -1037
 #define ERR_PART_CREATE_FAILED	   -1038
+#define ERR_USER_ABORT             -1039
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -124,7 +125,8 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_OUTPUT_NOT_MMC, "Output must be removable media (MMC)"},
 	{ ERR_OUT_DISMOUNT_VOL, "Failed to dismount volume(s) in output drive"},
 	{ ERR_WHILE_WRITE, "Failed to write to output file/disk"},
-	{ ERR_PART_CREATE_FAILED, "Failed to create new partition"}
+    { ERR_PART_CREATE_FAILED, "Failed to create new partition"},
+    { ERR_USER_ABORT, "Work aborted by user"}
 };
 
 typedef struct KeySet KeySet;
@@ -240,5 +242,10 @@ bool is_file(const char* path);
 bool is_dir(const char* path);
 int parseKeySetFile(const char *keyset_file, KeySet *biskeys);
 u32 u32_val(u8* buf);
+
+template<typename M> inline void* GetMethodPointer(M ptr)
+{
+    return *reinterpret_cast<void**>(&ptr);
+}
 
 #endif

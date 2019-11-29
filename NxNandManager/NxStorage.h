@@ -282,6 +282,7 @@ class NxStorage
         NxHandle *nxHandle;
         std::vector<NxPartition *> partitions;
         NxCrypto *nxCrypto;
+        bool stopWork = false;
 
         // Getters
         u64 backupGPT() { return m_backupGPT; };
@@ -303,9 +304,7 @@ class NxStorage
         int getNxTypeAsInt(const char* type = nullptr);
         bool isSinglePartType(int type = 0);
         int dumpToFile(const char *file, int crypt_mode, void(&updateProgress)(ProgressInfo*), bool rawnand_only = false);
-        int dumpToFile(const char *file, int crypt_mode, u64 *bytesCount, bool rawnand_only = false);
         int restoreFromStorage(NxStorage* input, int crypto_mode, void(&updateProgress)(ProgressInfo*));
-        int restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount);
         int resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *bytesToRead, bool format = false);
         bool setAutoRcm(bool enable);
         int applyIncognito();
@@ -314,6 +313,7 @@ class NxStorage
         void setFirmwareVersion(firmware_version_t *fwv, const char* fwv_string);
         int fwv_cmp(firmware_version_t fwv1, firmware_version_t fwv2);
         int createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&updateProgress)(ProgressInfo*));
+        int userAbort(){stopWork = false; return ERR_USER_ABORT;}
 };
 
 std::string BuildChecksum(HCRYPTHASH hHash);

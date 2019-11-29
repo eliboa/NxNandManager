@@ -715,6 +715,9 @@ void MainWindow::openExplorer()
 
 void MainWindow::error(int err, QString label)
 {
+    if(workInProgress)
+        endWorkThread();
+
 	if(err != ERR_WORK_RUNNING)
 	{
 		ui->progressBar->setFormat("");
@@ -769,12 +772,54 @@ void MainWindow::endWorkThread()
 	TaskBarProgress->setVisible(false);
 	TaskBarProgress->setValue(0);
 }
-/*
-void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal)
-{
-    int test = 1;
+
+void MainWindow::updateProgress(ProgressInfo *pi)
+{   
+    auto time = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = time - pi->begin_time;
+    QString label;
+
+    if (!pi->bytesCount)
+    {
+        ui->progressBar->setValue(0);
+        setProgressBarStyle(pi->mode == MD5_HASH ? "0FB3FF" : nullptr);
+        ui->remaining_time_label->setText("Remaining time : calculating");
+    }
+
+    if (pi->bytesCount == pi->bytesTotal)
+    {
+        ui->progressBar->setValue(100);
+        TaskBarProgress->setValue(100);
+
+        label.append(pi->storage_name.c_str());
+        if (pi->mode == MD5_HASH) label.append(" dumped & verified");
+        else if (pi->mode == RESTORE) label.append(" restored");
+        else if(pi->mode == RESIZE) label.append(" resized");
+        else label.append(" dumped");
+        label.append(" (").append(GetReadableSize(pi->bytesTotal).c_str()).append(")");
+    }
+    else
+    {
+        std::chrono::duration<double> remaining_seconds = (elapsed_seconds / pi->bytesCount) * (pi->bytesTotal - pi->bytesCount);
+        remainingTimeWork = time + remaining_seconds;
+        int percent = pi->bytesCount * 100 / pi->bytesTotal;
+        ui->progressBar->setValue(percent);
+        TaskBarProgress->setValue(percent);
+
+        if (pi->mode == MD5_HASH) label.append("Computing hash for ");
+        else if (pi->mode == RESTORE) label.append("Restoring to ");
+        else if(pi->mode == RESIZE) label.append("Resizing ");
+        else label.append("Copying ");
+        label.append(pi->storage_name.c_str());
+        label.append("... ").append(GetReadableSize(pi->bytesCount).c_str());
+        label.append(" /").append(GetReadableSize(pi->bytesTotal).c_str());
+        label.append(" (").append(QString::number(percent)).append("%)");
+    }
+
+    ui->progressBar->setFormat(label);
+
 }
-*/
+
 void MainWindow::updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal)
 {
     if(!workInProgress)
@@ -974,10 +1019,12 @@ void MainWindow::on_stop_button_clicked()
 	}
 
 	workThread->terminate();
+    /*
     workThread->wait();
 	endWorkThread();
 	ui->progressBar->setFormat("");
 	ui->progressBar->setValue(0);
+    */
 }
 
 void MainWindow::on_fullrestore_button_clicked()

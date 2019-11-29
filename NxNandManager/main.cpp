@@ -450,9 +450,9 @@ int main(int argc, char *argv[])
                 remove("PRODINFO.backup");
 
             u64 bytesCount = 0, bytesToRead = cal0->size();
-            int rc;
-            while (!(rc = cal0->dumpToFile("PRODINFO.backup", NO_CRYPTO, &bytesCount)));
-            if (rc != NO_MORE_BYTES_TO_COPY)
+            int rc = cal0->dumpToFile("PRODINFO.backup", NO_CRYPTO, nullptr);
+
+            if(rc != SUCCESS)
                 throwException(rc);
 
             printf("\"PRODINFO.backup\" file created in application directory\n");
@@ -463,7 +463,7 @@ int main(int argc, char *argv[])
 
         printf("Incognito successfully applied to input\n");
     }
-
+  
     if (info)
     {
         printf("\n -- INPUT -- \n");

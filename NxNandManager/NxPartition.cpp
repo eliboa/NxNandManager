@@ -144,7 +144,7 @@ bool NxPartition::isEncryptedPartition()
     return m_isEncrypted;
 }
 
-int NxPartition::dumpToFile(const char *file, int crypto_mode, void(&updateProgress)(ProgressInfo*))
+int NxPartition::dumpToFile(const char *file, int crypto_mode, void(*updateProgress)(ProgressInfo*))
 {
     // Crypto check
     if (crypto_mode == DECRYPT && !m_isEncrypted)
@@ -176,28 +176,30 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, void(&updateProgr
     memset(buffer, 0, buff_size);
     DWORD bytesRead = 0;
 
-    // Init progress info    
+    // Init progress info        
     ProgressInfo pi;
     pi.mode = COPY;
     pi.storage_name = partitionName();
     pi.begin_time = std::chrono::system_clock::now();
     pi.bytesCount = 0;
     pi.bytesTotal = size();
-    updateProgress(&pi);
+    if(nullptr != updateProgress) updateProgress(&pi);
 
     // Copy
     while (nxHandle->read(buffer, &bytesRead, buff_size))
     {
+        if(stopWork) return userAbort();
+
         if (!out_file.write((char *)&buffer[0], bytesRead))
             break;
 
         pi.bytesCount += bytesRead;
-        updateProgress(&pi);
+        if(nullptr != updateProgress) updateProgress(&pi);
     }
 
     // Clean & unlock volume
     out_file.close();
-    delete[] m_buffer;
+    delete[] buffer;
     if (parent->isDrive())
         nxHandle->unlockVolume();
 
@@ -221,14 +223,15 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, void(&updateProgr
         pi.bytesCount = 0;
         pi.bytesTotal = out_storage.size();
         pi.elapsed_seconds = 0;
-        updateProgress(&pi);
+        if(nullptr != updateProgress) updateProgress(&pi);
 
         // Hash output file
         while (!out_storage.nxHandle->hash(&pi.bytesCount))
         {
-            dbg_printf("out_storage.nxHandle->hash \n");
-            updateProgress(&pi);
+            if(stopWork) return userAbort();
+            if(nullptr != updateProgress) updateProgress(&pi);
         }
+
         // Check completeness
         if (pi.bytesCount != pi.bytesTotal)
             return ERR_MD5_COMPARE;
@@ -245,67 +248,7 @@ int NxPartition::dumpToFile(const char *file, int crypto_mode, void(&updateProgr
     return SUCCESS;
 }
 
-int NxPartition::dumpToFile(const char *file, int crypto_mode, u64 *bytesCount)
-{
-    if (!*bytesCount)
-    {        
-        if (crypto_mode == DECRYPT && !m_isEncrypted)
-            return ERR_CRYPTO_DECRYPTED_YET;
-
-        if (crypto_mode == ENCRYPT && m_isEncrypted)
-            return ERR_CRYPTO_ENCRYPTED_YET;
-
-        std::ifstream infile(file);
-        if (infile.good())
-        {
-            infile.close();
-            return ERR_FILE_ALREADY_EXISTS;
-        }
-
-        p_ofstream = std::ofstream(file, std::ofstream::binary);
-        if (parent->isDrive() && !nxHandle->lockVolume())
-            dbg_printf("failed to lock volume\n");
-        nxHandle->initHandle(crypto_mode, this);
-        m_buff_size = nxHandle->getDefaultBuffSize();
-        m_buffer = new BYTE[m_buff_size];
-        memset(m_buffer, 0, m_buff_size);
-        dbg_printf("NxPartition::dumpToFile(file=%s, crypto_mode=%d, bytes_count=0)\n", file, crypto_mode);
-    }    
-
-    if (*bytesCount == size())
-    {
-        p_ofstream.close();
-        delete[] m_buffer;
-        if (parent->isDrive() && !nxHandle->unlockVolume())
-            dbg_printf("failed to unlock volume\n");
-        return NO_MORE_BYTES_TO_COPY;
-    }
-
-    DWORD bytesRead = 0;
-    if (!nxHandle->read(m_buffer, &bytesRead, m_buff_size))
-    {
-        p_ofstream.close();
-        delete[] m_buffer;
-        if (parent->isDrive() && !nxHandle->unlockVolume())
-            dbg_printf("failed to unlock volume\n");
-        return ERR_WHILE_COPY;
-    }
-    
-    if (!p_ofstream.write((char *)&m_buffer[0], bytesRead))
-    {
-        p_ofstream.close();
-        delete[] m_buffer;
-        if (parent->isDrive() && !nxHandle->unlockVolume())
-            dbg_printf("failed to unlock volume\n");
-        return ERR_WHILE_COPY;        
-    }
-    *bytesCount += bytesRead;
-
-    //dbg_printf("NxPartition::dumpToFile(%s, %d, %s)\n", file, crypto_mode, n2hexstr(*bytesCount, 8).c_str());
-    return SUCCESS;
-}
-
-int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, void(&updateProgress)(ProgressInfo*))
+int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, void(*updateProgress)(ProgressInfo*))
 {
     // Get handle to input NxPartition
     NxPartition *input_part = input->getNxPartition(m_type);
@@ -354,15 +297,17 @@ int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, void(&upd
     pi.begin_time = std::chrono::system_clock::now();
     pi.bytesCount = 0;
     pi.bytesTotal = input_part->size();
-    updateProgress(&pi);
+    if(nullptr != updateProgress) updateProgress(&pi);
 
     while(input->nxHandle->read(buffer, &bytesRead, buff_size))
     {
+        if(stopWork) return userAbort();
+
         if (!this->nxHandle->write(buffer, &bytesWrite, bytesRead))
             break;
 
         pi.bytesCount += bytesWrite;
-        updateProgress(&pi);
+        if(nullptr != updateProgress) updateProgress(&pi);
     }
 
     // Clean & unlock volume
@@ -376,74 +321,6 @@ int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, void(&upd
     if (pi.bytesCount != pi.bytesTotal)
         return ERR_WHILE_COPY;
 
-    return SUCCESS;
-}
-
-int NxPartition::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount)
-{
-    NxPartition *input_part = input->getNxPartition(m_type);
-    if (!*bytesCount)
-    {                
-        // Controls
-        if (nullptr == input_part)
-            return ERR_IN_PART_NOT_FOUND;
-
-        if (crypto_mode == DECRYPT && !input_part->isEncryptedPartition())
-            return ERR_CRYPTO_DECRYPTED_YET;
-
-        if (crypto_mode == ENCRYPT && input_part->isEncryptedPartition())
-            return ERR_CRYPTO_ENCRYPTED_YET;
-
-        if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && isEncryptedPartition() && !input_part->isEncryptedPartition())
-            return ERR_RESTORE_CRYPTO_MISSING;
-
-        if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && !isEncryptedPartition() && input_part->isEncryptedPartition())
-            return ERR_RESTORE_CRYPTO_MISSIN2;
-
-        if (input_part->size() > size())
-            return ERR_IO_MISMATCH;
-
-        // Init handles for both input & output
-        if (parent->isDrive() && !nxHandle->lockVolume())
-            dbg_printf("failed to lock volume\n");
-        input->nxHandle->initHandle(crypto_mode, input_part);
-        this->nxHandle->initHandle(NO_CRYPTO, this);
-        m_buff_size = input->nxHandle->getDefaultBuffSize();
-        m_buffer = new BYTE[m_buff_size];
-        memset(m_buffer, 0, m_buff_size);
-
-        dbg_wprintf(L"NxPartition::restoreFromStorage(NxStorage=%s, crypto_mode=%d, bytes_count=0)\n", input->m_path, crypto_mode);
-    }
-
-    DWORD bytesRead = 0;
-    if (!input->nxHandle->read(m_buffer, &bytesRead, m_buff_size))
-    {
-        delete[] m_buffer;
-        if (parent->isDrive() && !nxHandle->unlockVolume())
-            dbg_printf("failed to unlock volume\n");
-        return ERR_WHILE_COPY;
-    }
-
-    DWORD bytesWrite = 0;
-    if (!this->nxHandle->write(m_buffer, &bytesWrite, bytesRead))
-    {
-        delete[] m_buffer;
-        if (parent->isDrive() && !nxHandle->unlockVolume())
-            dbg_printf("failed to unlock volume\n");
-
-        if(*bytesCount + bytesWrite != size())
-            return ERR_WHILE_COPY;
-    }
-
-    *bytesCount += bytesWrite;
-
-    if (*bytesCount == input_part->size())
-    {
-        if (parent->isDrive() && !nxHandle->unlockVolume())
-            dbg_printf("failed to unlock volume\n");
-
-        return NO_MORE_BYTES_TO_COPY;
-    }
     return SUCCESS;
 }
 

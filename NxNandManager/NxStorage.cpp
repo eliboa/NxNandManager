@@ -812,6 +812,8 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, void(&updateProgres
     // Copy
     while (nxHandle->read(buffer, &bytesRead, buff_size))
     {
+        if(stopWork) return userAbort();
+
         if (!out_file.write((char *)&buffer[0], bytesRead))
             break;
 
@@ -850,7 +852,7 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, void(&updateProgres
         // Hash output file
         while (!out_storage.nxHandle->hash(&pi.bytesCount))
         {
-            dbg_printf("out_storage.nxHandle->hash \n");
+            if(stopWork) return userAbort();
             updateProgress(&pi);
         }
         // Check completeness
@@ -866,64 +868,6 @@ int NxStorage::dumpToFile(const char* file, int crypto_mode, void(&updateProgres
             return ERR_MD5_COMPARE;
     }
 
-    return SUCCESS;
-}
-
-int NxStorage::dumpToFile(const char* file, int crypto_mode, u64 *bytesCount, bool rawnand_only)
-{
-    if (!*bytesCount)
-    {       
-        if (crypto_mode == DECRYPT || crypto_mode == ENCRYPT)
-            return ERR_CRYPTO_RAW_COPY;
-
-        std::ifstream infile(file);
-        if (infile.good())
-        {
-            infile.close();
-            return ERR_FILE_ALREADY_EXISTS;
-        }
-
-        p_ofstream = new std::ofstream(file, std::ofstream::binary);
-
-        if (isDrive() && !nxHandle->lockVolume())
-            dbg_printf("failed to lock volume\n");
-
-        nxHandle->initHandle(crypto_mode);
-
-        // Skip boot partitions if rawnanand_only
-        if (rawnand_only && type == RAWMMC)
-            nxHandle->setPointer((u64)0x4000 * NX_BLOCKSIZE);
-
-        m_buff_size = nxHandle->getDefaultBuffSize();
-        m_buffer = new BYTE[m_buff_size];
-        memset(m_buffer, 0, m_buff_size);
-
-        dbg_printf("NxStorage::dumpToFile(file=%s, crypto_mode=%d, bytesCount=%s)\n", file, crypto_mode, n2hexstr(*bytesCount, 8).c_str());
-    }
-
-    DWORD bytesRead = 0;
-    if (!nxHandle->read(m_buffer, &bytesRead, m_buff_size))
-    {
-        p_ofstream->close();
-        delete p_ofstream;
-        delete[] m_buffer;
-        if (isDrive() && !nxHandle->unlockVolume())
-            dbg_printf("failed to unlock volume\n");
-
-        if (*bytesCount == size() || (rawnand_only && type == RAWMMC && *bytesCount == size() - (u64)0x4000 * NX_BLOCKSIZE))
-            return NO_MORE_BYTES_TO_COPY;
-
-        dbg_printf("NxStorage::dumpToFile() ERROR, failed to read storage at bytesCount %s\n", n2hexstr(*bytesCount, 8).c_str());
-        return ERR_WHILE_COPY;
-    }
-
-    if (!p_ofstream->write((char *)&m_buffer[0], bytesRead))
-    {
-        p_ofstream->close();
-        delete[] m_buffer;
-        return ERR_WHILE_COPY;
-    }
-    *bytesCount += bytesRead;
     return SUCCESS;
 }
 
@@ -981,6 +925,8 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, void(&updat
 
     while(input->nxHandle->read(buffer, &bytesRead, buff_size))
     {
+        if(stopWork) return userAbort();
+
         if (!this->nxHandle->write(buffer, &bytesWrite, bytesRead))
             break;
 
@@ -998,79 +944,6 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, void(&updat
     // Check completeness
     if (pi.bytesCount != pi.bytesTotal)
         return ERR_WHILE_COPY;
-
-    return SUCCESS;
-}
-
-int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount)
-{
-    if (!*bytesCount)
-    {        
-        if (input->type == INVALID || input->type == UNKNOWN)
-            return ERR_INVALID_INPUT;
-
-        if (input->type != this->type)
-            return ERR_NX_TYPE_MISSMATCH;
-
-        if (crypto_mode == DECRYPT || crypto_mode == ENCRYPT)
-            return ERR_CRYPTO_RAW_COPY;
-
-        if ((input->size() > size() && !m_freeSpace) || (input->size() > size() && input->size() > m_freeSpace)) // Alow restore overflow if freeSpace is available
-            return ERR_IO_MISMATCH;
-
-        if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && input->isEncrypted() && !isEncrypted())
-            return ERR_RESTORE_CRYPTO_MISSIN2;
-
-        if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && !input->isEncrypted() && isEncrypted())
-            return ERR_RESTORE_CRYPTO_MISSING;
-
-        if (isDrive() && !nxHandle->lockVolume())
-            dbg_printf("failed to lock volume\n");
-
-        // Init handles for both input & output
-        input->nxHandle->initHandle(crypto_mode);
-        this->nxHandle->initHandle(NO_CRYPTO);
-        
-        // Restoring to RAWMMC, allow restore from larger input
-        if (type == RAWMMC && m_freeSpace && input->size() > size())
-            this->nxHandle->setOffMax(m_freeSpace);
-
-        m_buff_size = input->nxHandle->getDefaultBuffSize();
-        m_buffer = new BYTE[m_buff_size];
-        memset(m_buffer, 0, m_buff_size);
-
-        dbg_wprintf(L"NxStorage::restoreFromStorage(NxStorage=%s, crypto_mode=%d, bytesCount=%I64d)\n", input->m_path, crypto_mode, *bytesCount);
-    }
-
-    DWORD bytesRead = 0;
-    if (!input->nxHandle->read(m_buffer, &bytesRead, m_buff_size))
-    {
-        delete[] m_buffer;
-        if (isDrive() && !nxHandle->unlockVolume())
-            dbg_printf("failed to unlock volume\n");
-
-        dbg_printf("NxStorage::restoreFromStorage() ERROR, failed to read storage at bytesCount %s\n", n2hexstr(*bytesCount, 8).c_str());        
-        return ERR_WHILE_COPY;
-    }
-
-    DWORD bytesWrite = 0;
-    if (!this->nxHandle->write(m_buffer, &bytesWrite, bytesRead))
-    {
-        delete[] m_buffer;
-        if (isDrive() && !nxHandle->unlockVolume())
-            dbg_printf("failed to unlock volume\n");
-
-        if (*bytesCount + bytesWrite != size())
-        {
-            dbg_printf("NxStorage::restoreFromStorage() ERROR, failed to write storage at bytesCount %s\n", n2hexstr(*bytesCount, 8).c_str());
-            return ERR_WHILE_COPY;
-        }
-    }
-
-    *bytesCount += bytesWrite;
-
-    if (*bytesCount == input->size())
-        return NO_MORE_BYTES_TO_COPY;
 
     return SUCCESS;
 }
@@ -1727,6 +1600,8 @@ int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&upd
     // Copy
     while(this->nxHandle->read(cpy_buffer, &bytesRead, buff_size))
     {
+        if(stopWork) return userAbort();
+
         if (!mmc->nxHandle->write(cpy_buffer, &bytesWrite, bytesRead))
             break;
 
@@ -1817,6 +1692,8 @@ int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&upd
         // Fill cluster map
         while (cur_off < fat_size)
         {
+            if(stopWork) return userAbort();
+
             if(!cur_off)
             {
                 u8 first_nybbles[12] = { 0xf8, 0xff, 0xff, 0x0f, 0xff, 0xff, 0xff, 0x0f, 0xf8, 0xff, 0xff, 0x0f };

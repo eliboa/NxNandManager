@@ -310,7 +310,7 @@ bool NxHandle::setPointer(u64 offset)
 }
 
 bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
-{
+{       
     if(nullptr != br) *br = 0;
     DWORD bytesRead;
 

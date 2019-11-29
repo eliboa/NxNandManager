@@ -26,6 +26,7 @@
 #include "NxCrypto.h"
 #include "NxStorage.h"
 
+
 typedef struct NxPart NxPart;
 struct NxPart {
     s8 name[37];
@@ -57,7 +58,12 @@ static NxPart NxPartArr[] =
 class NxStorage;
 class NxCrypto;
 class NxHandle;
+#if defined(ENABLE_GUI)
+class Worker;
+typedef  void (Worker::*PtrFunc)(ProgressInfo*);
 
+
+#endif
 class NxPartition
 {
     // Constructors
@@ -88,6 +94,7 @@ class NxPartition
     // Member methods
     public:
         NxHandle *nxHandle;
+        bool stopWork = false;
         NxPart nxPart_info;
 
         // Getters
@@ -112,12 +119,10 @@ class NxPartition
         bool setCrypto(char* crypto, char* tweak);
         int compare(NxPartition *partition);
         ProgressInfo pi;
-        int dumpToFile(const char *file, int crypto_mode, void(&updateProgress)(ProgressInfo* pi));
-        int dumpToFile(const char *file, int crypt_mode, u64 *bytesCount);
-        int restoreFromStorage(NxStorage* input, int crypto_mode, void(&updateProgress)(ProgressInfo*));
-        int restoreFromStorage(NxStorage* input, int crypto_mode, u64 *bytesCount);
+        int dumpToFile(const char *file, int crypto_mode, void(*updateProgress)(ProgressInfo*) = nullptr);
+        int restoreFromStorage(NxStorage* input, int crypto_mode, void(*updateProgress)(ProgressInfo*) = nullptr);
         void clearHandles();
-        
+        int userAbort(){stopWork = false; return ERR_USER_ABORT;}
 };
 
 #endif

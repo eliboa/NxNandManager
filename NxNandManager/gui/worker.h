@@ -13,10 +13,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#pragma once
 #ifndef WORKER_H
 #define WORKER_H
 
+#define NONE            000
 #define LIST_STORAGE    100
 #define NEW_STORAGE     101
 #define DUMP			102
@@ -26,12 +27,15 @@
 #define RESIZE          106
 
 #include <QMainWindow>
+#include <QtCore>
 #include <QThread>
 #include <QFile>
 #include <QMessageBox>
 #include "../NxStorage.h"
 
 class NxPartition;
+class NxStorage;
+
 class Worker : public QThread {
 	Q_OBJECT
 public:
@@ -43,6 +47,7 @@ public:
     explicit Worker(QMainWindow *pParent, NxPartition* pNxInPart, QString filename, int crypto_mode);
     explicit Worker(QMainWindow *pParent, NxPartition* pNxInPart, NxStorage* pNxOutput, int crypto_mode);
     ~Worker();
+    void updateProgress(ProgressInfo*);
 
 protected:
     void dumpPartition(NxPartition* partition, QString file);
@@ -63,6 +68,7 @@ signals:
     void listCallback(QString);
 	void error(int, QString s = nullptr);
     void sendProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal);
+    void sendProgress(ProgressInfo *pi);
 	void sendMD5begin();
 	void sendCancel();
 
@@ -82,7 +88,8 @@ private:
 	HANDLE hDisk, hDiskOut;
     bool m_format;
     int m_new_size;
-    bool m_dump_rawnand;
+    bool m_dump_rawnand;    
+    ProgressInfo m_pi;
 
 public:
     timepoint_t begin_time;
