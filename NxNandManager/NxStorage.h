@@ -127,6 +127,7 @@ struct NxSystemTitles {
 
 
 static NxSystemTitles systemTitlesArr[] = {
+    { "9.1.0", "c5fbb49f2e3648c8cfca758020c53ecb.nca"},
     { "9.0.1", "fd1ffb82dc1da76346343de22edbc97c.nca"},
     { "9.0.0", "a6af05b33f8f903aab90c8b0fcbcc6a4.nca"},
     { "8.1.0", "7eedb7006ad855ec567114be601b2a9d.nca"},
@@ -157,6 +158,7 @@ static NxSystemTitles systemTitlesArr[] = {
 };
 
 static NxSystemTitles exFatTitlesArr[] = {
+    {"9.1.0", "c9bd4eda34c91a676de09951bb8179ae.nca" },
     {"9.0.1", "3b444768f8a36d0ddd85635199f9676f.nca" },
     {"9.0.0", "3b444768f8a36d0ddd85635199f9676f.nca" },
     {"8.1.0", "96f4b8b729ade072cc661d9700955258.nca" },
