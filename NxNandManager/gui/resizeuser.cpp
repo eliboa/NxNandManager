@@ -28,7 +28,7 @@ ResizeUser::ResizeUser(QWidget *parent, NxStorage *input) :
 
     NxPartition *user = input->getNxPartition(USER);
     u32 size = user->lbaEnd() - user->lbaStart() + 1;
-    u32 freesectors = (u32)(user->freeSpace / NX_BLOCKSIZE);
+    u32 freesectors = (u32)(user->freeSpaceRaw / NX_BLOCKSIZE);
     u32 min = (size - freesectors) / 0x800;
     if(!min) min = 64;
 
@@ -97,5 +97,12 @@ void ResizeUser::on_buttonBox_accepted()
     if(is_file(ui->output->text().toLocal8Bit().constData()))
         remove(ui->output->text().toLocal8Bit().constData());
 
-    emit finished(ui->output->text(), ui->new_size->value(), ui->checkBox->isChecked());
+    params_t par;
+    par.user_new_size = ui->new_size->value() * 0x800;
+    par.format_user = ui->checkBox->isChecked();
+
+    WorkerInstance wi(this, WorkerMode::dump, &par, input, ui->output->text());
+    wi.exec();
+
+    //emit finished(ui->output->text(), ui->new_size->value(), ui->checkBox->isChecked());
 }

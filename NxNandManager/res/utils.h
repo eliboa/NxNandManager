@@ -1,4 +1,3 @@
-#pragma once
 #ifndef __utils_h__
 #define __utils_h__
 
@@ -22,22 +21,9 @@ extern bool isdebug;
 #include <tchar.h>
 #include <locale>
 #include <codecvt>
-
-
-typedef std::chrono::duration< double > double_prec_seconds;
-typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds > timepoint_t;
-
-typedef struct ProgressInfo ProgressInfo;
-struct ProgressInfo {
-    int mode;
-    timepoint_t begin_time;
-    int elapsed_seconds = 0;
-    std::string message;
-    std::string storage_name;
-    u64 bytesCount = 0;
-    u64 bytesTotal = 0;
-    int percent = 0;
-};
+#include <vector>
+#include "win_ioctl.h"
+#include "types.h"
 
 // MinGW
 #if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
@@ -90,6 +76,13 @@ struct ProgressInfo {
 #define ERR_WHILE_WRITE			   -1037
 #define ERR_PART_CREATE_FAILED	   -1038
 #define ERR_USER_ABORT             -1039
+#define ERR_BAD_CRYPTO             -1040
+#define ERR_VOL_MOUNT_FAILED       -1041
+#define ERR_INVALID_NAND           -1042
+#define ERR_INVALID_BOOT0          -1043
+#define ERR_INVALID_BOOT1          -1044
+#define ERR_OUTPUT_NOT_DRIVE       -1045
+#define ERR_CREATE_DIR_FAILED      -1046
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -109,6 +102,9 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_WHILE_COPY, "An error occured during copy"},
 	{ ERR_IO_MISMATCH, "Input type/size doesn't match output size/type"},
 	{ ERR_INVALID_INPUT, "Input is not a valid NX storage"},
+    { ERR_INVALID_NAND, "Input is missing or is not a valid NAND (FULL NAND or RAWNAND"},
+    { ERR_INVALID_BOOT0, "BOOT0 is missing or is not valid"},
+    { ERR_INVALID_BOOT1, "BOOT0 is missing or is not valid"},
 	{ ERR_INVALID_OUTPUT, "Output is not a valid NX storage"},
 	{ ERR_DECRYPT_CONTENT, "Failed to validate decrypted content (wrong keys ?)"},
     { ERR_RESTORE_CRYPTO_MISSING, "Trying to restore decrypted content to encrypted content"},
@@ -121,12 +117,16 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_IN_PART_NOT_FOUND, "Partition not found in \"input\""},
 	{ ERR_OUT_PART_NOT_FOUND, "Partition not found in \"output\""},
 	{ ERR_RESTORE_UNKNOWN_DISK, "Cannot restore to an unknown disk"},
-    { ERR_FILE_ALREADY_EXISTS, "File already exits"},
+    { ERR_FILE_ALREADY_EXISTS, "Output file/directory already exits"},
 	{ ERR_OUTPUT_NOT_MMC, "Output must be removable media (MMC)"},
 	{ ERR_OUT_DISMOUNT_VOL, "Failed to dismount volume(s) in output drive"},
 	{ ERR_WHILE_WRITE, "Failed to write to output file/disk"},
     { ERR_PART_CREATE_FAILED, "Failed to create new partition"},
-    { ERR_USER_ABORT, "Work aborted by user"}
+    { ERR_USER_ABORT, "Work aborted by user"},
+    { ERR_BAD_CRYPTO, "Failed to validate crypto (wrong keys ?)"},
+    { ERR_VOL_MOUNT_FAILED, "Failed to mount new FAT32 partition. Needed files for CFW (Atmosphere) cannot be created"},
+    { ERR_OUTPUT_NOT_DRIVE, "Output is not a volume/drive"},
+    { ERR_CREATE_DIR_FAILED, "Failed to create directory on ouput drive/volume"}
 };
 
 typedef struct KeySet KeySet;

@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="application.qrc">
+    <normaloff>:/images/keyset.png</normaloff>:/images/keyset.png</iconset>
+  </property>
   <property name="whatsThis">
    <string notr="true"/>
   </property>
@@ -236,7 +240,9 @@
    </property>
   </widget>
  </widget>
- <resources/>
+ <resources>
+  <include location="application.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>buttonBox</sender>

@@ -164,7 +164,7 @@ void printProgress(ProgressInfo* pi)
         if (pi->mode == MD5_HASH) sprintf(label, "verified");
         else if (pi->mode == RESTORE) sprintf(label, "restored");
         else sprintf(label, "dumped");
-        printf("%s %s. %s - Elapsed time: %s                                              \n", pi->storage_name.c_str(), label,
+        printf("%s %s. %s - Elapsed time: %s                                              \n", pi->storage_name, label,
             GetReadableSize(pi->bytesTotal).c_str(), GetReadableElapsedTime(tmp_elapsed_seconds).c_str());
     }
     else
@@ -172,7 +172,7 @@ void printProgress(ProgressInfo* pi)
         if (pi->mode == MD5_HASH) sprintf(label, "Computing MD5 hash for");
         else if (pi->mode == RESTORE) sprintf(label, "Restoring to");
         else sprintf(label, "Copying");
-        printf("%s %s... %s /%s (%d%%) - Remaining time:", label, pi->storage_name.c_str(), GetReadableSize(pi->bytesCount).c_str(),
+        printf("%s %s... %s /%s (%d%%) - Remaining time:", label, pi->storage_name, GetReadableSize(pi->bytesCount).c_str(),
             GetReadableSize(pi->bytesTotal).c_str(), pi->bytesCount * 100 / pi->bytesTotal);
         printf(" %s          \r", buf.c_str());
     }
@@ -383,10 +383,12 @@ int main(int argc, char *argv[])
     if (FORCE)
         printf("Force mode activated, no questions will be asked.\n");
 
+
+
     ///
     ///  I/O Init
     ///
-
+    /*
     // New NxStorage for input
     printf("Accessing input...\r");
     NxStorage nx_input = NxStorage(input);
@@ -499,7 +501,8 @@ int main(int argc, char *argv[])
     if (createEmuNAND)
     {
         dbg_printf("Main.cpp > createEmuNAND\n");
-        int res = nx_input.createMmcEmuNand(&nx_output, output, printProgress);
+        delete &nx_output;
+        int res = nx_input.createMmcEmuNand(output, printProgress);
         dbg_printf("Main.cpp > createEmuNAND returned %d\n", res);
         exit(EXIT_SUCCESS);
     }
@@ -655,13 +658,6 @@ int main(int argc, char *argv[])
                 strcat(l_partitions, ",");
                 strcat(l_partitions, nx_input.getNxPartition()->partitionName().c_str());
             }
-            /*
-            TO-DO : doesn't work
-            // Prevent restoring decrypted partition to native encrypted partitions
-            if (is_in(nx_output.type, { RAWNAND, RAWMMC }) && nx_output.getNxPartition()->nxPart_info.isEncrypted
-                && (decrypt || (!encrypt && !nx_input.isEncrypted())))
-                throwException("Cannot restore decrypted partition to NxStorage type %s ", (void*)nx_output.getNxTypeAsStr());
-            */
         }
     }
 
@@ -897,6 +893,7 @@ int main(int argc, char *argv[])
     }
 
     SetThreadExecutionState(ES_CONTINUOUS);
+    */
     exit(EXIT_SUCCESS);
 }
 

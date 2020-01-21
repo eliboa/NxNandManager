@@ -110,15 +110,15 @@ std::string GetReadableSize(u64 size)
 	char buf[100];
 	if (size / (1024 * 1024 * 1024) > 0)
 	{
-		sprintf_s(buf, sizeof(buf), "%.2f Gb", (double)size / (1024 * 1024 * 1024));
+        sprintf_s(buf, sizeof(buf), "%.2f GB", (double)size / (1024 * 1024 * 1024));
 	}
 	else if (size / (1024 * 1024) > 0)
 	{
-		sprintf_s(buf, sizeof(buf), "%.2f Mb", (double)size / (1024 * 1024));
+        sprintf_s(buf, sizeof(buf), "%.2f MB", (double)size / (1024 * 1024));
 	}
 	else if (size / 1024 > 0)
 	{
-		sprintf_s(buf, sizeof(buf), "%.2f Kb", (double)size / 1024);
+        sprintf_s(buf, sizeof(buf), "%.2f KB", (double)size / 1024);
 	}
 	else
 	{

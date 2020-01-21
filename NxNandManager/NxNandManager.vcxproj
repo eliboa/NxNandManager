@@ -151,6 +151,7 @@
     <ClCompile Include="res\fat32.cpp" />
     <ClCompile Include="res\hex_string.cpp" />
     <ClCompile Include="res\utils.cpp" />
+    <ClCompile Include="res\win_ioctl.cpp" />
     <ClCompile Include="worker.cpp" />
     <ClCompile Include="xts_crypto.cpp" />
   </ItemGroup>
@@ -195,6 +196,7 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="gui\gui.h" />
     <ClInclude Include="NxCrypto.h" />
     <ClInclude Include="NxHandle.h" />
     <ClInclude Include="NxNandManager.h" />
@@ -204,6 +206,7 @@
     <ClInclude Include="res\hex_string.h" />
     <ClInclude Include="res\types.h" />
     <ClInclude Include="res\utils.h" />
+    <ClInclude Include="res\win_ioctl.h" />
     <CustomBuild Include="worker.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Moc%27ing worker.h...</Message>

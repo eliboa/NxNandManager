@@ -24,16 +24,16 @@
 #include <QtWinExtras>
 #include <QWinTaskbarProgress>
 #include <QTableWidgetItem>
+#include "../res/progress_info.h"
 #include "../NxStorage.h"
+#include "qutils.h"
 #include "worker.h"
 #include "opendrive.h"
 #include "keyset.h"
 #include "properties.h"
 #include "resizeuser.h"
-
-//#include "explorer.h"
-//#define DUMP	102
-//#define RESTORE 103
+#include "emunand.h"
+#include "dump.h"
 
 QT_BEGIN_NAMESPACE
 class QAction;
@@ -51,7 +51,7 @@ class MainWindow : public QMainWindow
 	Q_OBJECT
 
 public:
-	explicit MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QWidget *parent = nullptr);
 	~MainWindow();
 	Worker *workerThread;
 
@@ -61,18 +61,17 @@ private:
     KeySetDialog* keysetDialog;
     Properties* PropertiesDialog;
     ResizeUser* ResizeUserDialog;
+    Emunand* EmunandDialog;
+    Dump* DumpDialog;
     //Explorer* ExplorerDialog;
+
+
 	NxStorage* input;
-	NxStorage* selected_io;
+    NxStorage* selected_io = nullptr;
     NxPartition *selected_part;
 	bool m_ready;
 	Worker* workThread;
-	timepoint_t startWork;
-	timepoint_t startWorkMD5;
-	timepoint_t remainingTimeWork;
-	bool workInProgress = false;
-	bool bypassMD5 = false;
-	bool progressMD5 = false;
+
 	int cur_operation = 0;
 	QWinTaskbarButton *TaskBarButton;
 	QWinTaskbarProgress *TaskBarProgress;
@@ -80,14 +79,13 @@ private:
     bool bKeyset;
     int elapsed_seconds = 0;
 
-	void createActions();
-	void startWorkThread();
-	void setProgressBarStyle(QString color = nullptr);
 	void initButtons();
+    void beforeInputSet();
 
 protected:
 	void showEvent(QShowEvent *e) override;
-	void closeEvent(QCloseEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private slots:
 	void open();
@@ -95,8 +93,11 @@ private slots:
     void Properties();
     void openKeySet();
     void openResizeDialog();
+    void openEmunandDialog();
+    void openDumpDialog(int partition = UNKNOWN);
     void incognito();
     void dumpPartition(int crypto_mode=NULL);
+    void dumpPartitionAdvanced();
     void dumpDecPartition();
     void dumpEncPartition();
 	void restorePartition();
@@ -106,25 +107,19 @@ private slots:
     void on_rawdumpEnc_button_clicked();
     void on_rawdump_button();
     void dumpRAWNAND();
-	void on_stop_button_clicked();
 	void on_fullrestore_button_clicked();
 	void on_partition_table_itemSelectionChanged();
     void on_moreinfo_button_clicked();    
-
     void on_rawdump_button_clicked();
 
 public slots:
-    void endWorkThread();
+    //void startWorkThread(WorkParam_t param);
 	void inputSet(NxStorage *storage = nullptr);
 	void driveSet(QString);
     void resizeUser(QString file, int new_size, bool format);
     void openExplorer();
     void keySetSet();
 	void error(int err, QString label = nullptr);
-    void updateProgress(ProgressInfo *pi);
-    void updateProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal);
-	void MD5begin();
-	void timer1000();
 
 public:
     KeySet biskeys;

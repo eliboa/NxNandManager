@@ -14,8 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-#ifndef __fat32_h__
-#define __fat32_h__
+#ifndef FAT32_H
+#define FAT32_H
 
 #include "utils.h"
 #include "types.h"
@@ -99,6 +99,8 @@ namespace fat32 {
     void read_boot_sector(BYTE *cluster, fs_attr *fat32_attr);
     void parse_dir_table(BYTE *cluster, std::vector<dir_entry> *entries);
     std::string get_long_filename(BYTE *buffer, int offset, int length);
+    u32 getFatSize(u32 vol_size_in_sectors);
+
 
     static u8 fat32_default_boot_sector[90] = {
     0xEB, 0x58, 0x90, 0x50, 0x4B, 0x57, 0x49, 0x4E, 0x34, 0x2E, 0x31, 0x00,

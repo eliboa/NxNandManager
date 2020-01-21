@@ -39,6 +39,13 @@ struct NxSplitFile {
     NxSplitFile *next = NULL;
 };
 
+typedef struct splitFileName_t splitFileName_t;
+struct splitFileName_t {
+    int f_number = 0;
+    int f_digits = 0;
+    int f_type = 0;
+};
+
 class NxStorage;
 class NxPartition;
 class NxCrypto;
@@ -48,6 +55,7 @@ class NxHandle {
     // Constructors
     public: 
         explicit NxHandle(NxStorage *parent);
+        explicit NxHandle(const char *path, u64 chunksize = 0);
         ~NxHandle();
 
     // Private member variables
@@ -57,12 +65,17 @@ class NxHandle {
         HANDLE m_h;
 
         // Offsets & I/O member variables
+        std::wstring m_path;
+        std::wstring m_firstPart_path;
         u64 m_off_start = 0;
         u64 m_off_end = 0;
         u64 m_off_max = 0;
         u64 m_size = 0;
         u64 m_readAmount = 0;
+        u64 m_writeAmount = 0;
         u32 m_cur_block = 0;
+        u64 m_chunksize = 0;
+
         LARGE_INTEGER lp_CurrentPointer;
         LARGE_INTEGER li_DistanceToMove;
 
@@ -80,6 +93,7 @@ class NxHandle {
         // Crypto
         HCRYPTPROV h_WinCryptProv;
         HCRYPTHASH m_md5_hash;
+        bool m_isHashLocked = false;
         BYTE m_md5_buffer[DEFAULT_BUFF_SIZE];
         NxCrypto *nxCrypto;
         int m_crypto = NO_CRYPTO;
@@ -87,7 +101,7 @@ class NxHandle {
         // Boolean
         bool b_isDrive = false;
 
-        // Methods
+        // Methods        
         NxSplitFile* getSplitFile(u64 offset);        
 
     public:
@@ -97,25 +111,35 @@ class NxHandle {
         DISK_GEOMETRY pdg;
 
         // Getters
-        bool isDrive() { return b_isDrive; };
-        u64  size() { return m_size; };
-        bool isSplitted() { return b_isSplitted; };
-        int getCryptoMode() { return m_crypto; };
-        HCRYPTHASH md5Hash() { return m_md5_hash; };
-        int getSplitCount() { return m_splitFileCount; };
+        bool isDrive() { return b_isDrive; }
+        u64  size() { return m_size; }
+        bool isSplitted() { return b_isSplitted; }
+        int getCryptoMode() { return m_crypto; }
+        HCRYPTHASH md5Hash() { return m_md5_hash; }
+        int getSplitCount() { return m_splitFileCount; }
+        u64 getChunkSize() { return m_chunksize; }
+        NxSplitFile* getLastSplitFile() { return m_lastSplitFile; }
+        std::wstring getFistPartPath() { return m_firstPart_path; }
         int getDefaultBuffSize();
-        u64 getDiskFreeSpace() { return m_fileDiskFreeBytes; };
-        NxCrypto* crypto() { return nxCrypto; };
+        u64 getDiskFreeSpace() { return m_fileDiskFreeBytes; }
+        u64 getCurrentPointer() { return lp_CurrentPointer.QuadPart - m_off_start; }
+        NxCrypto* crypto() { return nxCrypto; }
 
         // Setters
-        void setSplitted(bool b) { b_isSplitted = b; };
-        void setSize(u64 u_size) { m_size = u_size; };
-        void setOffMax(u64 off) { m_off_max = m_off_start + off; };
-        void setCrypto(int crypto_mode = NO_CRYPTO) { m_crypto = crypto_mode; };
+        void setSplitted(bool b) { b_isSplitted = b; }
+        void setSize(u64 u_size) { m_size = u_size; }
+        void setOffMax(u64 off) { m_off_max = m_off_start + off; }
+        void setCrypto(int crypto_mode = NO_CRYPTO) { m_crypto = crypto_mode; }
+        void setPath(std::wstring path) { m_path = path; }
+        void lockHash();
+        void unlockHash() { m_isHashLocked = false; }
+        void setChunksize(u64 size) { m_chunksize = size; }
 
         // Public methods
         void initHandle(int crypto_mode = NO_CRYPTO, NxPartition *partition = nullptr);
-        bool detectSplittedStorage();        
+        bool detectSplittedStorage();
+        splitFileName_t getSplitFileNameAttributes(std::wstring filepath = L"");
+        bool getNextSplitFile(std::wstring &next_file, std::wstring cur_filepath = L"");
         void clearHandle();
         void closeHandle();
         bool read(void *buffer, DWORD* bytesRead, DWORD length = 0);
@@ -125,6 +149,7 @@ class NxHandle {
         bool write(u64 offset, void *buffer, DWORD* bytesWrite, DWORD length = 0);
         bool write(u32 sector, void *buffer, DWORD* bw, DWORD length);
         bool createFile(wchar_t *path, int io_mode = GENERIC_READ);
+        void createHandle(int io_mode = GENERIC_READ);
         bool hash(u64* bytesCount);
         bool setPointer(u64 offset);
         bool dismountVolume();
@@ -134,7 +159,7 @@ class NxHandle {
         bool lockFile();
         bool ejectVolume();
         bool getVolumeName(WCHAR *pVolumeName, u32 start_sector);
-        bool getDisksProperty(PSTORAGE_DEVICE_DESCRIPTOR pDevDesc, HANDLE hDevice = nullptr);
+
 };
 
 #endif

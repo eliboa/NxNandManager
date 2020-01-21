@@ -30,27 +30,36 @@ SOURCES += \
     ../res/hex_string.cpp \
     ../res/fat32.cpp \
     ../res/mbr.cpp \
+    ../res/progress_info.cpp \
     ../res/utils.cpp \
     ../NxStorage.cpp \
     ../NxCrypto.cpp \
     ../NxPartition.cpp \
     ../NxHandle.cpp \
+    ../res/win_ioctl.cpp \
+    emunand.cpp \
     keyset.cpp \
     mainwindow.cpp \
     properties.cpp \
+    qutils.cpp \
     resizeuser.cpp \
     worker.cpp \
-    opendrive.cpp
+    opendrive.cpp \
+    dump.cpp \
+    progress.cpp
 
 HEADERS += \
     ../NxNandManager.h \
     ../res/hex_string.h \
     ../res/fat32.h \
     ../res/mbr.h \
+    ../res/progress_info.h \
     ../res/utils.h \
     ../res/types.h \
     ../NxStorage.h \
     ../NxCrypto.h \
+    ../res/win_ioctl.h \
+    emunand.h \
     gui.h \
     keyset.h \
     mainwindow.h \
@@ -58,15 +67,21 @@ HEADERS += \
     ../NxPartition.h \
     ../NxHandle.h \
     mainwindow.h \
+    qutils.h \
     resizeuser.h \
     worker.h \
-    opendrive.h
+    opendrive.h \
+    dump.h \
+    progress.h
 FORMS += \
+    emunand.ui \
     mainwindow.ui \
     opendrive.ui \
     keyset.ui \
     properties.ui \
-    resizeuser.ui
+    resizeuser.ui \
+    dump.ui \
+    progress.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -76,7 +91,8 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 RESOURCES += \
     application.qrc
 
-DISTFILES +=
+DISTFILES += \
+    images/save_advanced.png
 
 QT += winextras
 

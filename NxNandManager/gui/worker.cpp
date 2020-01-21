@@ -17,233 +17,122 @@
 #include "worker.h"
 #include "gui.h"
 
-static Worker* worker_instance;
-void updateProgressWrapper(ProgressInfo* ppi)
+void updateProgressWrapper(ProgressInfo pi)
 {
- worker_instance->updateProgress(ppi);
-}
-
-Worker::Worker(QDialog *pParent)
-{
-    worker_instance = this;
-    work = LIST_STORAGE;
-    connect(this, SIGNAL(listCallback(QString)), pParent, SLOT(list_callback(QString)));
-}
-
-Worker::Worker(QMainWindow *pParent, QString filename)
-{
-    worker_instance = this;
-	work = NEW_STORAGE;
-	parent = pParent;
-	file = filename;
-	connect(this, SIGNAL(finished(NxStorage*)), parent, SLOT(inputSet(NxStorage*)));
-}
-
-Worker::Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, bool dump_rawnand, int crypto_mode)
-{
-    worker_instance = this;
-    work = DUMP;
-    parent = pParent;
-    nxInput = pNxInput;
-    file = filename;
-    m_crypto_mode = crypto_mode;
-    m_dump_rawnand = dump_rawnand;
-    connect_slots();
-}
-
-Worker::Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, int new_size, bool format)
-{
-    worker_instance = this;
-    work = RESIZE;
-    parent = pParent;
-    nxInput = pNxInput;
-    file = filename;
-    m_format = format;
-    m_new_size = new_size;
-    connect_slots();
-}
-
-Worker::Worker(QMainWindow *pParent, NxStorage* pNxInput, NxStorage* pNxOutput, int crypto_mode)
-{
-    worker_instance = this;
-    work = RESTORE;
-    parent = pParent;
-    nxInput = pNxInput;
-    nxOutput = pNxOutput;
-    m_crypto_mode = crypto_mode;
-    connect_slots();
-
-}
-Worker::Worker(QMainWindow *pParent, NxPartition* pNxInPart, QString filename, int crypto_mode)
-{
-    worker_instance = this;
-    work = DUMP_PART;
-    parent = pParent;
-    nxInPart = pNxInPart;
-    file = filename;
-    m_crypto_mode = crypto_mode;
-    connect_slots();
-}
-Worker::Worker(QMainWindow *pParent, NxPartition* pNxOutPart, NxStorage* pNxInput, int crypto_mode)
-{
-    worker_instance = this;
-    work = RESTORE_PART;
-    parent = pParent;
-    nxInPart = pNxOutPart;
-    nxInput = pNxInput;
-    m_crypto_mode = crypto_mode;
-    connect_slots();
+ worker_instance->updateProgress(pi);
 }
 
 Worker::~Worker()
 {
     delete worker_instance;
-}
-
-void Worker::connect_slots()
-{
-    begin_time = std::chrono::system_clock::now();
-    connect(this, SIGNAL(error(int, QString)), parent, SLOT(error(int, QString)));
-    connect(this, SIGNAL(sendProgress(int, QString, u64*, u64*)), parent, SLOT(updateProgress(int, QString, u64*, u64*)));
-    connect(this, SIGNAL(sendProgress(ProgressInfo*)), parent, SLOT(updateProgress(ProgressInfo*)));
-    connect(this, SIGNAL(finished()), parent, SLOT(endWorkThread()));    
-
+    WorkInProgress = false;
 }
 
 void Worker::run()
-{    
-	if (work == NEW_STORAGE)
-	{        
-        storage = new NxStorage(file.toLocal8Bit().constData());
+{
+    switch (m_mode) {
+    case new_storage :
+    {
+        connect(this, SIGNAL(finished(NxStorage*)), m_parent, SLOT(inputSet(NxStorage*)));
+        m_WorkingStorage = new NxStorage(m_file.toLocal8Bit().constData());
         QFile kfile("keys.dat");
         if (kfile.exists())
-            storage->setKeys("keys.dat");
+            m_WorkingStorage->setKeys("keys.dat");
 
-		emit finished(storage);
+        emit finished(m_WorkingStorage);
+        return;
+
     }
-    else switch (work) {
-        case LIST_STORAGE : {
-            QString drives = QString(ListPhysicalDrives().c_str());
-            emit listCallback(drives);
-            break;
-        }
-        case DUMP :
-            dumpStorage(nxInput, file);
-            break;
-        case RESIZE :
-            resizeUser(nxInput, file);
-            break;
-        case DUMP_PART :
-            dumpPartition(nxInPart, file);
-            break;
-        case RESTORE :
-            restoreStorage(nxOutput, nxInput);
-            break;
-        case RESTORE_PART :
-            restorePartition(nxInPart, nxInput);
-            break;
-	}
-}
-
-void Worker::updateProgress(ProgressInfo* pi)
-{
-    memcpy(&m_pi, pi, sizeof(ProgressInfo));
-    emit sendProgress(&m_pi);
-}
-
-void Worker::dumpPartition(NxPartition* partition, QString file)
-{
-    SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
-    int rc = partition->dumpToFile(file.toLocal8Bit().constData(), m_crypto_mode, updateProgressWrapper);
-
-    if (rc != SUCCESS)
-        error(rc);
-
-    SetThreadExecutionState(ES_CONTINUOUS);
-    sleep(1);
-    emit finished();
-}
-
-void Worker::dumpStorage(NxStorage* storage, QString file)
-{
-    SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
-
-    int rc = storage->dumpToFile(file.toLocal8Bit().constData(), m_crypto_mode, updateProgressWrapper, m_dump_rawnand);
-
-    if (rc != SUCCESS)
-        error(rc);
-
-    SetThreadExecutionState(ES_CONTINUOUS);
-    sleep(1);
-    emit finished();
-}
-
-void Worker::restorePartition(NxPartition* partition, NxStorage* in_storage)
-{
-    SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
-
-    int rc = partition->restoreFromStorage(in_storage, m_crypto_mode, updateProgressWrapper);
-
-    if (rc != SUCCESS)
-        error(rc);
-
-    SetThreadExecutionState(ES_CONTINUOUS);
-    sleep(1);
-    emit finished();
-}
-
-void Worker::restoreStorage(NxStorage* storage, NxStorage* in_storage)
-{
-    SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED); 
-
-    int rc = storage->restoreFromStorage(in_storage, m_crypto_mode, updateProgressWrapper);
-
-    if (rc != SUCCESS)
-        error(rc);
-
-    SetThreadExecutionState(ES_CONTINUOUS);
-    sleep(1);
-    emit finished();
-}
-
-void Worker::resizeUser(NxStorage* storage, QString file)
-{
-    SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
-    u32 user_new_size = m_new_size * 0x800; // Size in sectors. 1Mb = 0x800 sectors
-    NxPartition *user = storage->getNxPartition(USER);
-    u32 total_lba_count = user->lbaStart() + (user_new_size / 0x1000 + user_new_size + 66);
-    u64 bytesCount = 0, bytesToRead = total_lba_count * NX_BLOCKSIZE;
-    int rc = 0;
-
-    emit sendProgress(RESIZE, QString(nxInput->getNxTypeAsStr()), &bytesCount, &bytesToRead);
-    while (!(rc = storage->resizeUser(file.toLocal8Bit().constData(), user_new_size, &bytesCount, &bytesToRead, m_format)))
+    case list_storage :
     {
-        if (bCanceled)
-        {
-            SetThreadExecutionState(ES_CONTINUOUS);
-            storage->clearHandles();
-            return;
-        }
-        emit sendProgress(RESIZE, QString(storage->getNxTypeAsStr()), &bytesCount, &bytesToRead);
+        connect(this, SIGNAL(listCallback(QString)), m_parent, SLOT(list_callback(QString)));
+        QString drives = QString(ListPhysicalDrives().c_str());
+        emit listCallback(drives);
+        return;
+    }}
+
+    connect(this, SIGNAL(error(int, QString)), m_parent, SLOT(error(int, QString)));
+    qRegisterMetaType<ProgressInfo>("ProgressInfo");
+    connect(this, SIGNAL(sendProgress(const ProgressInfo)), m_parent, SLOT(updateProgress(const ProgressInfo)));
+    connect(this, SIGNAL(finished()), m_parent, SLOT(on_WorkFinished()));
+
+    int rc(SUCCESS);
+    worker_instance = this;
+    begin_time = std::chrono::system_clock::now();
+    SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
+
+    switch (m_mode) {
+    case dump :
+    {
+        m_outHandle = new NxHandle(m_file.toLocal8Bit().constData(), m_params.chunksize);
+        rc = m_WorkingStorage->dump(m_outHandle, m_params, updateProgressWrapper);
+        delete m_outHandle;
+        break;
     }
+    case restore :
+    {
+        rc = m_WorkingStorage->restore(m_inStorage, m_params, updateProgressWrapper);
+        break;
+    }
+    case create_emunand :
+    {
+        if (m_params.emunand_type == rawBased)
+            rc = m_WorkingStorage->createMmcEmuNand(m_file.toLocal8Bit().constData(), updateProgressWrapper);
+        else {
+            EmunandType i = static_cast<EmunandType>(m_params.emunand_type);
+            rc = m_WorkingStorage->createFileBasedEmuNand(i, m_file.toLocal8Bit().constData(), updateProgressWrapper, nullptr, nullptr);
+        }
+        break;
+    }}
 
-    if (rc != NO_MORE_BYTES_TO_COPY)
+    if (rc != SUCCESS)
         emit error(rc);
-    else emit sendProgress(RESIZE, QString(storage->getNxTypeAsStr()), &bytesToRead, &bytesToRead);
-
+    else
+    {
+        sleep(1);
+        emit finished();
+    }
     SetThreadExecutionState(ES_CONTINUOUS);
-    sleep(1);
-    emit finished();
+}
+
+void Worker::updateProgress(ProgressInfo pi)
+{    
+    auto saveMainProgress = [](ProgressInfo p_pi)
+    {
+        buf64 = p_pi.bytesCount;
+        memcpy(&s_pi, &p_pi, sizeof(ProgressInfo));
+    };
+    if (pi.show) emit sendProgress(pi);
+    if(pi.isSubProgressInfo)
+    {
+        s_pi.bytesCount = buf64 + pi.bytesCount;
+        if(s_pi.show) emit sendProgress(s_pi);
+
+        if (pi.bytesCount == pi.bytesTotal) saveMainProgress(s_pi);
+    }
+    else if (pi.show) saveMainProgress(pi);
 }
 
 void Worker::terminate()
 {
-    bCanceled = true;
+    if(nullptr != m_WorkingStorage)
+        m_WorkingStorage->stopWork = true;
+}
 
-    if(is_in(work, {DUMP_PART, RESTORE_PART}))
-        nxInPart->stopWork = true;
-    else if(is_in(work, {DUMP, RESIZE}))
-        nxInput->stopWork = true;
-    else if(work == RESTORE)
-        nxOutput->stopWork = true;
+WorkerInstance::WorkerInstance(QWidget *parent, WorkerMode mode, params_t *params, NxStorage *workingStorage, const QString& output, NxStorage *input)
+{
+    m_ProgressDialog = new Progress(parent, workingStorage);
+    /*
+    if (mode == create_emunand)
+    {
+        m_Worker = new Worker(m_ProgressDialog, mode, output, workingStorage);
+        return;
+    }
+    */
+    m_Worker = new Worker(m_ProgressDialog, mode, params, workingStorage, output, input);
+}
+int WorkerInstance::exec()
+{
+    m_Worker->start();
+    return m_ProgressDialog->exec();
 }

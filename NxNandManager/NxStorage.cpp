@@ -16,6 +16,128 @@
 
 #include "NxStorage.h"
 
+static MagicOffsets mgkOffArr[] =
+{
+    // { offset, magic, size, type, firwmare }
+    { 0, "43414C30", 4, PRODINFO}, // PRODINFO ("CAL0" at offset 0x0)
+    { 0x680, "434552544946", 6, PRODINFOF}, // PRODINFOF ("CERTIF at offset 0x680")
+    { 0x200, "4546492050415254", 8, RAWNAND, 0 }, // RAWNAND ("EFI PART" at offset 0x200)
+    //{ 0x200, "54584E414E44", 6, TXNAND, 0}, // TX hidden paritition ("TXNAND" at offset 0x200)
+    { 0x800200, "4546492050415254", 8, RAWMMC, 0}, // RAWMMC ("EFI PART" at offset 0x80000, i.e after 2 x 0x40000 for each BOOT)
+    { 0x1800200, "4546492050415254", 8, EMMC_PART, 0}, // RAWMMC
+    { 0x0530, "010021000E00000009000000", 12, BOOT0, 0}, // BOOT0 (boot_data_version + block_size_log2 + page_size_log2 at offset 0x530)
+    // BOOT1 => Look for PK11 magic
+    { 0x13B4, "504B3131", 4, BOOT1, 1},
+    { 0x13F0, "504B3131", 4, BOOT1, 2},
+    { 0x1424, "504B3131", 4, BOOT1, 3},
+    { 0x12E8, "504B3131", 4, BOOT1, 4},
+    { 0x12D0, "504B3131", 4, BOOT1, 5},
+    { 0x12F0, "504B3131", 4, BOOT1, 6},
+    { 0x40AF8,"504B3131", 4, BOOT1, 7},
+    { 0x40ADC,"504B3131", 4, BOOT1, 8},
+    { 0x40ACC,"504B3131", 4, BOOT1, 8.1},
+    { 0x40AC0,"504B3131", 4, BOOT1, 9}
+};
+
+
+static NxStorageType NxTypesArr[] =
+{
+    { INVALID  , "INVALID" },
+    { BOOT0    , "BOOT0" },
+    { BOOT1    , "BOOT1" },
+    { RAWNAND  , "RAWNAND" },
+    { PARTITION, "PARTITION" },
+    { RAWMMC   , "FULL NAND" },
+    { TXNAND   , "TXNAND" },
+    { PRODINFO , "PRODINFO" },
+    { PRODINFOF, "PRODINFOF" },
+    { BCPKG21  , "BCPKG2-1-Normal-Main" },
+    { BCPKG22  , "BCPKG2-2-Normal-Sub" },
+    { BCPKG23  , "BCPKG2-3-SafeMode-Main" },
+    { BCPKG24  , "BCPKG2-4-SafeMode-Sub" },
+    { BCPKG25  , "BCPKG2-5-Repair-Main" },
+    { BCPKG26  , "BCPKG2-6-Repair-Sub" },
+    { SAFE     , "SAFE" },
+    { SYSTEM   , "SYSTEM" },
+    { USER     , "USER" },
+    { UNKNOWN  , "UNKNOWN" }
+};
+
+
+static NxSystemTitles systemTitlesArr[] = {
+    { "9.0.1", "fd1ffb82dc1da76346343de22edbc97c.nca"},
+    { "9.0.0", "a6af05b33f8f903aab90c8b0fcbcc6a4.nca"},
+    { "8.1.0", "7eedb7006ad855ec567114be601b2a9d.nca"},
+    { "8.0.1", "6c5426d27c40288302ad616307867eba.nca"},
+    { "8.0.0", "4fe7b4abcea4a0bcc50975c1a926efcb.nca"},
+    { "7.0.1", "e6b22c40bb4fa66a151f1dc8db5a7b5c.nca"},
+    { "7.0.0", "c613bd9660478de69bc8d0e2e7ea9949.nca"},
+    { "6.2.0", "6dfaaf1a3cebda6307aa770d9303d9b6.nca"},
+    { "6.1.0", "1d21680af5a034d626693674faf81b02.nca"},
+    { "6.0.1", "663e74e45ffc86fbbaeb98045feea315.nca"},
+    { "6.0.0", "258c1786b0f6844250f34d9c6f66095b.nca"},
+    { "6.0.0 (pre-release)", "286e30bafd7e4197df6551ad802dd815.nca"},
+    { "5.1.0", "fce3b0ea366f9c95fe6498b69274b0e7.nca"},
+    { "5.0.2", "c5758b0cb8c6512e8967e38842d35016.nca"},
+    { "5.0.1", "7f5529b7a092b77bf093bdf2f9a3bf96.nca"},
+    { "5.0.0", "faa857ad6e82f472863e97f810de036a.nca"},
+    { "4.1.0", "77e1ae7661ad8a718b9b13b70304aeea.nca"},
+    { "4.0.1", "d0e5d20e3260f3083bcc067483b71274.nca"},
+    { "4.0.0", "f99ac61b17fdd5ae8e4dda7c0b55132a.nca"},
+    { "3.0.2", "704129fc89e1fcb85c37b3112e51b0fc.nca"},
+    { "3.0.1", "9a78e13d48ca44b1987412352a1183a1.nca"},
+    { "3.0.0", "7bef244b45bf63efb4bf47a236975ec6.nca"},
+    { "2.3.0", "d1c991c53a8a9038f8c3157a553d876d.nca"},
+    { "2.2.0", "7f90353dff2d7ce69e19e07ebc0d5489.nca"},
+    { "2.1.0", "e9b3e75fce00e52fe646156634d229b4.nca"},
+    { "2.0.0", "7a1f79f8184d4b9bae1755090278f52c.nca"},
+    { "1.0.0", "a1b287e07f8455e8192f13d0e45a2aaf.nca"}
+};
+
+static NxSystemTitles exFatTitlesArr[] = {
+    {"9.0.1", "3b444768f8a36d0ddd85635199f9676f.nca" },
+    {"9.0.0", "3b444768f8a36d0ddd85635199f9676f.nca" },
+    {"8.1.0", "96f4b8b729ade072cc661d9700955258.nca" },
+    {"8.0.1", "b2708136b24bbe206e502578000b1998.nca" },
+    {"8.0.0", "b2708136b24bbe206e502578000b1998.nca" },
+    {"7.0.1", "02a2cbfd48b2f2f3a6cec378d20a5eff.nca" },
+    {"7.0.0", "58c731cdacb330868057e71327bd343e.nca" },
+    {"6.2.0", "97cb7dc89421decc0340aec7abf8e33b.nca" },
+    {"6.1.0", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
+    {"6.0.1", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
+    {"6.0.0", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
+    {"6.0.0 (pre-release)", "711b5fc83a1f07d443dfc36ba606033b.nca" },
+    {"5.1.0", "c9e500edc7bb0fde52eab246028ef84c.nca" },
+    {"5.0.2", "432f5cc48e6c1b88de2bc882204f03a1.nca" },
+    {"5.0.1", "432f5cc48e6c1b88de2bc882204f03a1.nca" },
+    {"5.0.0", "432f5cc48e6c1b88de2bc882204f03a1.nca" },
+    {"4.1.0", "458a54253f9e49ddb044642286ca6485.nca" },
+    {"4.0.1", "090b012b110973fbdc56a102456dc9c6.nca" },
+    {"4.0.0", "090b012b110973fbdc56a102456dc9c6.nca" },
+    {"3.0.2", "e7dd3c6cf68953e86cce54b69b333256.nca" },
+    {"3.0.1", "17f9864ce7fe3a35cbe3e3b9f6185ffb.nca" },
+    {"3.0.0", "9e5c73ec938f3e1e904a4031aa4240ed.nca" },
+    {"2.3.0", "4a94289d2400b301cbe393e64831f84c.nca" },
+    {"2.2.0", "4a94289d2400b301cbe393e64831f84c.nca" },
+    {"2.1.0", "4a94289d2400b301cbe393e64831f84c.nca" },
+    {"2.0.0", "f55a04978465ebf5666ca93e21b26dd2.nca" },
+    {"1.0.0", "3b7cd379e18e2ee7e1c6d0449d540841.nca" }
+};
+
+static u8 tx_sector[112] = {
+    0x54, 0x58, 0x4E, 0x41, 0x4E, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x41, 0x74, 0x6D, 0x6F, 0x73, 0x70, 0x68, 0x65,
+    0x72, 0x65, 0x2D, 0x4E, 0x58, 0x20, 0x20, 0x52, 0x6F, 0x63, 0x6B, 0x69,
+    0x6E, 0x67, 0x20, 0x74, 0x68, 0x65, 0x20, 0x53, 0x77, 0x69, 0x74, 0x63,
+    0x68, 0x20, 0x66, 0x6F, 0x72, 0x65, 0x76, 0x65, 0x72, 0x20, 0x61, 0x6E,
+    0x64, 0x20, 0x62, 0x65, 0x79, 0x6F, 0x6E, 0x64, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0xA4, 0x03,
+    0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x4E, 0x78, 0x4E, 0x61, 0x6E, 0x64, 0x4D, 0x61, 0x6E, 0x61, 0x67, 0x65,
+    0x72, 0x00, 0x00, 0x00
+};
+
+
 NxStorage::NxStorage(const char *p_path)
 {
     dbg_printf("NxStorage::NxStorage() begins for %s\n", std::string(p_path).c_str());
@@ -440,7 +562,7 @@ NxStorage::NxStorage(const char *p_path)
     if (not_in(type, { UNKNOWN, INVALID }))
         setStorageInfo();
     
-    dbg_printf("NxStorage::NxStorage() size is %I64d (diskFreeBytes = %I64d). type is %s\n", m_size, m_freeSpace, getNxTypeAsStr());
+    dbg_printf("NxStorage::NxStorage() size is %I64d (diskFreeBytes = %I64d). type is %s\n", m_size, m_freeSpace, getNxTypeAsStr());    
 }
 
 NxStorage::~NxStorage()
@@ -701,7 +823,7 @@ void NxStorage::setStorageInfo(int partition)
                         {
                             firmware_version_t fwv_tmp;
                             setFirmwareVersion(&fwv_tmp, buf);
-                            dbg_printf("Reading /save/80000000000000d1 - OsVersion %s\n", getFirmwareVersion(&fwv_tmp).c_str());
+                            //dbg_printf("Reading /save/80000000000000d1 - OsVersion %s\n", getFirmwareVersion(&fwv_tmp).c_str());
 
                             if (fwv_cmp(fwv_tmp, firmware_version) > 0)
                             {
@@ -766,131 +888,515 @@ void NxStorage::setStorageInfo(int partition)
     }
 }
 
-int NxStorage::dumpToFile(const char* file, int crypto_mode, void(&updateProgress)(ProgressInfo*), bool rawnand_only)
+int NxStorage::dumpControl(params_t par)
 {
+    if (!isNxStorage())
+        return ERR_INVALID_INPUT;
+
+    if (par.partition != UNKNOWN && nullptr == getNxPartition(par.partition))
+        return ERR_IN_PART_NOT_FOUND;
+
+    for (part_params_t partPar : par.parts)
+        if (nullptr == getNxPartition(partPar.nx_type))
+            return ERR_IN_PART_NOT_FOUND;
+
+
+    bool b_isEncrypted = false, b_badCrypto = false;
+    NxPartition *in_part;
+    if(isSinglePartType() || par.partition != UNKNOWN)
+    {
+        if (par.partition != UNKNOWN)
+            in_part = getNxPartition(par.partition);
+        else
+            in_part = getNxPartition();
+
+        b_isEncrypted = in_part->isEncryptedPartition();
+        b_badCrypto = in_part->badCrypto();
+    }
+    else
+    {
+        b_isEncrypted = isEncrypted();
+        b_badCrypto = badCrypto();
+    }
+
+
     // Crypto check
-    if (crypto_mode == DECRYPT || crypto_mode == ENCRYPT)
-        return ERR_CRYPTO_RAW_COPY;
-
-    // Test if file already exists
-    std::ifstream infile(file);
-    if (infile.good())
+    if (b_isEncrypted && (is_in(par.crypto_mode, {ENCRYPT, DECRYPT}) || par.passThroughZero))
     {
-        infile.close();
-        return ERR_FILE_ALREADY_EXISTS;
+        if (!isCryptoSet())
+            return ERR_CRYPTO_KEY_MISSING;
+
+        if (b_badCrypto)
+            return ERR_BAD_CRYPTO;
     }
 
-    // Open new stream for output file
-    std::ofstream out_file = std::ofstream(file, std::ofstream::binary);
+    // Trying to encrypt already encrypted content
+    if (par.crypto_mode == ENCRYPT && b_isEncrypted)
+        return ERR_CRYPTO_ENCRYPTED_YET;
+    // Trying
+    if (par.crypto_mode == DECRYPT && !b_isEncrypted)
+        return ERR_CRYPTO_DECRYPTED_YET;
 
-    // Lock volume (drive only)
-    if (isDrive())
-        nxHandle->lockVolume();
-    
-    // Init input handle
-    nxHandle->initHandle(crypto_mode);
-
-    // Skip boot partitions if rawnanand_only
-    if (rawnand_only && type == RAWMMC)
-        nxHandle->setPointer((u64)0x4000 * NX_BLOCKSIZE);
-
-    // Set new buffer
-    int buff_size = nxHandle->getDefaultBuffSize();
-    BYTE* buffer = new BYTE[buff_size];
-    memset(buffer, 0, buff_size);
-    DWORD bytesRead = 0;
-
-    // Init progress info    
-    ProgressInfo pi;
-    pi.mode = COPY;
-    pi.storage_name = std::string(getNxTypeAsStr());
-    pi.begin_time = std::chrono::system_clock::now();
-    pi.bytesCount = 0;
-    pi.bytesTotal = rawnand_only && type == RAWMMC ? size() - (u64)0x4000 * NX_BLOCKSIZE : size();
-    updateProgress(&pi);
-
-    // Copy
-    while (nxHandle->read(buffer, &bytesRead, buff_size))
+    // USER resize controls
+    if (par.user_new_size)
     {
-        if(stopWork) return userAbort();
+        NxPartition *user = getNxPartition(USER);
+        if (nullptr == user)
+            return ERR_IN_PART_NOT_FOUND;
 
-        if (!out_file.write((char *)&buffer[0], bytesRead))
-            break;
-
-        pi.bytesCount += bytesRead;
-        updateProgress(&pi);
-    }
-
-    // Clean & unlock volume
-    out_file.close();
-    delete[] buffer;
-    if (isDrive())
-        nxHandle->unlockVolume();
-
-    // Check completeness
-    if (pi.bytesCount != pi.bytesTotal)
-        return ERR_WHILE_COPY;
-
-    // Compute & compare md5 hashes
-    if (crypto_mode == MD5_HASH)
-    {
-        // Get checksum for input
-        HCRYPTHASH in_hash = nxHandle->md5Hash();
-        std::string in_sum = BuildChecksum(in_hash);
-        
-        // Set new NxStorage for output
-        NxStorage out_storage = NxStorage(file);
-
-        // Init Progress Info
-        pi.mode = MD5_HASH;
-        pi.begin_time = std::chrono::system_clock::now();
-        pi.bytesCount = 0;
-        pi.bytesTotal = out_storage.size();
-        pi.elapsed_seconds = 0;
-        updateProgress(&pi);
-
-        // Hash output file
-        while (!out_storage.nxHandle->hash(&pi.bytesCount))
+        if (user->isEncryptedPartition())
         {
-            if(stopWork) return userAbort();
-            updateProgress(&pi);
+            if (!isCryptoSet())
+                return ERR_CRYPTO_KEY_MISSING;
+
+            if (user->badCrypto())
+                return ERR_BAD_CRYPTO;
         }
-        // Check completeness
-        if (pi.bytesCount != pi.bytesTotal)
-            return ERR_MD5_COMPARE;
-
-        // Get checksum for output
-        HCRYPTHASH out_hash = out_storage.nxHandle->md5Hash();
-        std::string out_sum = BuildChecksum(out_hash);
-
-        // Compare checksums
-        if (in_sum.compare(out_sum))
-            return ERR_MD5_COMPARE;
     }
 
     return SUCCESS;
 }
 
-int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, void(&updateProgress)(ProgressInfo*))
+int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(ProgressInfo))
+{
+    // Do controls
+    int rc = dumpControl(par);
+    if (rc != SUCCESS)
+        return rc;
+
+    if (outHandle->exists)
+        return ERR_FILE_ALREADY_EXISTS;
+
+    // Single partition dump
+    if(isSinglePartType() || par.partition != UNKNOWN)
+    {
+        NxPartition *in_part;
+        if (par.partition != UNKNOWN)
+            in_part = getNxPartition(par.partition);
+        else
+            in_part = getNxPartition();
+
+        part_params_t *in_part_param = GetPartParam(&par, in_part->type());
+        part_params_t params;
+        if (nullptr != in_part_param)
+            params = *in_part_param;
+        else
+        {
+            params.crypto_mode = par.crypto_mode;
+            params.passThroughZero = par.passThroughZero;
+        }
+        int rc = in_part->dump(outHandle, params, updateProgress);
+        return rc;
+    }
+
+    // NAND dump
+    ProgressInfo pi;
+    DWORD bytesCount = 0, bytesWrite = 0;
+    bool sendProgress = nullptr != updateProgress ? true : false;
+
+    // Init buffer and handle
+    BYTE *buffer = new BYTE[DEFAULT_BUFF_SIZE];
+    nxHandle->initHandle(par.crypto_mode);
+
+    // Init progress info
+    pi.mode = COPY;
+    sprintf(pi.storage_name, getNxTypeAsStr());
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.bytesTotal = size();
+    if(par.isSubParam) pi.show = false;
+    if (par.user_new_size)
+    {
+        u32 gptbck_lba = getNxPartition(USER)->lbaStart() + par.user_new_size + 32;
+        pi.bytesTotal = (u64)(gptbck_lba + 1) * NX_BLOCKSIZE;
+    }
+
+    if (sendProgress && !par.isSubParam)
+        updateProgress(pi);
+
+    // Error lambda func
+    auto error = [&] (int rc)
+    {
+        delete [] buffer;        
+        if (isDrive())
+            nxHandle->unlockVolume();
+        return rc;
+    };
+
+    // Lock volume
+    if (isDrive())
+        nxHandle->lockVolume();
+
+    // Create and lock input HASH
+    if(par.crypto_mode == MD5_HASH)
+        nxHandle->lockHash();
+
+    // Dump BOOT partitions
+    if(type == RAWMMC)
+    {
+        NxPartition *boot0 = getNxPartition(BOOT0);
+        NxPartition *boot1 = getNxPartition(BOOT1);
+
+        if(!par.rawnand_only)
+        {
+            part_params_t params;
+            params.isSubParam = true;            
+            int rc = boot0->dump(outHandle, params, updateProgress);
+            if (rc != SUCCESS)
+                return error(rc);
+
+            pi.bytesCount += boot0->size();
+            if (sendProgress) updateProgress(pi);
+
+            rc = boot1->dump(outHandle, params, updateProgress);
+            if (rc != SUCCESS)
+                return error(rc);
+
+            pi.bytesCount += boot1->size();
+        }
+        else pi.bytesCount += boot0->size() + boot1->size(); // Skip boot
+        if (sendProgress) updateProgress(pi);
+    }
+
+    // UserDataRoot (GPT header)
+    nxHandle->initHandle(par.crypto_mode);
+    nxHandle->setPointer(pi.bytesCount);
+    if(!nxHandle->read(buffer, &bytesCount, 0x4400))
+        return error(ERR_WHILE_COPY);
+
+    // NAND resize => Update GPT
+    unsigned char gpt_header_backup[0x200];
+    if (par.user_new_size)
+    {
+        // Cluster align new size (32 sectors per cluster)
+        par.user_new_size = (par.user_new_size / 32) * 32;
+
+        GptHeader *hdr = (GptHeader *)(buffer + 0x200);
+
+        // Get entry for USER & resize partition in GPT header
+        u32 table_off = 0x200 + (hdr->part_ent_lba - 1) * NX_BLOCKSIZE;
+        GptEntry *user_ent = (GptEntry *)(buffer + table_off + (hdr->num_part_ents - 1) * hdr->part_ent_size);
+        user_ent->lba_end = user_ent->lba_start + par.user_new_size - 1;
+
+        // New CRC32 for partition table
+        u32 table_size = hdr->num_part_ents * hdr->part_ent_size;
+        unsigned char *table = new unsigned char[table_size];
+        memcpy(&table[0], &buffer[table_off], table_size);
+        hdr->part_ents_crc32 = crc32Hash(table, table_size);
+        delete[] table;
+
+        // New values for header
+        hdr->last_use_lba = user_ent->lba_end;
+        hdr->alt_lba = hdr->last_use_lba + 33;
+
+        // New CRC32 for header
+        unsigned char header[92];
+        memcpy(&header[0], &hdr[0], 92);
+        memset(&header[16], 0, 4);
+        hdr->crc32 = crc32Hash(header, 92);
+
+        // Save GPT header
+        memcpy(gpt_header_backup, &hdr[0], 0x200);
+    }
+
+
+    // Write UserDataRoot
+    if(!outHandle->write(buffer, &bytesCount, 0x4400))
+        return error(ERR_WHILE_COPY);
+
+    pi.bytesCount += 0x4400;
+    if (sendProgress) updateProgress(pi);
+
+    for (NxPartition *in_part : this->partitions)
+    {
+        // Skip boot partitions
+        if (is_in(in_part->type(), {BOOT0, BOOT1}))
+            continue;
+
+        // Skip USER if resize
+        if (par.user_new_size && in_part->type() == USER)
+            break;
+
+        // Set params for partition
+        part_params_t *in_part_param = GetPartParam(&par, in_part->type());
+        part_params_t params;
+        if(nullptr != in_part_param)
+            memcpy(&params, in_part_param, sizeof(part_params_t));
+        else if (is_in(in_part->type(), { SYSTEM, USER }))
+            params.passThroughZero = par.passThroughZero;
+
+        params.isSubParam = true;
+        int rc = in_part->dump(outHandle, params, updateProgress);
+        if (rc != SUCCESS)
+            return error(rc);
+
+        pi.bytesCount += in_part->size();
+        if (sendProgress) updateProgress(pi);
+    }
+
+    // USER resize (& format)
+    if (par.user_new_size)
+    {
+        NxPartition *user = getNxPartition(USER);
+        nxHandle->initHandle(user->isEncryptedPartition() ? DECRYPT : NO_CRYPTO, user);
+        u32 fat_size = fat32::getFatSize(par.user_new_size);
+        u32 fat_size_in_cluster = fat_size / 32;
+        u32 user_size_in_cluster = par.user_new_size / 32;
+        BYTE *s_buffer = new BYTE[CLUSTER_SIZE];
+        u32 cur_cluster_num = 0;
+
+        ProgressInfo spi;
+        spi.mode = RESIZE;
+        spi.isSubProgressInfo = true;
+        spi.bytesTotal = (u64)user_size_in_cluster * CLUSTER_SIZE;
+        sprintf(spi.storage_name, user->partitionName().c_str());
+        if (sendProgress) updateProgress(spi);
+
+        // Read reserved sectors
+        if (!nxHandle->read(s_buffer, &bytesCount, CLUSTER_SIZE))
+            return error(ERR_WHILE_COPY);
+
+        // Overwrite FAT size & sectors count (in both boot sectors)
+        fat32::boot_sector *bs = (fat32::boot_sector *)(s_buffer);
+        bs->fat_size = fat_size;
+        bs->sectors_count = par.user_new_size;
+        bs = (fat32::boot_sector *)(s_buffer + bs->bs_first_copy_sector * NX_BLOCKSIZE);
+        bs->fat_size = fat_size;
+        bs->sectors_count = par.user_new_size;
+
+        // Encrypt reserved sectors
+        if (user->isEncryptedPartition())
+            user->crypto()->encrypt(s_buffer, cur_cluster_num++);
+
+        // Write reserved sectors
+        if (!outHandle->write(s_buffer, &bytesWrite, CLUSTER_SIZE))
+            return error(ERR_WHILE_COPY);
+
+        spi.bytesCount += CLUSTER_SIZE;
+        if (sendProgress) updateProgress(spi);
+
+        // For each FAT
+        for (int x(0); x < 2; x++)
+        {
+            // For each cluster in FAT
+            for (u32 i(0); i < fat_size_in_cluster; i++)
+            {
+                memset(s_buffer, 0, CLUSTER_SIZE);
+                // Write first 3 FAT entries (each entry is 4 bytes long)
+                if (!i)
+                {
+                    u8 first_entries[12] = { 0xf8, 0xff, 0xff, 0x0f, 0xff, 0xff, 0xff, 0x0f, 0xff, 0xff, 0xff, 0x0f };
+                    memcpy(s_buffer, first_entries, ARRAYSIZE(first_entries));
+                }
+
+                if (user->isEncryptedPartition())
+                    user->crypto()->encrypt(s_buffer, cur_cluster_num++);
+
+                if (!outHandle->write(s_buffer, &bytesWrite, CLUSTER_SIZE))
+                    return error(ERR_WHILE_COPY);
+
+                spi.bytesCount += bytesWrite;
+                if (sendProgress) updateProgress(spi);
+            }
+        }
+
+        // Encrypt & write empty root cluster
+        memset(s_buffer, 0, CLUSTER_SIZE);
+        if (user->isEncryptedPartition())
+            user->crypto()->encrypt(s_buffer, cur_cluster_num++);
+
+        if (!outHandle->write(s_buffer, &bytesWrite, CLUSTER_SIZE))
+            return error(ERR_WHILE_COPY);
+
+        spi.bytesCount += bytesWrite;
+        if (sendProgress) updateProgress(spi);
+
+        // Write empty data clusters (encryption is not needed)
+        memset(s_buffer, 0, CLUSTER_SIZE);
+        while (cur_cluster_num < user_size_in_cluster)
+        {
+            if (!outHandle->write(s_buffer, &bytesWrite, CLUSTER_SIZE))
+                return error(ERR_WHILE_COPY);
+
+            spi.bytesCount += bytesWrite;
+            if (sendProgress) updateProgress(spi);
+
+            cur_cluster_num++;
+        }
+
+        pi.bytesCount += spi.bytesTotal;
+        if (sendProgress) updateProgress(pi);
+    }
+
+    // Last sectors
+    nxHandle->initHandle(par.crypto_mode);
+    nxHandle->setPointer((u64)((getNxPartition(USER)->lbaEnd() + 1) * NX_BLOCKSIZE));
+
+    while(pi.bytesCount < pi.bytesTotal)
+    {
+        int buff_size = DEFAULT_BUFF_SIZE;
+        if (pi.bytesCount + DEFAULT_BUFF_SIZE > pi.bytesTotal)
+            buff_size = pi.bytesTotal - pi.bytesCount;
+
+        if (!nxHandle->read(buffer, &bytesCount, buff_size))
+            return error(ERR_WHILE_COPY);
+
+        if (!outHandle->write(buffer, &bytesWrite, bytesCount))
+            return error(ERR_WHILE_COPY);
+
+        pi.bytesCount += bytesWrite;
+        if (sendProgress) updateProgress(pi);
+    }
+
+    // Ovewrite backup GPT after resize
+    if (par.user_new_size)
+    {
+         GptHeader *hdr = (GptHeader *)(gpt_header_backup);
+         outHandle->clearHandle();
+         if (outHandle->getChunkSize())
+         {
+             outHandle->setPath(outHandle->getFistPartPath());
+             outHandle->createHandle();
+             outHandle->detectSplittedStorage();
+         }
+         else outHandle->createHandle();
+
+         outHandle->setPointer((u64)(hdr->alt_lba * NX_BLOCKSIZE));
+         if(!outHandle->write(gpt_header_backup, &bytesWrite, NX_BLOCKSIZE))
+            return error(ERR_WHILE_COPY);
+    }
+
+    if (isDrive())
+        nxHandle->unlockVolume();
+
+    // Check completeness
+    if (pi.bytesCount != pi.bytesTotal)
+        return error(ERR_WHILE_COPY);
+
+    if(par.crypto_mode == MD5_HASH)
+    {
+        nxHandle->unlockHash();
+
+        // Get checksum for input
+        HCRYPTHASH in_hash = nxHandle->md5Hash();
+        std::string in_sum = BuildChecksum(in_hash);
+
+        // Recreate outHandle
+        outHandle->clearHandle();
+        if (outHandle->getChunkSize())
+        {
+            outHandle->setPath(outHandle->getFistPartPath());
+            outHandle->createHandle();
+            outHandle->detectSplittedStorage();
+        }
+        else outHandle->createHandle();
+
+        // Init Progress Info
+        pi.bytesCount = 0;
+        if (sendProgress)
+        {
+            pi.mode = MD5_HASH;
+            pi.begin_time = std::chrono::system_clock::now();
+            pi.elapsed_seconds = 0;
+            updateProgress(pi);
+        }
+
+        // Hash output file
+        while (outHandle->hash(&pi.bytesCount))
+        {
+            if(stopWork)
+                return error(userAbort());
+
+            if (sendProgress)
+                updateProgress(pi);
+        }
+
+        // Check completeness
+        if (pi.bytesCount != pi.bytesTotal)
+            return error(ERR_MD5_COMPARE);
+
+        // Get checksum for output
+        HCRYPTHASH out_hash = outHandle->md5Hash();
+        std::string out_sum = BuildChecksum(out_hash);
+
+        // Compare checksums
+        if (in_sum.compare(out_sum))
+            return error(ERR_MD5_COMPARE);
+
+    }
+
+    if (par.zipOutput)
+    {
+        // TO DO
+    }
+
+    delete [] buffer;
+    return SUCCESS;
+}
+
+int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(ProgressInfo))
 {
     // Controls
     if (input->type == INVALID || input->type == UNKNOWN)
         return ERR_INVALID_INPUT;
 
+    // Switch to single partition if output is NAND, input is single partition and partition not provided
+    if (!isSinglePartType() && input->isSinglePartType() && par.partition == UNKNOWN)
+        par.partition = input->getNxTypeAsInt();
+
+    // Single partition restore
+    if(isSinglePartType() || par.partition != UNKNOWN)
+    {
+        NxPartition *in_part = nullptr;
+        if (isSinglePartType())
+            in_part = getNxPartition();
+        else
+            in_part = getNxPartition(par.partition);
+
+        if (nullptr == in_part)
+            return ERR_IN_PART_NOT_FOUND;
+
+        part_params_t *in_part_param = GetPartParam(&par, in_part->type());
+        part_params_t params;
+        if (nullptr != in_part_param) params.crypto_mode = in_part_param->crypto_mode;
+        else params.crypto_mode = par.crypto_mode;
+
+        int rc = in_part->restore(input, params, updateProgress);
+        return rc;
+    }
+
+    // NAND restore
     if (input->type != this->type)
         return ERR_NX_TYPE_MISSMATCH;
 
-    if (crypto_mode == DECRYPT || crypto_mode == ENCRYPT)
+    if (par.crypto_mode == DECRYPT || par.crypto_mode == ENCRYPT)
         return ERR_CRYPTO_RAW_COPY;
 
-    if ((input->size() > size() && !m_freeSpace) || (input->size() > size() && input->size() > m_freeSpace)) // Alow restore overflow if freeSpace is available
+    if (input->size() != size()) // Alow restore overflow if freeSpace is available
         return ERR_IO_MISMATCH;
 
-    if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && input->isEncrypted() && !isEncrypted())
+    if (input->isEncrypted() && !isEncrypted())
         return ERR_RESTORE_CRYPTO_MISSIN2;
 
-    if (not_in(crypto_mode, { ENCRYPT, DECRYPT }) && !input->isEncrypted() && isEncrypted())
+    if (!input->isEncrypted() && isEncrypted())
         return ERR_RESTORE_CRYPTO_MISSING;
+
+    ProgressInfo pi;
+    DWORD bytesCount = 0, bytesWrite = 0;
+    bool sendProgress = nullptr != updateProgress ? true : false;
+    pi.bytesCount = 0;
+    pi.bytesTotal = input->size();
+    if (sendProgress)
+    {
+        pi.mode = RESTORE;
+        sprintf(pi.storage_name, getNxTypeAsStr());
+        pi.begin_time = std::chrono::system_clock::now();
+        updateProgress(pi);
+    }
+
+    // Init buffer and handle
+    BYTE *buffer = new BYTE[DEFAULT_BUFF_SIZE];
+    nxHandle->initHandle(NO_CRYPTO);
+    input->nxHandle->initHandle(NO_CRYPTO);
 
     // Lock output volume
     if (isDrive())
@@ -900,51 +1406,256 @@ int NxStorage::restoreFromStorage(NxStorage* input, int crypto_mode, void(&updat
     if (input->isDrive())
         input->nxHandle->lockVolume();
 
-    // Init handles for both input & output
-    input->nxHandle->initHandle(crypto_mode);
-    this->nxHandle->initHandle(NO_CRYPTO);
-    
-    // Restoring to RAWMMC, allow restore from larger input
-    if (type == RAWMMC && m_freeSpace && input->size() > size())
-        this->nxHandle->setOffMax(m_freeSpace);
-
-    // Set new buffer
-    int buff_size = nxHandle->getDefaultBuffSize();
-    BYTE* buffer = new BYTE[buff_size];
-    memset(buffer, 0, buff_size);
-    DWORD bytesRead = 0, bytesWrite = 0;
-
-    // Init progress info    
-    ProgressInfo pi;
-    pi.mode = RESTORE;
-    pi.storage_name = std::string(getNxTypeAsStr());
-    pi.begin_time = std::chrono::system_clock::now();
-    pi.bytesCount = 0;
-    pi.bytesTotal = input->size();
-    updateProgress(&pi);
-
-    while(input->nxHandle->read(buffer, &bytesRead, buff_size))
+    // Error lambda func
+    auto error = [&] (int rc)
     {
-        if(stopWork) return userAbort();
+        delete [] buffer;
+        if (isDrive())
+            nxHandle->unlockVolume();
 
-        if (!this->nxHandle->write(buffer, &bytesWrite, bytesRead))
-            break;
+        if (input->isDrive())
+            input->nxHandle->lockVolume();
+        return rc;
+    };
 
-        pi.bytesCount += bytesWrite;
-        updateProgress(&pi);
+    // Restore BOOT partitions
+    if(type == RAWMMC)
+    {
+        NxPartition *boot0 = getNxPartition(BOOT0);
+        NxPartition *boot1 = getNxPartition(BOOT1);
+
+        part_params_t params;
+        params.isSubParam = true;
+        int rc = boot0->restore(input, params, updateProgress);
+        if (rc != SUCCESS)
+            return error(rc);
+
+        pi.bytesCount += boot0->size();
+        if (sendProgress) updateProgress(pi);
+
+        rc = boot1->restore(input, params, updateProgress);
+        if (rc != SUCCESS)
+            return error(rc);
+
+        pi.bytesCount += boot1->size();
+
+        if (sendProgress) updateProgress(pi);
     }
 
-    // Clean & unlock volume
-    delete[] buffer;
-    if (isDrive())
-        nxHandle->unlockVolume();
-    if (input->isDrive())
-        input->nxHandle->unlockVolume();
+    // UserDataRoot (GPT header)
+    input->nxHandle->initHandle(par.crypto_mode);
+    input->nxHandle->setPointer(pi.bytesCount);
+    if(!input->nxHandle->read(buffer, &bytesCount, 0x4400))
+        return error(ERR_WHILE_COPY);
+
+    // Write UserDataRoot
+    if(!nxHandle->write(buffer, &bytesCount, 0x4400))
+        return error(ERR_WHILE_COPY);
+
+    pi.bytesCount += 0x4400;
+    if (sendProgress) updateProgress(pi);
+
+    for (NxPartition *in_part : input->partitions)
+    {
+        // Skip boot partitions
+        if (is_in(in_part->type(), {BOOT0, BOOT1}))
+            continue;
+
+        in_part->nxHandle->initHandle(NO_CRYPTO, in_part);
+        ProgressInfo subPi;
+        subPi.bytesCount = 0;
+        subPi.bytesTotal = in_part->size();
+        subPi.isSubProgressInfo = true;
+        if (sendProgress)
+        {
+            subPi.mode = RESTORE;
+            sprintf(subPi.storage_name, input->getNxTypeAsStr(in_part->type()));
+            updateProgress(subPi);
+        }
+
+        while(in_part-nxHandle->read(buffer, &bytesCount, DEFAULT_BUFF_SIZE))
+        {
+            if(stopWork) return error(userAbort());
+
+            if (!nxHandle->write(buffer, &bytesWrite, bytesCount))
+                break;
+
+            subPi.bytesCount += bytesWrite;
+            if (sendProgress) updateProgress(subPi);
+        }
+
+        if(subPi.bytesCount != subPi.bytesTotal)
+            return error(ERR_WHILE_COPY);
+
+        pi.bytesCount += subPi.bytesCount;
+        if (sendProgress) updateProgress(pi);
+
+    }
+
+    // Last sectors
+    input->nxHandle->setPointer(pi.bytesCount);
+    while(pi.bytesCount < pi.bytesTotal)
+    {
+        if (!input->nxHandle->read(buffer, &bytesCount, DEFAULT_BUFF_SIZE))
+            return error(ERR_WHILE_COPY);
+
+        DWORD bytesWrite;
+        if (!nxHandle->write(buffer, &bytesWrite, bytesCount))
+            return error(ERR_WHILE_COPY);
+
+        pi.bytesCount += bytesWrite;
+        if (sendProgress) updateProgress(pi);
+    }
 
     // Check completeness
     if (pi.bytesCount != pi.bytesTotal)
-        return ERR_WHILE_COPY;
+        return error(ERR_WHILE_COPY);
 
+    delete [] buffer;
+    if (isDrive())
+        nxHandle->unlockVolume();
+
+    if (input->isDrive())
+        input->nxHandle->lockVolume();
+
+    return SUCCESS;
+}
+
+
+int NxStorage::resizeUser(NxHandle *outHandle, u32 user_new_size, void(&updateProgress)(ProgressInfo*))
+{
+    // Controls
+    if (not_in(type, { RAWNAND, RAWMMC }))
+        return ERR_INVALID_INPUT;
+
+    if (isEncrypted() && !m_keySet_set)
+        return ERR_CRYPTO_KEY_MISSING;
+
+    if (isEncrypted() && badCrypto())
+        return ERROR_DECRYPT_FAILED;
+
+    if (outHandle->exists)
+        return ERR_FILE_ALREADY_EXISTS;
+
+    NxPartition *user = getNxPartition(USER);
+
+    if (!user->isEncryptedPartition())
+        return ERR_INVALID_INPUT;
+
+    // Useful vars
+    DWORD bytesCount = 0;
+    u32 gpt_lba_start = type == RAWMMC ? 0x4000 : 0;
+    u32 user_new_fat_size = (user_new_size - 32) / ((256 * 32 + 2) / 2);
+    u32 user_min_lba = (u32)((user->size() - user->freeSpace) / NX_BLOCKSIZE);
+    bool format = user_new_size < user_min_lba ? true : false;
+    unsigned char gpt_header_backup[0x200];
+
+    // Init buffer and handle
+    BYTE *buffer = new BYTE[DEFAULT_BUFF_SIZE];
+    nxHandle->initHandle(NO_CRYPTO);
+
+    // Init progress info
+    ProgressInfo pi;
+    pi.mode = RESIZE;
+    sprintf(pi.storage_name, getNxTypeAsStr());
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.bytesCount = 0;
+    pi.bytesTotal = size() - user->size() + (u64)(user_new_size * NX_BLOCKSIZE);
+    updateProgress(&pi);
+
+    // Error lambda func
+    auto error = [&] (int rc)
+    {
+        delete [] buffer;
+        if (isDrive())
+            nxHandle->unlockVolume();
+        return rc;
+    };
+
+    // Lock volume
+    if (isDrive())
+        nxHandle->lockVolume();
+
+    // Write BOOT partitions
+    if(type == RAWMMC)
+    {
+        // One iteration per partition (DEFAULT_BUFF_SIZE = BOOT size)
+        for(int i(0); i < 2; i++)
+        {
+            if (!nxHandle->read(buffer, &bytesCount, DEFAULT_BUFF_SIZE)
+             || !outHandle->write(buffer, &bytesCount, DEFAULT_BUFF_SIZE))
+                return error(ERR_WHILE_COPY);
+
+            pi.bytesCount += DEFAULT_BUFF_SIZE;
+            updateProgress(&pi);
+        }
+    }
+
+    // UserDataRoot (GPT header)
+    if(!nxHandle->read(buffer, &bytesCount, 0x4400))
+        return error(ERR_WHILE_COPY);
+
+    GptHeader *hdr = (GptHeader *)(buffer + 0x200);
+
+    // Get entry for USER & resize partition in GPT header
+    u32 table_off = 0x200 + (hdr->part_ent_lba - 1) * NX_BLOCKSIZE;
+    GptEntry *user_ent = (GptEntry *)(buffer + table_off + (hdr->num_part_ents - 1) * hdr->part_ent_size);
+    user_ent->lba_end = user_ent->lba_start + user_new_size - 1;
+
+    // New CRC32 for partition table
+    u32 table_size = hdr->num_part_ents * hdr->part_ent_size;
+    unsigned char *table = new unsigned char[table_size];
+    memcpy(&table[0], &m_buffer[table_off], table_size);
+    hdr->part_ents_crc32 = crc32Hash(table, table_size);
+    delete[] table;
+
+    // New values for header
+    hdr->last_use_lba = user_ent->lba_end;
+    hdr->alt_lba = hdr->last_use_lba + 33;
+
+    // New CRC32 for header
+    unsigned char header[92];
+    memcpy(&header[0], &hdr[0], 92);
+    memset(&header[16], 0, 4);
+    hdr->crc32 = crc32Hash(header, 92);
+
+    // Save GPT header
+    memcpy(gpt_header_backup, &hdr[0], 0x200);
+
+    // Write UserDataRoot
+    if(!outHandle->write(buffer, &bytesCount, 0x4400))
+        return error(ERR_WHILE_COPY);
+
+    pi.bytesCount += 0x4400;
+    updateProgress(&pi);
+
+    // Write NAND until USER partition starts
+    u64 user_off = user->lbaStart() * NX_BLOCKSIZE;
+    while(pi.bytesCount < user_off)
+    {
+        u32 buff_size = pi.bytesCount + DEFAULT_BUFF_SIZE > user_off ? user_off - pi.bytesCount : DEFAULT_BUFF_SIZE;
+
+        if (!nxHandle->read(buffer, &bytesCount, buff_size)
+         || !outHandle->write(buffer, &bytesCount, buff_size))
+            return error(ERR_WHILE_COPY);
+
+        pi.bytesCount += buff_size;
+        updateProgress(&pi);
+    }
+
+    // Copy & resize USER FAT32
+    delete [] buffer;
+    buffer = new BYTE[CLUSTER_SIZE];
+    nxHandle->initHandle(DECRYPT, user);
+    u32 cpy_cl_count_out = 0;
+
+    // Read first cluster
+    if (!nxHandle->read(buffer, &bytesCount, CLUSTER_SIZE))
+        return error(ERR_WHILE_COPY);
+
+    // TO DO Continue
+
+    delete [] buffer;
     return SUCCESS;
 }
 
@@ -1257,11 +1968,12 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
     return ERR_WHILE_COPY;
 }
 
-const char* NxStorage::getNxTypeAsStr()
+const char* NxStorage::getNxTypeAsStr(int a_type)
 {
+    int cur_type = a_type ? a_type : type;
     for (NxStorageType t : NxTypesArr)
     {
-        if (type == t.type)
+        if (cur_type == t.type)
             return t.name;
     }
     return "UNKNOWN";
@@ -1505,48 +2217,46 @@ int NxStorage::applyIncognito()
     return SUCCESS;
 }
 
-int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&updateProgress)(ProgressInfo*))
+int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(ProgressInfo))
 {
+
     if (this->type != RAWMMC)
         return -1;
 
-    if (!mmc->isDrive())
+    NxStorage mmc(mmc_path);
+
+    if (!mmc.isDrive())
         return ERR_OUTPUT_NOT_MMC;
 
-    // Recreate handle for mmc
-    mbstowcs(mmc->m_path, mmc_drive, MAX_PATH);
-    mmc->m_size = 0;
-    mmc->mmc_b0_lba_start = 0;
-    delete mmc->nxHandle;
-    mmc->nxHandle = new NxHandle(mmc);
+    // Recreate handle for mmc (because mmc can already 0b0e a0000000000000000000000 valid NxStorage)
+    mbstowcs(mmc.m_path, mmc_path, MAX_PATH);
+    mmc.m_size = 0;
+    mmc.mmc_b0_lba_start = 0;
+    delete mmc.nxHandle;
+    mmc.nxHandle = new NxHandle(&mmc);
    
-    // Read boot sector
+    // Read MMC boot sector
     DWORD bytesRead;
-    mbr_t mbr;
-    if (!mmc->nxHandle->read(&mbr, &bytesRead, NX_BLOCKSIZE))
+    mbr_t mbr, mbr_tmp;
+    if (!mmc.nxHandle->read(&mbr, &bytesRead, NX_BLOCKSIZE))
         return ERR_OUTPUT_HANDLE;
         
     if (hexStr(mbr.signature, 2) != "55AA")
         return ERR_OUTPUT_NOT_MMC;
 
-    ProgressInfo pi;
-    pi.mode = COPY;
-    pi.storage_name = std::string(getNxTypeAsStr());
-    pi.begin_time = std::chrono::system_clock::now();
-    pi.bytesCount = 0;
-    pi.bytesTotal = size();
-    updateProgress(&pi);
-    
+    // Copy boot sector
+    memcpy(&mbr_tmp, &mbr, sizeof(mbr_t));
+
     // Lock volume
-    mmc->nxHandle->lockVolume();
+    mmc.nxHandle->lockVolume();
 
     // Calculate new values for MBR
     u32 nand_sector_count = (u32)(this->m_size / NX_BLOCKSIZE);
-    u32 mmc_sector_count = (u32)(mmc->nxHandle->size() / NX_BLOCKSIZE);
-    u32 first_part_lba_start = nand_sector_count + 3;
+    u32 mmc_sector_count = (u32)(mmc.nxHandle->size() / NX_BLOCKSIZE);
+    u32 first_part_lba_start = u32((nand_sector_count + 3) / 32 + 1) * 32; //cluster align
     u32 first_part_lba_count = mmc_sector_count - first_part_lba_start;
     chs_t first_part_chs_start;
-    LBAtoCHS(mmc->nxHandle->pdg, first_part_lba_start, first_part_chs_start);
+    LBAtoCHS(mmc.nxHandle->pdg, first_part_lba_start, first_part_chs_start);
  
     // MMC not large enough
     if (nand_sector_count + 0x200 > mmc_sector_count)
@@ -1565,23 +2275,44 @@ int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&upd
         memset(&mbr.parts[i], 0, sizeof(mbr_part_t));
 
     // Dismount all volumes
-    if (!mmc->nxHandle->dismountAllVolumes())
-        return ERR_OUT_DISMOUNT_VOL;    
+    if (!mmc.nxHandle->dismountAllVolumes())
+        return ERR_OUT_DISMOUNT_VOL;
 
-    // Write MBR
-    if (!mmc->nxHandle->write((u32)0, &mbr, &bytesRead, NX_BLOCKSIZE))
+    // Clean partitions
+    for (int i(0); i < 4; i++)
+        memset(&mbr_tmp.parts[i], 0, sizeof(mbr_part_t));
+
+    if (!mmc.nxHandle->write((u32)0, &mbr_tmp, &bytesRead, NX_BLOCKSIZE))
         return ERR_WHILE_WRITE;
 
     // Write "TXNAND" sector (mandatory to boot emuNAND via SX OS)
     u8 buffer[NX_BLOCKSIZE];
     memset(buffer, 0, NX_BLOCKSIZE);
     memcpy(buffer, tx_sector, ARRAYSIZE(tx_sector));
-    if (!mmc->nxHandle->write(buffer, &bytesRead, NX_BLOCKSIZE))
+    if (!mmc.nxHandle->write(buffer, &bytesRead, NX_BLOCKSIZE))
         return ERR_WHILE_WRITE;    
-    // Write another empty sector
-    memset(buffer, 0, NX_BLOCKSIZE);
-    if (!mmc->nxHandle->write(buffer, &bytesRead, NX_BLOCKSIZE))
-        return ERR_WHILE_WRITE;
+
+
+    // Set new boot sector for user partition
+    u8 bts[NX_BLOCKSIZE];
+    memset(bts, 0, NX_BLOCKSIZE);
+    memcpy(bts, fat32::fat32_default_boot_sector, ARRAYSIZE(fat32::fat32_default_boot_sector));
+    u8 bs_sign[2] = { 0x55, 0xAA };
+    memcpy(bts + NX_BLOCKSIZE - 2, bs_sign, 2);
+    fat32::boot_sector *bs = (fat32::boot_sector*)(bts);
+    bs->sectors_count = first_part_lba_count;
+    u32 data_sectors_count = bs->sectors_count - bs->reserved_sector_count;
+    bs->fat_size = data_sectors_count / ((256 * bs->sectors_per_cluster + 2) / 2);
+
+
+    ProgressInfo pi, spi;
+    pi.mode = CREATE;
+    sprintf(pi.storage_name, "emuNAND");
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.bytesCount = 0;
+    pi.bytesTotal = size() + (u64((bs->reserved_sector_count + bs->fat_size * bs->num_fats) * NX_BLOCKSIZE + CLUSTER_SIZE));
+    updateProgress(pi);
+    spi.isSubProgressInfo = true;
 
     //
     // Copy NAND
@@ -1597,16 +2328,24 @@ int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&upd
     memset(cpy_buffer, 0, buff_size);
     bytesRead = 0;
     DWORD bytesWrite = 0;
+
+    // Sub Progress
+    spi.mode = COPY;
+    sprintf(spi.storage_name, getNxTypeAsStr());
+    spi.bytesCount = 0;
+    spi.bytesTotal = size();
+    updateProgress(spi);
+
     // Copy
     while(this->nxHandle->read(cpy_buffer, &bytesRead, buff_size))
     {
         if(stopWork) return userAbort();
 
-        if (!mmc->nxHandle->write(cpy_buffer, &bytesWrite, bytesRead))
+        if (!mmc.nxHandle->write(cpy_buffer, &bytesWrite, bytesRead))
             break;
 
-        pi.bytesCount += bytesWrite;
-        updateProgress(&pi);
+        spi.bytesCount += bytesWrite;
+        updateProgress(spi);
     }
 
     delete[] cpy_buffer;
@@ -1614,42 +2353,50 @@ int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&upd
         nxHandle->unlockVolume();
 
     // Check completeness
-    if (pi.bytesCount != pi.bytesTotal)
+    if (spi.bytesCount != spi.bytesTotal)
         return ERR_WHILE_COPY;
 
-    // Set new boot sector for user partition
-    u8 bts[NX_BLOCKSIZE];
-    memset(bts, 0, NX_BLOCKSIZE);
-    memcpy(bts, fat32::fat32_default_boot_sector, ARRAYSIZE(fat32::fat32_default_boot_sector));
-    u8 bs_sign[2] = { 0x55, 0xAA };
-    memcpy(bts + NX_BLOCKSIZE - 2, bs_sign, 2);
-    fat32::boot_sector *bs = (fat32::boot_sector*)(bts);
-    bs->sectors_count = first_part_lba_count;
-    u32 data_sectors_count = bs->sectors_count - bs->reserved_sector_count;
-    bs->fat_size = data_sectors_count / ((256 * bs->sectors_per_cluster + 2) / 2);
+    pi.bytesCount += spi.bytesTotal;
+    updateProgress(pi);
 
     // Set pointer to user partition in mmc output
-    if (!mmc->nxHandle->setPointer((u64)first_part_lba_start * NX_BLOCKSIZE))
+    if (!mmc.nxHandle->setPointer((u64)first_part_lba_start * NX_BLOCKSIZE))
         return ERR_WHILE_WRITE;
+
+    // Sub Progress
+    spi.mode = CREATE;
+    sprintf(spi.storage_name, "FAT32 partition");
+    spi.bytesCount = 0;
+    spi.bytesTotal = (bs->reserved_sector_count + bs->fat_size * bs->num_fats) * NX_BLOCKSIZE + CLUSTER_SIZE;
+    updateProgress(spi);
 
     // Write boot & info sectors
     for (int j(0); j < 2; j++)
     {
         // Write bs
-        if (!mmc->nxHandle->write(first_part_lba_start, bts, &bytesRead, NX_BLOCKSIZE))
+        if (!mmc.nxHandle->write(bts, &bytesRead, NX_BLOCKSIZE))
             return ERR_WHILE_WRITE;
 
+        spi.bytesCount += NX_BLOCKSIZE;
+        updateProgress(spi);
+
         // Write info sector
-        if (!mmc->nxHandle->write(&fat32::fat32_default_info_sector, &bytesRead, NX_BLOCKSIZE))
+        if (!mmc.nxHandle->write(&fat32::fat32_default_info_sector, &bytesRead, NX_BLOCKSIZE))
             return ERR_WHILE_WRITE;
+
+        spi.bytesCount += NX_BLOCKSIZE;
+        updateProgress(spi);
 
         // Write 4 sectors
         for (int i(0); i < 4; i++)
         {
             memset(buffer, 0, NX_BLOCKSIZE);
             if (!i) memcpy(buffer + NX_BLOCKSIZE - 2, bs_sign, 2);
-            if (!mmc->nxHandle->write(&fat32::fat32_default_info_sector, &bytesRead, NX_BLOCKSIZE))
+            if (!mmc.nxHandle->write(&fat32::fat32_default_info_sector, &bytesRead, NX_BLOCKSIZE))
                 return ERR_WHILE_WRITE;
+
+            spi.bytesCount += NX_BLOCKSIZE;
+            updateProgress(spi);
         }
     }
     u32 cur_sector = 12;
@@ -1659,32 +2406,17 @@ int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&upd
     int res = bs->reserved_sector_count - cur_sector;
     for (int i(0); i < res; i++)
     {
-        if (!mmc->nxHandle->write(buffer, &bytesRead, NX_BLOCKSIZE))
+        if (!mmc.nxHandle->write(buffer, &bytesRead, NX_BLOCKSIZE))
             return ERR_WHILE_WRITE;
+
+        spi.bytesCount += NX_BLOCKSIZE;
+        updateProgress(spi);
     }
-
-    // Get Handle to user partition volume (to prevent unauthorized write access)
-    WCHAR  volumeName[MAX_PATH] = L"";
-    if (!mmc->nxHandle->getVolumeName(volumeName, first_part_lba_start))
-        return ERR_PART_CREATE_FAILED;
-
-    dbg_wprintf(L"Volume name: %s\n", volumeName);
-
-    // Recreate file for volume
-    mmc->nxHandle->closeHandle();
-    if (!mmc->nxHandle->createFile(volumeName))
-        return -16;
-    // Lock volume
-    mmc->nxHandle->lockVolume();
-    // Dismount volume
-    mmc->nxHandle->dismountVolume();    
-    // Set pointer to first sector FAT sector
-    if (!mmc->nxHandle->setPointer((u64)bs->reserved_sector_count * NX_BLOCKSIZE))
-        return ERR_WHILE_WRITE;    
-
+    
     // Write FAT
     u64 fat_size = (u64)(bs->fat_size * NX_BLOCKSIZE);
     u8 *buff = (u8*)malloc(CLUSTER_SIZE);
+    memset(buff, 0, CLUSTER_SIZE);
     // For each FAT
     for (int j(0); j < (unsigned int)bs->num_fats; j++)
     {
@@ -1703,30 +2435,58 @@ int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&upd
             u32 buff_size = CLUSTER_SIZE;
             if (cur_off + buff_size > fat_size) buff_size = fat_size - cur_off;
 
-            if (!mmc->nxHandle->write(buff, &bytesRead, buff_size))
+            if (!mmc.nxHandle->write(buff, &bytesRead, buff_size))
                 return -12;
 
             if (!cur_off) memset(buff, 0, CLUSTER_SIZE);
 
             cur_off += buff_size;
+            spi.bytesCount += buff_size;
+            updateProgress(spi);
 
             dbg_printf("Writing %I64d bytes of FAT %d (%I64d)\r", cur_off, j, fat_size);
         }
         dbg_printf("\n");
     }
+    // Write empty cluster for root dir
+    if (!mmc.nxHandle->write(buff, &bytesRead, CLUSTER_SIZE))
+        return -12;
+
+    spi.bytesCount += CLUSTER_SIZE;
+    updateProgress(spi);
+
     free(buff);
 
-    TCHAR Buf[MAX_PATH];
-    TCHAR Drive[] = TEXT("d:\\");
+    // Write MBR
+    if (!mmc.nxHandle->write((u32)0, &mbr, &bytesRead, NX_BLOCKSIZE))
+        return ERR_WHILE_WRITE;
+
+    // Unlock volume
+    mmc.nxHandle->unlockVolume();
+
+    pi.bytesCount += spi.bytesTotal;
+    updateProgress(pi);
+
+    // Get volume name for user partition
+    WCHAR  volumeName[MAX_PATH] = L"";
+    if (!mmc.nxHandle->getVolumeName(volumeName, first_part_lba_start))
+        return ERR_PART_CREATE_FAILED;
+    //dbg_wprintf(L"Volume name: %s\n", volumeName);
+    
+
+    TCHAR Buf[MAX_PATH];    
     TCHAR Volume[] = TEXT("");
     TCHAR AvailableDrive[] = L"";
     bool already_mounted = false;
-    TCHAR I;
+    wchar_t I;
     wcscat(Volume, volumeName);
     wcscat(Volume, L"\\\0");
+    wchar_t Drive[4] = L"d:\\";
     dbg_wprintf(L"Volume name: %s\n", Volume);
-    
-    for (I = TEXT('d'); I < TEXT('z'); I++)
+   
+
+    // Look for existing or available mounting point
+    for (I = L'd'; I < L'z'; I++)
     {
         // Stamp the drive for the appropriate letter.
         Drive[0] = I;
@@ -1739,21 +2499,38 @@ int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&upd
 
         if (bFlag)
         {
-            dbg_wprintf(L"%s : %s\n", Drive, Buf);
+            dbg_wprintf(L" - comparing %s\n", Buf);
             if (!lstrcmp(Buf, Volume))
             {
                 already_mounted = true;
+                AvailableDrive[0] = I;
                 break;
-            }
+            }            
         }
-        else if(!lstrlen(AvailableDrive)) AvailableDrive[0] = I;        
+        else if (!lstrlen(AvailableDrive)) AvailableDrive[0] = I;
     }
+
+    if (!lstrlen(AvailableDrive))
+        return ERR_VOL_MOUNT_FAILED;
     
-    if (!already_mounted && lstrlen(AvailableDrive))
+    // Set mount point for user partition
+    if (!already_mounted)
     {
         BOOL  fResult;
         TCHAR szDriveLetter[3];
-        TCHAR szUniqueVolumeName[MAX_PATH];
+        std::vector<diskDescriptor> disks;
+        GetDisks(&disks);
+        for(diskDescriptor disk : disks)
+            for(volumeDescriptor vol : disk.volumes)
+                if(!vol.volumeName.compare(volumeName) && vol.mountPt.length())
+                {
+                    dbg_wprintf(L"%s found! %s (%d)\n", vol.volumeName.c_str(), vol.mountPt.c_str(), vol.mountPt.length());
+                    std::wstring Drive(vol.mountPt);
+                    Drive.append(L":\\");
+                    dbg_wprintf(L"Drive = %s\n", Drive.c_str());
+                    fResult = DeleteVolumeMountPoint(Drive.c_str());
+                }
+
         szDriveLetter[0] = AvailableDrive[0];
         szDriveLetter[1] = TEXT(':');
         szDriveLetter[2] = TEXT('\0');
@@ -1763,39 +2540,228 @@ int NxStorage::createMmcEmuNand(NxStorage* mmc, const char* mmc_drive, void(&upd
         szDriveLetterAndSlash[2] = TEXT('\\');
         szDriveLetterAndSlash[3] = TEXT('\0');
 
-        dbg_wprintf(L"szDriveLetter = %s, szDriveLetterAndSlash = %s \n", szDriveLetter, szDriveLetterAndSlash);
-
-        
         fResult = DefineDosDevice(DDD_RAW_TARGET_PATH, szDriveLetter, volumeName);
         if (!fResult)
             dbg_wprintf(TEXT("DefineDosDevice failed : %s\n"), GetLastErrorAsString().c_str());
 
-        if (!GetVolumeNameForVolumeMountPoint(szDriveLetterAndSlash,
-            szUniqueVolumeName,
-            MAX_PATH))
+
+        fResult = DefineDosDevice(DDD_RAW_TARGET_PATH | DDD_REMOVE_DEFINITION | DDD_EXACT_MATCH_ON_REMOVE, szDriveLetter, volumeName);
+
+        if (!fResult)
+            dbg_wprintf(TEXT("DefineDosDevice failed\n"), GetLastError());
+
+        std::wstring volAndSlash(volumeName);
+        volAndSlash.append(L"\\");
+        //dbg_wprintf(L"SetVolumeMountPoint(%s, %s)\n", szDriveLetterAndSlash, volAndSlash.c_str());
+        fResult = SetVolumeMountPoint(szDriveLetterAndSlash, volAndSlash.c_str());
+
+        if (!fResult)
         {
-            dbg_printf("GetVolumeNameForVolumeMountPoint failed : %s\n", GetLastErrorAsString().c_str());
-            szUniqueVolumeName[0] = '\0';
+            dbg_printf("SetVolumeMountPoint failed %s (%d)\n", GetLastErrorAsString().c_str(), GetLastError());
+            return ERR_VOL_MOUNT_FAILED;
         }
-        
-        fResult = DefineDosDevice(
-            DDD_RAW_TARGET_PATH | DDD_REMOVE_DEFINITION |
-            DDD_EXACT_MATCH_ON_REMOVE, szDriveLetter,
-            volumeName);
-
-        if (!fResult)
-            dbg_wprintf(TEXT("DefineDosDevice failed\n"),
-                GetLastError());
-
-        fResult = SetVolumeMountPoint(szDriveLetterAndSlash,
-            szUniqueVolumeName);
-
-        if (!fResult)
-            dbg_printf("SetVolumeMountPoint failed %s\n", GetLastErrorAsString().c_str());
     }
 
-    mmc->nxHandle->unlockVolume();
+    AvailableDrive[1] = TEXT('\0');
+    std::wstring drive(AvailableDrive);
+    std::wstring path(drive + L":\\emuMMC");
+    if(!CreateDirectoryW(path.c_str(), nullptr))
+        dbg_wprintf(L"Failed to mkdir %s (%s)\n", path.c_str(), GetLastErrorAsString().c_str());
+
+    std::string filepath (path.begin(), path.end());
+    filepath.append("\\emummc.ini");
+    std::ofstream emummcIni (filepath);
+    if (emummcIni.is_open())
+    {
+        emummcIni << "[emummc]\n";
+        emummcIni << "enabled=1\n";
+        emummcIni << "sector=0x2\n";
+        emummcIni << "path=emuMMC/ER00\n";
+        emummcIni << "id=0x0000\n";
+        emummcIni << "nintendo_path=Emutendo\n";
+        emummcIni.close();
+    }
+    else dbg_printf("Failed to create %s\n", filepath.c_str());
+
+    path.append(L"\\ER00");
+    if(!CreateDirectoryW(path.c_str(), nullptr))
+        dbg_wprintf(L"Failed to mkdir %s (%s)\n", path.c_str(), GetLastErrorAsString().c_str());
+
+    filepath.clear();
+    filepath.append(path.begin(), path.end());
+    filepath.append("\\raw_based");
+    std::ofstream raw_based (filepath, std::ofstream::binary);
+    u8 content[4] = { 0x02, 0x00, 0x00, 0x00 };
+    if (!raw_based.write((char *)&content[0], 4))
+        dbg_printf("Failed to write %s\n", filepath.c_str());
+    raw_based.close();
+
+    path.clear();
+    path.append(drive + L":\\Emutendo");
+    if(!CreateDirectoryW(path.c_str(), nullptr))
+        dbg_wprintf(L"Failed to mkdir %s (%s)\n", path.c_str(), GetLastErrorAsString().c_str());
+
+
     return SUCCESS;
+}
+
+int NxStorage::createFileBasedEmuNand(EmunandType emu_type, const char* volume_path, void(*updateProgress)(ProgressInfo), const char* boot0_path, const char* boot1_path)
+{
+    if (not_in(type, {RAWMMC, RAWNAND}))
+        return ERR_INVALID_NAND;
+
+    if (not_in(emu_type, {fileBasedAMS, fileBasedSXOS}) || nullptr == volume_path)
+        return -1;
+
+    if (type == RAWNAND) {
+        if (nullptr == boot0_path)
+            return ERR_INVALID_BOOT0;
+        if (nullptr == boot1_path)
+            return ERR_INVALID_BOOT1;
+    }
+
+    NxPartition *boot0, *boot1;
+    NxHandle *curNxHandle = nullptr;
+    NxStorage *nx1 = nullptr, *nx2 = nullptr;
+    u64 nand_size = 0;
+
+    // return lambda func
+    auto end = [&] (int rc)
+    {
+        if (nullptr != nx1) delete nx1;
+        if (nullptr != nx2) delete nx2;
+        if (nullptr != curNxHandle) delete curNxHandle;
+        if (isDrive()) nxHandle->unlockVolume();
+        return rc;
+    };
+
+    if (type == RAWMMC)
+    {
+        boot0 = getNxPartition(BOOT0);
+        if (nullptr == boot0) return end(ERR_INVALID_BOOT0);
+
+        boot1 = getNxPartition(BOOT1);
+        if (nullptr == boot1) return end(ERR_INVALID_BOOT1);
+
+        nand_size = size();
+    }
+    else
+    {
+        nx1 = new NxStorage(boot0_path);
+        if (nx1->type != BOOT0) return end(ERR_INVALID_BOOT0);
+        boot0 = nx1->getNxPartition(BOOT0);
+
+        nx2 = new NxStorage(boot1_path);
+        if (nx2->type != BOOT1) return end(ERR_INVALID_BOOT1);
+        boot1 = nx2->getNxPartition(BOOT1);
+
+        nand_size = size() + boot0->size() + boot1->size();
+    }
+
+    LPWSTR wpath = convertCharArrayToLPWSTR(volume_path);
+    volumeDescriptor vol;
+    if (!GetVolumeDescriptor(&vol, wpath))
+        return end(ERR_OUTPUT_NOT_DRIVE);
+
+    if (vol.volumeFreeBytes < nand_size)
+        return end(ERR_NO_SPACE_LEFT);
+
+    std::string volume(volume_path), cur_dir, emu_dir;
+    auto getDir = [&] (const char *path) { return std::string(volume + path); };
+    auto n22dstr = [&] (int n) { char ns[4]; sprintf_s(ns, 4, "%02d", n); return std::string(ns); };
+    switch (emu_type) {
+    case fileBasedAMS : {
+
+        // Get emuNAND availbale number
+        int emu_count(0);
+        for (int i(0); i <= 99; i++)
+        {
+            std::string path("\\emuMMC\\SD" + std::string(n22dstr(i)));
+            cur_dir = getDir(path.c_str());
+            if (is_dir(cur_dir.c_str())) emu_count = i + 1;
+            else break;
+        }
+
+        cur_dir = getDir("\\emuMMC");
+        if (!is_dir(cur_dir.c_str()) && !CreateDirectoryA(cur_dir.c_str(), nullptr))
+            return end(ERR_CREATE_DIR_FAILED);
+
+        std::string sd_emu_dir("\\emuMMC\\SD" + std::string(n22dstr(emu_count)));
+        cur_dir = getDir(sd_emu_dir.c_str());
+        if (!CreateDirectoryA(cur_dir.c_str(), nullptr))
+            return end(ERR_CREATE_DIR_FAILED);
+
+        cur_dir = getDir(std::string(sd_emu_dir + "\\eMMC").c_str());
+        if (!CreateDirectoryA(cur_dir.c_str(), nullptr))
+            return end(ERR_CREATE_DIR_FAILED);
+
+        emu_dir = cur_dir;
+        break;
+    }
+    case fileBasedSXOS : {
+
+        cur_dir = getDir("\\sxos");
+        if (!is_dir(cur_dir.c_str()) && !CreateDirectoryA(cur_dir.c_str(), nullptr))
+            return end(ERR_CREATE_DIR_FAILED);
+
+        cur_dir = getDir("\\sxos\\emunand");
+        if (is_dir(cur_dir.c_str()))
+            return end(ERR_FILE_ALREADY_EXISTS);
+
+        if (!CreateDirectoryA(cur_dir.c_str(), nullptr))
+            return end(ERR_CREATE_DIR_FAILED);
+
+        emu_dir = cur_dir;
+        break;
+    }}
+
+    ProgressInfo pi;
+    pi.mode = CREATE;
+    sprintf(pi.storage_name, "file based emuNAND");
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.bytesTotal = type == RAWMMC ? size() : boot0->size() + boot1->size() + size();
+
+    updateProgress(pi);
+
+    // Copy boot partitions
+    for (int i(0); i < 2; i++)
+    {
+        if (emu_type == fileBasedAMS)
+            cur_dir = emu_dir + "\\BOOT" + std::to_string(i);
+        else
+            cur_dir = emu_dir + "\\boot" + std::to_string(i) + ".bin";
+        curNxHandle= new NxHandle(cur_dir.c_str());
+        part_params_t par;
+        par.isSubParam = true;
+        NxPartition *part = i ? boot1 : boot0;
+        if (int rc = part->dump(curNxHandle, par, updateProgress))
+            return end(rc);
+
+        delete curNxHandle;
+        pi.bytesCount += part->size();
+    }
+
+    // Copy RAWNAND
+    params_t par;
+    par.isSubParam = true;
+    if (type == RAWMMC) par.rawnand_only = true;
+    if (emu_type == fileBasedAMS)
+    {
+        cur_dir = emu_dir + "\\00";
+        par.chunksize = 0xFE000000;
+    }
+    else
+    {
+        par.chunksize = 0xFFFE0000;
+        cur_dir = emu_dir + "\\full.00.bin";
+    }
+    curNxHandle= new NxHandle(cur_dir.c_str(), par.chunksize);
+    if (int rc = dump(curNxHandle, par, updateProgress))
+        return end(rc);
+
+    pi.bytesCount = pi.bytesTotal;
+    updateProgress(pi);
+    return end(SUCCESS);
 }
 
 void NxStorage::clearHandles()
@@ -1920,5 +2886,3 @@ std::string ListPhysicalDrives()
     }
     return compatibleDrives;
 }
-
-

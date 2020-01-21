@@ -30,7 +30,7 @@ OpenDrive::OpenDrive(QWidget *parent) :
     ui->label->show();
     setWindowTitle("Physical drives");
 
-    Worker* workThread = new Worker(this);
+    Worker* workThread = new Worker(this, WorkerMode::list_storage);
     workThread->start();
 }
 

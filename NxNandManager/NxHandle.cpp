@@ -16,20 +16,41 @@
 
 #include "NxHandle.h"
 
+
 NxHandle::NxHandle(NxStorage *p)
 {
     if (nullptr == p)
         return;
 
-    parent = p;    
+    parent = p;
 
-    // Create new file
-    m_h = CreateFileW(parent->m_path, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+    m_path = std::wstring(parent->m_path);
+    createHandle();
+}
+
+NxHandle::NxHandle(const char *path, u64 chunksize)
+{
+    std::string s_path(path);
+    m_chunksize = chunksize;
+    m_path = std::wstring(s_path.begin(), s_path.end());
+    if (m_chunksize)
+    {        
+        splitFileName_t fna = getSplitFileNameAttributes(convertCharArrayToLPWSTR(path));
+        if (!fna.f_type)
+            m_path.append(L".00");
+
+        m_firstPart_path = m_path;
+    }
+    createHandle(GENERIC_WRITE);
+}
+
+void NxHandle::createHandle(int io_mode)
+{
+    m_h = CreateFileW(m_path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
 
     if (m_h != INVALID_HANDLE_VALUE)
-    {        
-        // Get drive geometry
-        
+    {
+        // Get drive geometry        
         DWORD junk = 0;
         if (DeviceIoControl(m_h, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED)NULL))
         {
@@ -39,10 +60,10 @@ NxHandle::NxHandle(NxStorage *p)
             exists = true;
         }
     }
-    CloseHandle(m_h);    
+    CloseHandle(m_h);
 
     // Open file/disk
-    if (!createFile(parent->m_path, GENERIC_READ))
+    if (!createFile((wchar_t*)m_path.c_str(), io_mode))
         return;
 
     // Get size for file
@@ -51,19 +72,18 @@ NxHandle::NxHandle(NxStorage *p)
     {
         m_size = Lsize.QuadPart;
         m_totalSize = m_size;
-        exists = true;
+        exists = m_size ? true : false;
     }
 
     // Get available space on disk for file
     if (!b_isDrive)
-    {        
-        std::wstring path_str = std::wstring(parent->m_path);
-        std::size_t pos = path_str.find(base_nameW(path_str));
-        std::wstring dir = path_str.substr(0, pos);
+    {
+        std::size_t pos = m_path.find(base_nameW(m_path));
+        std::wstring dir = m_path.substr(0, pos);
         if (dir.length() == 0)
         {
             wchar_t buffer[MAX_PATH];
-            GetModuleFileNameW(NULL, buffer, MAX_PATH);
+            GetModuleFileNameW(nullptr, buffer, MAX_PATH);
             dir = std::wstring(buffer);
         }
 
@@ -93,6 +113,42 @@ NxHandle::~NxHandle()
 
 void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
 {
+    if(nullptr == parent)
+    {
+        m_off_start = 0;
+        m_off_end = m_size;
+        m_off_max = m_size;
+        m_readAmount = 0;
+        m_cur_block = 0;
+        lp_CurrentPointer.QuadPart = 0;
+        m_crypto = NO_CRYPTO;
+        setPointer(0);
+
+        if (crypto_mode == MD5_HASH && !m_isHashLocked)
+        {
+            m_crypto = crypto_mode;
+            // Get handle to the crypto provider
+            CryptAcquireContext(&h_WinCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
+            // Create new hash
+            CryptCreateHash(h_WinCryptProv, CALG_MD5, 0, 0, &m_md5_hash);
+        }
+
+        if(m_size)
+            return;
+
+        // Get size for file
+        LARGE_INTEGER Lsize;
+        if (!b_isDrive && GetFileSizeEx(m_h, &Lsize))
+        {
+            m_size = Lsize.QuadPart;
+            m_totalSize = m_size;
+            m_off_end = m_size;
+            m_off_max = m_size;
+            exists = m_size ? true : false;
+        }
+        return;
+    }
+
     u64 tmp_size = !parent->size() || isSplitted() ? m_size : parent->size();
     m_off_start = (u64)parent->mmc_b0_lba_start * NX_BLOCKSIZE;
     m_off_end = m_off_start + tmp_size - 1;
@@ -104,8 +160,8 @@ void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
 
     if (nullptr != partition)
     {
-        m_off_start = ((u64)parent->mmc_b0_lba_start + (u64)partition->lbaStart()) * NX_BLOCKSIZE;
-        m_off_end = m_off_start + (((u64)partition->lbaEnd() - (u64)partition->lbaStart() + 1) * NX_BLOCKSIZE) - 1;
+         m_off_start = ((u64)parent->mmc_b0_lba_start + (u64)partition->lbaStart()) * NX_BLOCKSIZE;
+         m_off_end = m_off_start + (((u64)partition->lbaEnd() - (u64)partition->lbaStart() + 1) * NX_BLOCKSIZE) - 1;
 
         if(m_crypto == DECRYPT || m_crypto == ENCRYPT)
         {
@@ -113,7 +169,7 @@ void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
         }
     }
 
-    if (m_crypto == MD5_HASH)
+    if (m_crypto == MD5_HASH && !m_isHashLocked)
     {
         // Get handle to the crypto provider
         CryptAcquireContext(&h_WinCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
@@ -131,116 +187,155 @@ void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
     */
 }
 
-bool NxHandle::detectSplittedStorage()
+splitFileName_t NxHandle::getSplitFileNameAttributes(std::wstring filepath)
 {
-    wstring Lfilename(parent->m_path);
-    wstring extension(get_extensionW((Lfilename)));
-    wstring basename(remove_extensionW(Lfilename));
+    if (!filepath.length())
+        filepath.append(m_path);
 
-    string basename_tmp(basename.begin(), basename.end());
+    wstring extension(get_extensionW((filepath)));
+    wstring basename(remove_extensionW(filepath));
 
     if (extension.compare(basename) == 0)
         extension.erase();
+    else if (!basename.compare(L"\\\\"))
+    {
+        basename = basename + extension;
+        extension.erase();
+    }
 
     // Look for an integer in path extension
-    int f_number, f_digits, f_type = 0;
+    splitFileName_t fna;
     if (wcslen(extension.c_str()) > 1)
     {
-        
+
         wstring number = extension.substr(1, wcslen(extension.c_str()));
         if (std::string::npos != number.substr(0, 1).find_first_of(L"0123456789") && std::stoi(number) >= 0)
         {
             // Extension is integer
-            f_number = std::stoi(number);
-            f_digits = wcslen(number.c_str());
-            if (f_digits <= 2) f_type = 1;
+            fna.f_number = std::stoi(number);
+            fna.f_digits = wcslen(number.c_str());
+            if (fna.f_digits <= 2) fna.f_type = 1;
         }
     }
     // Look for an integer in base name (2 digits max)
-    if (f_type == 0)
+    if (fna.f_type == 0)
     {
         wstring number = basename.substr(wcslen(basename.c_str()) - 2, wcslen(basename.c_str()));
         if (std::string::npos != number.substr(0, 1).find_first_of(L"0123456789") && std::stoi(number) >= 0)
-        {            
-            f_number = std::stoi(number);
-            f_digits = 2;
-            f_type = 2;
+        {
+            fna.f_number = std::stoi(number);
+            fna.f_digits = 2;
+            fna.f_type = 2;
         }
         else {
             number = basename.substr(wcslen(basename.c_str()) - 1, wcslen(basename.c_str()));
             if (std::string::npos != number.substr(0, 1).find_first_of(L"0123456789") && std::stoi(number) >= 0)
             {
-                f_number = std::stoi(number);
-                f_digits = 1;
-                f_type = 2;
+                fna.f_number = std::stoi(number);
+                fna.f_digits = 1;
+                fna.f_type = 2;
             }
         }
     }
 
-    // Integer found in path
-    if (f_type > 0)
+    return fna;
+}
+
+bool NxHandle::getNextSplitFile(std::wstring &next_file, std::wstring cur_filepath)
+{
+    if (!cur_filepath.length())
+        cur_filepath.append(m_path);
+
+    next_file.clear();
+
+    splitFileName_t fna = getSplitFileNameAttributes(cur_filepath);
+
+    if (!fna.f_type)
+        return false;
+
+    wstring extension(get_extensionW((cur_filepath)));
+    wstring basename(remove_extensionW(cur_filepath));
+    if (extension.compare(basename) == 0)
+        extension.erase();
+    else if (!basename.compare(L"\\\\"))
     {
-        int i = f_number;
-        m_splitFileCount = 0;
-        LARGE_INTEGER Lsize;
-        u64 s_size = 0;
-        wstring path = Lfilename;
-        string mask("%0" + to_string(f_digits) + "d");                
-
-        clearHandle();
-
-        // For each splitted file
-        do {
-            // Get handle 
-            createFile(&path[0]);
-
-            if (!GetFileSizeEx(m_h, &Lsize))
-                break;            
-
-            // New NxSplitFile
-            NxSplitFile *splitfile = reinterpret_cast<NxSplitFile *>(malloc(sizeof(NxSplitFile)));
-            wcscpy(splitfile->file_path, path.c_str());
-            splitfile->offset = s_size;
-            splitfile->size = static_cast<u64>(Lsize.QuadPart);
-            splitfile->next = m_lastSplitFile;
-            m_lastSplitFile = splitfile;
-
-            // First split file is current split file
-            if (!m_splitFileCount)
-                m_curSplitFile = splitfile;
-
-            s_size += splitfile->size;
-
-            ++m_splitFileCount;
-            clearHandle();            
-
-            // Format path to next file
-            char new_number[10];
-            sprintf_s(new_number, 10, mask.c_str(), ++i);
-            wstring wn_number = convertCharArrayToLPWSTR(new_number);
-            if (f_type == 1)
-                path = basename + L"." + wn_number;
-            else
-                path = basename.substr(0, wcslen(basename.c_str()) - f_digits) + wn_number + extension;
-
-        } while (file_exists(path.c_str()));
-
-        clearHandle();
-
-        // Get handle for original file
-        createFile(parent->m_path, GENERIC_READ);        
-
-        // If more than one file found
-        if (m_splitFileCount > 1)
-        {
-            // New handle size
-            m_size = s_size;
-            b_isSplitted = true;
-            initHandle();
-            return true;
-        }
+        basename = basename + extension;
+        extension.erase();
     }
-    return false;
+    string mask("%0" + to_string(fna.f_digits) + "d");
+    char new_number[10];
+    sprintf_s(new_number, 10, mask.c_str(), ++fna.f_number);
+    wstring wn_number = convertCharArrayToLPWSTR(new_number);
+    if (fna.f_type == 1)
+        next_file = basename + L"." + wn_number;
+    else
+        next_file = basename.substr(0, wcslen(basename.c_str()) - fna.f_digits) + wn_number + extension;
+
+    return true;
+}
+
+bool NxHandle::detectSplittedStorage()
+{
+    splitFileName_t fna = getSplitFileNameAttributes();
+
+    // Not a valid split filename
+    if (!fna.f_type)
+        return false;
+
+    int i = fna.f_number;
+    m_splitFileCount = 0;
+    LARGE_INTEGER Lsize;
+    u64 s_size = 0;
+    wstring path = m_path;
+
+    clearHandle();
+
+    // For each splitted file
+    do {
+        // Get handle
+        createFile(&path[0]);
+
+        if (!GetFileSizeEx(m_h, &Lsize))
+            break;
+
+        // New NxSplitFile
+        NxSplitFile *splitfile = reinterpret_cast<NxSplitFile *>(malloc(sizeof(NxSplitFile)));
+        wcscpy(splitfile->file_path, path.c_str());
+        splitfile->offset = s_size;
+        splitfile->size = static_cast<u64>(Lsize.QuadPart);
+        splitfile->next = m_lastSplitFile;
+        m_lastSplitFile = splitfile;
+
+        // First split file is current split file
+        if (!m_splitFileCount)
+            m_curSplitFile = splitfile;
+
+        s_size += splitfile->size;
+
+        ++m_splitFileCount;
+        clearHandle();
+
+        // Format path to next file
+        if (!getNextSplitFile(path, path))
+            break;
+
+    } while (file_exists(path.c_str()));
+
+    clearHandle();
+
+    // Get handle for original file
+    createFile((wchar_t*)m_path.c_str(), GENERIC_READ);
+
+    // If more than one file found
+    if (m_splitFileCount > 1)
+    {
+        // New handle size
+        m_size = s_size;
+        b_isSplitted = true;
+        initHandle();
+        return true;
+    }
+    else return false;
 }
 
 bool NxHandle::createFile(wchar_t *path, int io_mode)
@@ -248,10 +343,16 @@ bool NxHandle::createFile(wchar_t *path, int io_mode)
     if (io_mode != GENERIC_READ && io_mode != GENERIC_WRITE)
         return false;
 
+    DWORD lpdwFlags[100];
+    if (GetHandleInformation(m_h, lpdwFlags))
+    {
+        CloseHandle(m_h);
+    }
+
     if (io_mode == GENERIC_READ)
         m_h = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
     else
-        m_h = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+        m_h = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     
     if (m_h == INVALID_HANDLE_VALUE)
     {
@@ -304,7 +405,7 @@ bool NxHandle::setPointer(u64 offset)
         }
     }
 
-    dbg_printf("NxHandle::setPointer(%s) real offset = %s\n", n2hexstr(offset, 12).c_str(), n2hexstr(m_off_start + offset, 12).c_str());
+    //dbg_printf("NxHandle::setPointer(%s) real offset = %s\n", n2hexstr(offset, 12).c_str(), n2hexstr(m_off_start + offset, 12).c_str());
 
     return true;
 }
@@ -349,7 +450,7 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
     }
 
     if (!ReadFile(m_h, buffer, length, &bytesRead, NULL)) {
-        dbg_printf("NxHandle::read ReadFile error\n");
+        dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
         return false;
     }
 
@@ -360,7 +461,8 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
     }
 
     // Encrypt/Decrypt buffer
-    //printf("READ CRYPTO %d, LENGTH %s\n", m_crypto, n2hexstr(length, 10).c_str());
+    //printf("READ CRYPTO %d, LENGTH %s\n", m_crypto, n2hexstr(length, 10).c_str());        
+
     if (is_in(m_crypto, { ENCRYPT, DECRYPT }) && nxCrypto != nullptr && length == CLUSTER_SIZE)
     {
         m_cur_block = (lp_CurrentPointer.QuadPart - m_off_start) / CLUSTER_SIZE;
@@ -368,7 +470,11 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
             nxCrypto->encrypt((unsigned char*)buffer, m_cur_block);
         }
         else
+        {
+            //dbg_printf("ENCRYPTED BUFFER :\n%s\n", hexStr((unsigned char*)buffer, length).c_str());
             nxCrypto->decrypt((unsigned char*)buffer, m_cur_block);
+//            /dbg_printf("DECRYPTED BUFFER :\n%s\n", hexStr((unsigned char*)buffer, length).c_str());
+        }
     }
 
     //dbg_printf("NxHandle::read done, %I32d bytes\n", bytesRead);
@@ -389,7 +495,7 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
     }
 
     // Hash buffer
-    if (m_crypto == MD5_HASH)
+    if (m_crypto == MD5_HASH || m_isHashLocked)
     {
         CryptHashData(m_md5_hash, (BYTE*)buffer, nullptr != br ? *br : bytesRead, 0);
     }
@@ -420,6 +526,7 @@ bool NxHandle::read(u32 lba, void *buffer, DWORD* bytesRead, DWORD length)
 
 bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
 {
+    DWORD save_length = length;
     if (nullptr != bw) *bw = 0;
     if (!length) length = getDefaultBuffSize();
     DWORD bytesWrite;
@@ -437,8 +544,7 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     }
 
     // eof
-    if (lp_CurrentPointer.QuadPart > m_off_max) {
-        dbg_printf("NxHandle::write reach EOF\n");
+    if (m_off_max && lp_CurrentPointer.QuadPart > m_off_max) {
         return false;
     }
 
@@ -448,13 +554,7 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     
     dbg_printf("NxHandle::write - buffer is \n%s\n", hexStr((unsigned char*)buffer, length).c_str());
     */
-    // Resize buffer if eof
-    if (lp_CurrentPointer.QuadPart + length > m_off_end)
-    {
-        u32 bytes = lp_CurrentPointer.QuadPart + length - m_off_end - 1;
-        length -= bytes;
-        dbg_printf("NxHandle::write - buffer resized to %I32d bytes\n", length);
-    }
+
 
     // Encrypt buffer
     if (m_crypto == ENCRYPT && nxCrypto != nullptr && length == CLUSTER_SIZE)
@@ -464,7 +564,15 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
 
     }
 
-    if (!WriteFile(m_h, buffer, length, &bytesWrite, NULL))
+    // Resize buffer if eof
+    if (m_off_end && lp_CurrentPointer.QuadPart + length > m_off_end)
+    {
+        u32 bytes = lp_CurrentPointer.QuadPart + length - m_off_end - 1;
+        length -= bytes;
+        dbg_printf("NxHandle::write - buffer resized to %I32d bytes\n", length);
+    }
+
+    if (!WriteFile(m_h, buffer, length, &bytesWrite, nullptr))
     {
         DWORD errorMessageID = ::GetLastError();
         dbg_printf("NxHandle::write - FAILED WriteFile - %I32d : %s", errorMessageID, GetLastErrorAsString().c_str());
@@ -476,6 +584,23 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     }
 
     lp_CurrentPointer.QuadPart += bytesWrite;
+    // Switch to next out file
+    if (m_chunksize && lp_CurrentPointer.QuadPart + save_length > m_chunksize)
+    {
+        DWORD bytesWrite_save = bytesWrite;
+
+        // Set path for new file
+        if (!getNextSplitFile(m_path))
+            return false;
+
+        // Clear current handle then create new file
+        clearHandle();
+        if(!createFile((wchar_t*)m_path.c_str(), GENERIC_WRITE))
+            return false;
+
+        // Init cur pointer
+        lp_CurrentPointer.QuadPart = 0;
+    }
     *bw = bytesWrite;
     return true;
 }
@@ -511,7 +636,7 @@ bool NxHandle::hash(u64* bytesCount)
 
     DWORD bytesRead = 0;
     bool success = false;
-    if (!(read(m_md5_buffer, &bytesRead, DEFAULT_BUFF_SIZE)))
+    if (read(m_md5_buffer, &bytesRead, DEFAULT_BUFF_SIZE))
         success = true;
 
     *bytesCount += bytesRead;
@@ -665,218 +790,41 @@ bool NxHandle::ejectVolume()
 
 bool NxHandle::dismountAllVolumes()
 {
-    std::wstring drive(parent->m_path);
+    std::wstring drive(m_path);
     std::transform(drive.begin(), drive.end(), drive.begin(), ::toupper);
     std::size_t pos = drive.find(L"PHYSICALDRIVE");
     if (pos == std::string::npos)
         return false;
 
     int driveNumber = stoi(drive.substr(pos + 13, 2));
-    HANDLE handle = INVALID_HANDLE_VALUE;
-    WCHAR  VolumeName[MAX_PATH] = L"";
-    DWORD dwBytesReturned;
-    size_t Index = 0;
-    BOOL   Success = FALSE;
-
-    // Get handle to first volume
-    handle = FindFirstVolumeW(VolumeName, ARRAYSIZE(VolumeName));
-
-    if (handle == INVALID_HANDLE_VALUE)
-        return false;
-
-    for (;;)
+    std::vector<diskDescriptor> disks;
+    GetDisks(&disks);
+    for (diskDescriptor disk : disks)
     {
-
-        Index = wcslen(VolumeName) - 1;
-
-        if (VolumeName[0] != L'\\' || VolumeName[1] != L'\\' || VolumeName[2] != L'?' ||
-            VolumeName[3] != L'\\' || VolumeName[Index] != L'\\')
+        if ((int)disk.diskNumber == driveNumber)
         {
-            FindVolumeClose(handle);
-            return false;
+            return DisMountAllVolumes(disk);
         }
-
-        VolumeName[Index] = L'\0'; //remove trailing backslash
-
-        HANDLE hHandle = CreateFile(VolumeName
-            , GENERIC_READ | GENERIC_WRITE
-            , FILE_SHARE_WRITE | FILE_SHARE_READ
-            , NULL
-            , OPEN_EXISTING
-            , FILE_ATTRIBUTE_NORMAL
-            , NULL);
-
-        VOLUME_DISK_EXTENTS volumeDiskExtents;
-
-        BOOL bResult = DeviceIoControl(
-            hHandle,
-            IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS,
-            NULL,
-            0,
-            &volumeDiskExtents,
-            sizeof(volumeDiskExtents),
-            &dwBytesReturned,
-            NULL);
-        
-
-        if (!bResult)
-        {
-            FindVolumeClose(handle);
-            return false;
-        }
-        for (DWORD n = 0; n < volumeDiskExtents.NumberOfDiskExtents; ++n)
-        {
-            PDISK_EXTENT pDiskExtent = &volumeDiskExtents.Extents[n];
-            // If volume found for physical drive
-            if (pDiskExtent->DiskNumber == driveNumber)
-            {
-                dbg_wprintf(L"Dismount volume %s\n", VolumeName);
-                if (!DeviceIoControl(hHandle,
-                    FSCTL_DISMOUNT_VOLUME,
-                    NULL, 0,
-                    NULL, 0,
-                    &dwBytesReturned,
-                    NULL))
-                {
-
-                    dbg_wprintf(L"Failed to dismount volume %s\n", VolumeName);
-                    CloseHandle(hHandle);
-                    FindVolumeClose(handle);                    
-                    return false;
-                }
-
-                if (!DeviceIoControl(hHandle,
-                    FSCTL_LOCK_VOLUME,
-                    NULL, 0,
-                    NULL, 0,
-                    &dwBytesReturned,
-                    NULL))
-                {
-
-                    dbg_wprintf(L"Failed to lock volume %s\n", VolumeName);
-                    CloseHandle(hHandle);
-                    FindVolumeClose(handle);
-                    return false;
-                }
-            }
-        }        
-        CloseHandle(hHandle);
-        // Get handle to next volume
-        if (!FindNextVolumeW(handle, VolumeName, ARRAYSIZE(VolumeName)))
-            break;
     }
-
-    FindVolumeClose(handle);
-    return true;
+    return false;
 }
 
 bool NxHandle::getVolumeName(WCHAR *pVolumeName, u32 start_sector)
 {
-
-    PSTORAGE_DEVICE_DESCRIPTOR t;
-    //dbg_printf("getVolumeName(WCHAR *pVolumeName, start_sector = %I32d\n", start_sector);
-    std::wstring drive(parent->m_path);
+    std::wstring drive(m_path);
     std::transform(drive.begin(), drive.end(), drive.begin(), ::toupper);
     std::size_t pos = drive.find(L"PHYSICALDRIVE");
     if (pos == std::string::npos)
         return false;
 
     int driveNumber = stoi(drive.substr(pos + 13, 2));
-    dbg_printf("Drive number is %d\n", driveNumber);
-
-    HANDLE handle = INVALID_HANDLE_VALUE;
-    WCHAR  VolumeName[MAX_PATH] = L"";
-    size_t Index = 0;
-    BOOL   Success = FALSE;
-
-    // Get handle to first volume
-    handle = FindFirstVolumeW(VolumeName, ARRAYSIZE(VolumeName));
-
-    if (handle == INVALID_HANDLE_VALUE)
-        return false;
-
-    for (;;)
-    {
-        Index = wcslen(VolumeName) - 1;
-
-        if (VolumeName[0] != L'\\' || VolumeName[1] != L'\\' || VolumeName[2] != L'?'  || 
-            VolumeName[3] != L'\\' || VolumeName[Index] != L'\\')
-        {
-            dbg_printf("FindFirstVolumeW/FindNextVolumeW returned a bad path: %s\n", VolumeName);
-            break;
-        }
-
-        VolumeName[Index] = L'\0'; //remove trailing backslash
-        //dbg_wprintf(L"Volume name: %s\n", VolumeName);
-
-        HANDLE hHandle = CreateFile(VolumeName
-            , GENERIC_READ | GENERIC_WRITE
-            , FILE_SHARE_WRITE | FILE_SHARE_READ
-            , NULL
-            , OPEN_EXISTING
-            , FILE_ATTRIBUTE_NORMAL
-            , NULL);
-
-        DWORD dwBytesReturned = 0;
-        VOLUME_DISK_EXTENTS volumeDiskExtents;
-
-        BOOL bResult = DeviceIoControl(
-            hHandle,
-            IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS,
-            NULL,
-            0,
-            &volumeDiskExtents,
-            sizeof(volumeDiskExtents),
-            &dwBytesReturned,
-            NULL);
-        CloseHandle(hHandle);
-
-        if (!bResult)
-            break;
-
-        for (DWORD n = 0; n < volumeDiskExtents.NumberOfDiskExtents; ++n)
-        {
-            PDISK_EXTENT pDiskExtent = &volumeDiskExtents.Extents[n];
-            //dbg_printf("Disk number: %d\n", pDiskExtent->DiskNumber);
-            //dbg_printf("DBR start sector: %I64d\n", pDiskExtent->StartingOffset.QuadPart / 512);
-
-            // If volume found 
-            if (pDiskExtent->DiskNumber == driveNumber && pDiskExtent->StartingOffset.QuadPart / 512 == (u64)start_sector)
-            {
-                memcpy(pVolumeName, VolumeName, MAX_PATH);
-                FindVolumeClose(handle);
-                return true;
-            }
-        }
-
-        // Get handle to next volume
-        if (!FindNextVolumeW(handle, VolumeName, ARRAYSIZE(VolumeName)))
-            break;
-    }
-
-    FindVolumeClose(handle);
-    return false;
+    return GetVolumeName(driveNumber, (u64)start_sector * NX_BLOCKSIZE, pVolumeName);
 }
 
-bool NxHandle::getDisksProperty(PSTORAGE_DEVICE_DESCRIPTOR pDevDesc, HANDLE hDevice)
+void NxHandle::lockHash()
 {
-    STORAGE_PROPERTY_QUERY Query; // input param for query
-    DWORD dwOutBytes; // IOCTL output length
-    BOOL bResult; // IOCTL return val
 
-    // specify the query type
-    Query.PropertyId = StorageDeviceProperty;
-    Query.QueryType = PropertyStandardQuery;
-
-    // Query using IOCTL_STORAGE_QUERY_PROPERTY 
-    bResult = DeviceIoControl(nullptr == hDevice ? m_h : hDevice, // device handle
-        IOCTL_STORAGE_QUERY_PROPERTY, // info of device property
-        &Query, sizeof(STORAGE_PROPERTY_QUERY), // input data buffer
-        pDevDesc, pDevDesc->Size, // output data buffer
-        &dwOutBytes, // out's length
-        (LPOVERLAPPED)NULL);
-
-    dbg_printf("Replace hDevice results = %d\n", bResult);
-
-    return bResult;
+    CryptAcquireContext(&h_WinCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
+    CryptCreateHash(h_WinCryptProv, CALG_MD5, 0, 0, &m_md5_hash);
+    m_isHashLocked = true;
 }

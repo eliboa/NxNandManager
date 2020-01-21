@@ -92,3 +92,13 @@ std::string fat32::get_long_filename(BYTE *buffer, int offset, int length)
     }
     return std::string(reinterpret_cast<const char*>(filename));
 }
+
+// Get size of FAT for a given FAT32 volume size (in sector)
+u32 fat32::getFatSize(u32 vol_size_in_sectors)
+{
+    u32 fat_size = (vol_size_in_sectors + 1 - 32) / ((256 * 32 + 2) / 2);
+    u32 fat_size_in_clusters = fat_size / 32;
+    if (fat_size % 32) fat_size_in_clusters++;
+
+    return fat_size_in_clusters * 32;
+}

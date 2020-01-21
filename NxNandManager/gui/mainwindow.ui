@@ -6,27 +6,21 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>380</width>
-    <height>525</height>
+    <width>458</width>
+    <height>492</height>
    </rect>
   </property>
-  <property name="minimumSize">
-   <size>
-    <width>350</width>
-    <height>445</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>380</width>
-    <height>530</height>
-   </size>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="focusPolicy">
    <enum>Qt::NoFocus</enum>
   </property>
   <property name="windowTitle">
-   <string>NxNandManager v3.0.2 by eliboa</string>
+   <string>NxNandManager v4.0 by eliboa</string>
   </property>
   <property name="windowIcon">
    <iconset resource="application.qrc">
@@ -36,640 +30,12 @@
    <locale language="English" country="UnitedStates"/>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <widget class="QTableWidget" name="partition_table">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>115</y>
-      <width>341</width>
-      <height>291</height>
-     </rect>
-    </property>
-    <property name="editTriggers">
-     <set>QAbstractItemView::NoEditTriggers</set>
-    </property>
-    <property name="dragDropOverwriteMode">
-     <bool>false</bool>
-    </property>
-    <property name="selectionMode">
-     <enum>QAbstractItemView::SingleSelection</enum>
-    </property>
-    <property name="selectionBehavior">
-     <enum>QAbstractItemView::SelectRows</enum>
-    </property>
-   </widget>
-   <widget class="QProgressBar" name="progressBar">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>445</y>
-      <width>335</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="value">
-     <number>0</number>
-    </property>
-    <property name="textVisible">
-     <bool>false</bool>
-    </property>
-    <property name="invertedAppearance">
-     <bool>false</bool>
-    </property>
-    <property name="format">
-     <string>%p%</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="elapsed_time_label">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>465</y>
-      <width>171</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="palette">
-     <palette>
-      <active>
-       <colorrole role="WindowText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Button">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>199</red>
-          <green>199</green>
-          <blue>199</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Light">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Midlight">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>227</red>
-          <green>227</green>
-          <blue>227</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Dark">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>99</red>
-          <green>99</green>
-          <blue>99</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Mid">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>133</red>
-          <green>133</green>
-          <blue>133</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Text">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="BrightText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="ButtonText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Base">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Window">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>199</red>
-          <green>199</green>
-          <blue>199</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Shadow">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="AlternateBase">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>227</red>
-          <green>227</green>
-          <blue>227</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="ToolTipBase">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>220</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="ToolTipText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="PlaceholderText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="128">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-      </active>
-      <inactive>
-       <colorrole role="WindowText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Button">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>199</red>
-          <green>199</green>
-          <blue>199</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Light">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Midlight">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>227</red>
-          <green>227</green>
-          <blue>227</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Dark">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>99</red>
-          <green>99</green>
-          <blue>99</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Mid">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>133</red>
-          <green>133</green>
-          <blue>133</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Text">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="BrightText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="ButtonText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Base">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Window">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>199</red>
-          <green>199</green>
-          <blue>199</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Shadow">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="AlternateBase">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>227</red>
-          <green>227</green>
-          <blue>227</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="ToolTipBase">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>220</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="ToolTipText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="PlaceholderText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="128">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-      </inactive>
-      <disabled>
-       <colorrole role="WindowText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>99</red>
-          <green>99</green>
-          <blue>99</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Button">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>199</red>
-          <green>199</green>
-          <blue>199</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Light">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Midlight">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>227</red>
-          <green>227</green>
-          <blue>227</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Dark">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>99</red>
-          <green>99</green>
-          <blue>99</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Mid">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>133</red>
-          <green>133</green>
-          <blue>133</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Text">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>99</red>
-          <green>99</green>
-          <blue>99</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="BrightText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="ButtonText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>99</red>
-          <green>99</green>
-          <blue>99</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Base">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>199</red>
-          <green>199</green>
-          <blue>199</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Window">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>199</red>
-          <green>199</green>
-          <blue>199</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="Shadow">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="AlternateBase">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>199</red>
-          <green>199</green>
-          <blue>199</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="ToolTipBase">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>220</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="ToolTipText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-       <colorrole role="PlaceholderText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="128">
-          <red>0</red>
-          <green>0</green>
-          <blue>0</blue>
-         </color>
-        </brush>
-       </colorrole>
-      </disabled>
-     </palette>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>8</pointsize>
-     </font>
-    </property>
-    <property name="focusPolicy">
-     <enum>Qt::TabFocus</enum>
-    </property>
-    <property name="text">
-     <string/>
-    </property>
-   </widget>
-   <widget class="QLabel" name="remaining_time_label">
-    <property name="geometry">
-     <rect>
-      <x>200</x>
-      <y>465</y>
-      <width>171</width>
-      <height>20</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>8</pointsize>
-     </font>
-    </property>
-    <property name="focusPolicy">
-     <enum>Qt::TabFocus</enum>
-    </property>
-    <property name="text">
-     <string/>
-    </property>
-    <property name="scaledContents">
-     <bool>false</bool>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="rawdump_button">
-    <property name="enabled">
-     <bool>false</bool>
-    </property>
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>420</y>
-      <width>180</width>
-      <height>22</height>
-     </rect>
-    </property>
-    <property name="focusPolicy">
-     <enum>Qt::StrongFocus</enum>
-    </property>
-    <property name="toolTip">
-     <string>Saves as file...</string>
-    </property>
-    <property name="statusTip">
-     <string>Save as file...</string>
-    </property>
-    <property name="accessibleName">
-     <string>full dump</string>
-    </property>
-    <property name="accessibleDescription">
-     <string>Full dump</string>
-    </property>
-    <property name="text">
-     <string>FULL DUMP</string>
-    </property>
-    <property name="shortcut">
-     <string>Backspace, Return</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="fullrestore_button">
-    <property name="enabled">
-     <bool>false</bool>
-    </property>
-    <property name="geometry">
-     <rect>
-      <x>190</x>
-      <y>420</y>
-      <width>180</width>
-      <height>22</height>
-     </rect>
-    </property>
-    <property name="toolTip">
-     <string>Restore from file...</string>
-    </property>
-    <property name="statusTip">
-     <string>Restore from file...</string>
-    </property>
-    <property name="accessibleName">
-     <string>full restore</string>
-    </property>
-    <property name="text">
-     <string>FULL RESTORE</string>
-    </property>
-    <property name="shortcut">
-     <string>Backspace, Return</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="stop_button">
-    <property name="enabled">
-     <bool>false</bool>
-    </property>
-    <property name="geometry">
-     <rect>
-      <x>350</x>
-      <y>445</y>
-      <width>22</width>
-      <height>22</height>
-     </rect>
-    </property>
-    <property name="cursor">
-     <cursorShape>PointingHandCursor</cursorShape>
-    </property>
-    <property name="toolTip">
-     <string/>
-    </property>
-    <property name="statusTip">
-     <string>Stop copy</string>
-    </property>
-    <property name="text">
-     <string/>
-    </property>
-    <property name="icon">
-     <iconset resource="application.qrc">
-      <normaloff>:/images/stop-32.ico</normaloff>:/images/stop-32.ico</iconset>
-    </property>
-    <property name="flat">
-     <bool>false</bool>
-    </property>
-   </widget>
    <widget class="QGroupBox" name="groupBox">
     <property name="geometry">
      <rect>
       <x>10</x>
       <y>10</y>
-      <width>361</width>
+      <width>441</width>
       <height>81</height>
      </rect>
     </property>
@@ -688,7 +54,7 @@
     <widget class="QLabel" name="filedisk_label">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>20</x>
        <y>20</y>
        <width>51</width>
        <height>16</height>
@@ -801,9 +167,9 @@
     <widget class="QLabel" name="size_label">
      <property name="geometry">
       <rect>
-       <x>230</x>
+       <x>250</x>
        <y>40</y>
-       <width>31</width>
+       <width>61</width>
        <height>16</height>
       </rect>
      </property>
@@ -862,7 +228,7 @@
       <rect>
        <x>10</x>
        <y>40</y>
-       <width>51</width>
+       <width>61</width>
        <height>16</height>
       </rect>
      </property>
@@ -919,9 +285,9 @@
     <widget class="QLabel" name="size_value">
      <property name="geometry">
       <rect>
-       <x>270</x>
+       <x>320</x>
        <y>40</y>
-       <width>81</width>
+       <width>101</width>
        <height>16</height>
       </rect>
      </property>
@@ -975,7 +341,7 @@
     <widget class="QLabel" name="nxtype_value">
      <property name="geometry">
       <rect>
-       <x>70</x>
+       <x>80</x>
        <y>40</y>
        <width>141</width>
        <height>16</height>
@@ -1031,10 +397,10 @@
     <widget class="QLabel" name="filedisk_value">
      <property name="geometry">
       <rect>
-       <x>70</x>
+       <x>80</x>
        <y>20</y>
-       <width>291</width>
-       <height>16</height>
+       <width>301</width>
+       <height>20</height>
       </rect>
      </property>
      <property name="palette">
@@ -1087,9 +453,9 @@
     <widget class="QLabel" name="fwversion_label">
      <property name="geometry">
       <rect>
-       <x>210</x>
+       <x>240</x>
        <y>60</y>
-       <width>51</width>
+       <width>71</width>
        <height>16</height>
       </rect>
      </property>
@@ -1148,7 +514,7 @@
       <rect>
        <x>0</x>
        <y>60</y>
-       <width>61</width>
+       <width>71</width>
        <height>16</height>
       </rect>
      </property>
@@ -1205,9 +571,9 @@
     <widget class="QLabel" name="deviceid_value">
      <property name="geometry">
       <rect>
-       <x>70</x>
+       <x>80</x>
        <y>60</y>
-       <width>131</width>
+       <width>141</width>
        <height>16</height>
       </rect>
      </property>
@@ -1261,9 +627,9 @@
     <widget class="QLabel" name="fwversion_value">
      <property name="geometry">
       <rect>
-       <x>270</x>
+       <x>320</x>
        <y>60</y>
-       <width>81</width>
+       <width>101</width>
        <height>16</height>
       </rect>
      </property>
@@ -1315,30 +681,11 @@
      </property>
     </widget>
    </widget>
-   <widget class="QGroupBox" name="groupBox_2">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>100</y>
-      <width>361</width>
-      <height>311</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <weight>75</weight>
-      <bold>true</bold>
-     </font>
-    </property>
-    <property name="title">
-     <string>Partitions :</string>
-    </property>
-   </widget>
    <widget class="QPushButton" name="moreinfo_button">
     <property name="geometry">
      <rect>
-      <x>250</x>
-      <y>85</y>
+      <x>260</x>
+      <y>90</y>
       <width>121</width>
       <height>22</height>
      </rect>
@@ -1410,7 +757,7 @@
     <property name="font">
      <font>
       <pointsize>8</pointsize>
-      <italic>true</italic>
+      <italic>false</italic>
      </font>
     </property>
     <property name="cursor">
@@ -1423,15 +770,342 @@
      <bool>true</bool>
     </property>
    </widget>
-   <zorder>groupBox_2</zorder>
-   <zorder>partition_table</zorder>
-   <zorder>progressBar</zorder>
-   <zorder>elapsed_time_label</zorder>
-   <zorder>remaining_time_label</zorder>
-   <zorder>stop_button</zorder>
-   <zorder>fullrestore_button</zorder>
-   <zorder>rawdump_button</zorder>
+   <widget class="QWidget" name="horizontalLayoutWidget">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>410</y>
+      <width>441</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QPushButton" name="fullrestore_button">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>10</height>
+        </size>
+       </property>
+       <property name="toolTip">
+        <string>Restore from file...</string>
+       </property>
+       <property name="statusTip">
+        <string>Restore from file...</string>
+       </property>
+       <property name="accessibleName">
+        <string>full restore</string>
+       </property>
+       <property name="text">
+        <string>FULL RESTORE</string>
+       </property>
+       <property name="shortcut">
+        <string>Backspace, Return</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="rawdump_button">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::StrongFocus</enum>
+       </property>
+       <property name="toolTip">
+        <string>Saves as file...</string>
+       </property>
+       <property name="statusTip">
+        <string>Save as file...</string>
+       </property>
+       <property name="accessibleName">
+        <string>full dump</string>
+       </property>
+       <property name="accessibleDescription">
+        <string>Full dump</string>
+       </property>
+       <property name="text">
+        <string>FULL DUMP</string>
+       </property>
+       <property name="shortcut">
+        <string>Backspace, Return</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QLabel" name="analysingLbl">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>220</y>
+      <width>421</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt;&quot;&gt;Analysing input...&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QProgressBar" name="loadingBar">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>260</y>
+      <width>401</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="maximum">
+     <number>0</number>
+    </property>
+    <property name="value">
+     <number>0</number>
+    </property>
+    <property name="textVisible">
+     <bool>false</bool>
+    </property>
+   </widget>
+   <widget class="QGroupBox" name="partitionsGrp">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>100</y>
+      <width>441</width>
+      <height>311</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="title">
+     <string>Partitions:</string>
+    </property>
+    <widget class="QGroupBox" name="selPartGrp">
+     <property name="geometry">
+      <rect>
+       <x>200</x>
+       <y>20</y>
+       <width>231</width>
+       <height>281</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>Selected partition:</string>
+     </property>
+     <widget class="QTableWidget" name="properties_table">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="geometry">
+       <rect>
+        <x>5</x>
+        <y>47</y>
+        <width>221</width>
+        <height>231</height>
+       </rect>
+      </property>
+      <property name="autoFillBackground">
+       <bool>true</bool>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">QTableWidget {background-color: transparent;}
+QHeaderView::section {background-color: transparent;}
+QHeaderView {background-color: transparent;}
+QTableCornerButton::section {background-color: transparent;}</string>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::Box</enum>
+      </property>
+      <property name="editTriggers">
+       <set>QAbstractItemView::NoEditTriggers</set>
+      </property>
+      <property name="selectionMode">
+       <enum>QAbstractItemView::NoSelection</enum>
+      </property>
+      <property name="showGrid">
+       <bool>false</bool>
+      </property>
+      <property name="wordWrap">
+       <bool>true</bool>
+      </property>
+      <property name="cornerButtonEnabled">
+       <bool>false</bool>
+      </property>
+      <property name="columnCount">
+       <number>2</number>
+      </property>
+      <attribute name="horizontalHeaderVisible">
+       <bool>false</bool>
+      </attribute>
+      <attribute name="horizontalHeaderDefaultSectionSize">
+       <number>90</number>
+      </attribute>
+      <attribute name="verticalHeaderVisible">
+       <bool>false</bool>
+      </attribute>
+      <column/>
+      <column/>
+     </widget>
+     <widget class="QPushButton" name="partQDumpBtn">
+      <property name="geometry">
+       <rect>
+        <x>5</x>
+        <y>20</y>
+        <width>30</width>
+        <height>30</height>
+       </rect>
+      </property>
+      <property name="toolTip">
+       <string>Quick dump</string>
+      </property>
+      <property name="statusTip">
+       <string>Save as file...</string>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset resource="application.qrc">
+        <normaloff>:/images/save.png</normaloff>:/images/save.png</iconset>
+      </property>
+      <property name="flat">
+       <bool>false</bool>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="partADumpBtn">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>20</y>
+        <width>30</width>
+        <height>30</height>
+       </rect>
+      </property>
+      <property name="toolTip">
+       <string>Advanced copy</string>
+      </property>
+      <property name="statusTip">
+       <string>Advanced copy</string>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset resource="application.qrc">
+        <normaloff>:/images/save_advanced.png</normaloff>:/images/save_advanced.png</iconset>
+      </property>
+      <property name="flat">
+       <bool>false</bool>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="partRestoreBtn">
+      <property name="geometry">
+       <rect>
+        <x>75</x>
+        <y>20</y>
+        <width>30</width>
+        <height>30</height>
+       </rect>
+      </property>
+      <property name="toolTip">
+       <string>Restore from file</string>
+      </property>
+      <property name="statusTip">
+       <string>Restore from file</string>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset resource="application.qrc">
+        <normaloff>:/images/restore.png</normaloff>:/images/restore.png</iconset>
+      </property>
+      <property name="flat">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QTableWidget" name="partition_table">
+     <property name="geometry">
+      <rect>
+       <x>5</x>
+       <y>20</y>
+       <width>191</width>
+       <height>281</height>
+      </rect>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarAlwaysOff</enum>
+     </property>
+     <property name="sizeAdjustPolicy">
+      <enum>QAbstractScrollArea::AdjustToContentsOnFirstShow</enum>
+     </property>
+     <property name="autoScrollMargin">
+      <number>6</number>
+     </property>
+     <property name="editTriggers">
+      <set>QAbstractItemView::NoEditTriggers</set>
+     </property>
+     <property name="dragDropOverwriteMode">
+      <bool>false</bool>
+     </property>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::SingleSelection</enum>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <property name="showGrid">
+      <bool>false</bool>
+     </property>
+     <property name="columnCount">
+      <number>1</number>
+     </property>
+     <attribute name="horizontalHeaderVisible">
+      <bool>false</bool>
+     </attribute>
+     <attribute name="verticalHeaderVisible">
+      <bool>false</bool>
+     </attribute>
+     <column/>
+    </widget>
+   </widget>
    <zorder>groupBox</zorder>
+   <zorder>horizontalLayoutWidget</zorder>
+   <zorder>partitionsGrp</zorder>
+   <zorder>analysingLbl</zorder>
+   <zorder>loadingBar</zorder>
    <zorder>moreinfo_button</zorder>
   </widget>
   <widget class="QMenuBar" name="menuBar">
@@ -1439,21 +1113,22 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>380</width>
-     <height>21</height>
+     <width>458</width>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionOpen_file"/>
-    <addaction name="actionOpen_Drive"/>
+    <addaction name="actionOpenFile"/>
+    <addaction name="actionOpenDrive"/>
     <addaction name="separator"/>
-    <addaction name="actionSave_as_raw_dump"/>
-    <addaction name="actionDecrypt_Save_as"/>
-    <addaction name="actionEncrypt_and_Save_as"/>
-    <addaction name="actionRetore_from_file"/>
+    <addaction name="actionSaveAs"/>
+    <addaction name="actionSaveAsAdvanced"/>
+    <addaction name="actionDecryptSaveAs"/>
+    <addaction name="actionEncryptSaveAs"/>
+    <addaction name="actionRestore"/>
     <addaction name="separator"/>
     <addaction name="actionProperties"/>
    </widget>
@@ -1461,74 +1136,277 @@
     <property name="title">
      <string>Options</string>
     </property>
-    <addaction name="actionConfigure_keyset"/>
+    <addaction name="actionConfigureKeyset"/>
     <addaction name="actionIncognito"/>
-    <addaction name="actionToogle_autoRCM_BOOT0"/>
-    <addaction name="actionResize_NAND"/>
-    <addaction name="actionDump_RAWNAND_only_FULL_NAND"/>
+    <addaction name="actionautoRCM"/>
+    <addaction name="actionResize"/>
+    <addaction name="actionDumpRawnandOnly"/>
+    <addaction name="actionCreateEmunand"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
-  <action name="actionOpen_file">
+  <action name="actionOpenFile">
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/open.png</normaloff>:/images/open.png</iconset>
+   </property>
    <property name="text">
     <string>Open file</string>
    </property>
+   <property name="toolTip">
+    <string>Open an existing file</string>
+   </property>
+   <property name="statusTip">
+    <string>Open an existing file</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
   </action>
-  <action name="actionOpen_Drive">
+  <action name="actionOpenDrive">
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/drive.png</normaloff>:/images/drive.png</iconset>
+   </property>
    <property name="text">
-    <string>Open Drive</string>
+    <string>Open drive</string>
+   </property>
+   <property name="toolTip">
+    <string>Open a physical drive</string>
+   </property>
+   <property name="statusTip">
+    <string>Open a physical drive</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+D</string>
    </property>
   </action>
   <action name="actionProperties">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Properties</string>
    </property>
+   <property name="toolTip">
+    <string>Display useful information about current file/drive</string>
+   </property>
+   <property name="statusTip">
+    <string>Display useful information about current file/drive</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+I</string>
+   </property>
   </action>
-  <action name="actionConfigure_keyset">
+  <action name="actionConfigureKeyset">
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/keyset.png</normaloff>:/images/keyset.png</iconset>
+   </property>
    <property name="text">
     <string>Configure keyset</string>
    </property>
+   <property name="toolTip">
+    <string>Configure keyset to encrypt/decrypt NAND</string>
+   </property>
+   <property name="statusTip">
+    <string>Configure keyset to encrypt/decrypt NAND</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+K</string>
+   </property>
   </action>
-  <action name="actionSave_as_raw_dump">
+  <action name="actionSaveAs">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/save.png</normaloff>:/images/save.png</iconset>
+   </property>
    <property name="text">
     <string>Save as... (raw dump)</string>
    </property>
+   <property name="iconText">
+    <string>Dump as file...</string>
+   </property>
+   <property name="toolTip">
+    <string>Dump as file...</string>
+   </property>
+   <property name="statusTip">
+    <string>Dump as file...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+   <property name="visible">
+    <bool>true</bool>
+   </property>
   </action>
-  <action name="actionDecrypt_Save_as">
+  <action name="actionDecryptSaveAs">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/decrypt.png</normaloff>:/images/decrypt.png</iconset>
+   </property>
    <property name="text">
     <string>Decrypt and Save as...</string>
    </property>
+   <property name="toolTip">
+    <string>Decrypt &amp; Dump as file...</string>
+   </property>
+   <property name="statusTip">
+    <string>Decrypt &amp; Dump as file...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+D</string>
+   </property>
   </action>
-  <action name="actionEncrypt_and_Save_as">
+  <action name="actionEncryptSaveAs">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/encrypt.png</normaloff>:/images/encrypt.png</iconset>
+   </property>
    <property name="text">
     <string>Encrypt and Save as...</string>
    </property>
+   <property name="toolTip">
+    <string>Encrypt &amp; Dump as file...</string>
+   </property>
+   <property name="statusTip">
+    <string>Encrypt &amp; Dump as file...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+E</string>
+   </property>
   </action>
-  <action name="actionRetore_from_file">
+  <action name="actionRestore">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/restore.png</normaloff>:/images/restore.png</iconset>
+   </property>
    <property name="text">
     <string>Restore from file...</string>
    </property>
+   <property name="toolTip">
+    <string>Full restore from file...</string>
+   </property>
+   <property name="statusTip">
+    <string>Full restore from file...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
+   </property>
   </action>
   <action name="actionIncognito">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/incognito.png</normaloff>:/images/incognito.png</iconset>
+   </property>
    <property name="text">
     <string>Incognito (PRODINFO)</string>
    </property>
+   <property name="toolTip">
+    <string>Wipe all console unique id's from CAL0</string>
+   </property>
+   <property name="statusTip">
+    <string>Wipe all console unique id's from CAL0</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+I</string>
+   </property>
   </action>
-  <action name="actionToogle_autoRCM_BOOT0">
+  <action name="actionautoRCM">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/autorcm.png</normaloff>:/images/autorcm.png</iconset>
+   </property>
    <property name="text">
     <string>Toggle autoRCM (BOOT0)</string>
    </property>
+   <property name="toolTip">
+    <string>Enable/Disable autoRCM (BOOT0 only)</string>
+   </property>
+   <property name="statusTip">
+    <string>Enable/Disable autoRCM (BOOT0 only)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+A</string>
+   </property>
   </action>
-  <action name="actionResize_NAND">
+  <action name="actionResize">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/resize.png</normaloff>:/images/resize.png</iconset>
+   </property>
    <property name="text">
     <string>Resize NAND (RAWNAND, FULL NAND)</string>
    </property>
+   <property name="toolTip">
+    <string>Resize USER partition</string>
+   </property>
+   <property name="statusTip">
+    <string>Resize USER partition</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+R</string>
+   </property>
   </action>
-  <action name="actionDump_RAWNAND_only_FULL_NAND">
+  <action name="actionDumpRawnandOnly">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Dump RAWNAND only (FULL NAND)</string>
+   </property>
+   <property name="toolTip">
+    <string>Dump RAWNAND from FULL NAND</string>
+   </property>
+   <property name="statusTip">
+    <string>Dump RAWNAND from FULL NAND</string>
+   </property>
+  </action>
+  <action name="actionCreateEmunand">
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/emunand.png</normaloff>:/images/emunand.png</iconset>
+   </property>
+   <property name="text">
+    <string>Emunand Creation Tool (RAWNAND, FULL NAND)</string>
+   </property>
+  </action>
+  <action name="actionSaveAsAdvanced">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="application.qrc">
+     <normaloff>:/images/save.png</normaloff>:/images/save.png</iconset>
+   </property>
+   <property name="text">
+    <string>Save as... (advanced)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
    </property>
   </action>
  </widget>

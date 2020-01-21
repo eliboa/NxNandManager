@@ -16,5 +16,8 @@
         <file>images/incognito.png</file>
         <file>images/autorcm.png</file>
         <file>images/resize.png</file>
+        <file>images/close-window-32.ico</file>
+        <file>images/save_advanced.png</file>
+        <file>images/emunand.png</file>
     </qresource>
 </RCC>

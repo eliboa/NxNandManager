@@ -20,6 +20,7 @@
 #define NX_BLOCKSIZE 0x200 // 512 b
 #define CLUSTER_SIZE 0x4000 // 16 Kb
 #define DEFAULT_BUFF_SIZE 0x400000 // 4 Mb
+#define FAT32_FILESIZE_LIMIT 0x100000000‬ // 4Gb
 
 // NxStorage types
 #define INVALID   1000
@@ -43,12 +44,21 @@
 #define EMMC_PART 1019
 #define UNKNOWN   1004
 
-#define NO_CRYPTO 0
-#define ENCRYPT   1
-#define DECRYPT   2
-#define MD5_HASH  3
-#define COPY      4
-#define RESTORE   5
+#define NO_CRYPTO     0
+#define ENCRYPT       1
+#define DECRYPT       2
+#define MD5_HASH      3
+#define COPY          4
+#define RESTORE       5
+#define RESIZE        6
+#define DUMP_ADVANCED 7
+#define CREATE        8
+
+#define RAW     0
+#define FAT12   1
+#define FAT32   2
+
+
 //Errors
 
 typedef unsigned char u8;
@@ -57,6 +67,10 @@ typedef unsigned int u32;
 typedef unsigned long long int u64;
 typedef char s8;
 typedef unsigned char BYTE;
+
+#include <chrono>
+typedef std::chrono::duration< double > double_prec_seconds;
+typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds > timepoint_t;
 
 
 #endif

@@ -25,38 +25,32 @@
 #define DUMP_PART		104
 #define RESTORE_PART    105
 #define RESIZE          106
+#define SDPART_EMUNAND  107
 
 #include <QMainWindow>
 #include <QtCore>
+#include <QString>
 #include <QThread>
 #include <QFile>
 #include <QMessageBox>
+#include "progress.h"
 #include "../NxStorage.h"
 
-class NxPartition;
 class NxStorage;
+class Progress;
+
+enum WorkerMode { dump, restore, new_storage, list_storage, create_emunand };
 
 class Worker : public QThread {
 	Q_OBJECT
 public:
-    explicit Worker(QDialog *pParent);
-	explicit Worker(QMainWindow *pParent, QString filename);
-    explicit Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, bool dump_rawnand, int crypto_mode);
-    explicit Worker(QMainWindow *pParent, NxStorage* pNxInput, QString filename, int new_size, bool format);
-    explicit Worker(QMainWindow *pParent, NxStorage* pNxInput, NxStorage* pNxOutput, int crypto_mode);
-    explicit Worker(QMainWindow *pParent, NxPartition* pNxInPart, QString filename, int crypto_mode);
-    explicit Worker(QMainWindow *pParent, NxPartition* pNxInPart, NxStorage* pNxOutput, int crypto_mode);
+    explicit Worker(QWidget *parent, WorkerMode mode) : m_parent(parent), m_mode(mode) {}
+    explicit Worker(QWidget *parent, WorkerMode mode, const QString& file, NxStorage *workingStorage = nullptr) : m_parent(parent), m_WorkingStorage(workingStorage), m_file(file), m_mode(mode) {}
+    explicit Worker(QWidget *parent, WorkerMode mode, params_t *params, NxStorage *workingStorage = nullptr,
+                    const QString& output = "", NxStorage *input = nullptr) : m_parent(parent), m_WorkingStorage(workingStorage),
+                    m_inStorage(input), m_file(output), m_params(*params), m_mode(mode)  {}
     ~Worker();
-    void updateProgress(ProgressInfo*);
-
-protected:
-    void dumpPartition(NxPartition* partition, QString file);
-    void dumpStorage(NxStorage* storage, QString file);
-    void restorePartition(NxPartition* out_partition, NxStorage* in_storage);
-    void restoreStorage(NxStorage* out_storage, NxStorage* in_storage);
-    void resizeUser(NxStorage* storage, QString file);
-	void cancel();
-    void connect_slots();
+    void updateProgress(const ProgressInfo);
 
 public slots:
 	void run();
@@ -67,32 +61,38 @@ signals:
 	void finished(NxStorage*);
     void listCallback(QString);
 	void error(int, QString s = nullptr);
-    void sendProgress(int mode, QString storage_name, u64 *bytesCount, u64 *bytesTotal);
-    void sendProgress(ProgressInfo *pi);
-	void sendMD5begin();
-	void sendCancel();
+    void sendProgress(const ProgressInfo pi);
 
 private:
-	QMainWindow *parent;
-	int work;
-    int m_crypto_mode;
-	bool bCanceled = false;
-	QString file;
-	NxStorage *storage;
-	NxStorage *nxInput;
-	NxStorage *nxOutput;
-    NxPartition *nxInPart;
-	u64 *bytesWritten;
-	QString partition;
-	bool bypassMD5;
-	HANDLE hDisk, hDiskOut;
-    bool m_format;
-    int m_new_size;
-    bool m_dump_rawnand;    
-    ProgressInfo m_pi;
+    // Member vars
+    QWidget *m_parent;
+    NxStorage *m_WorkingStorage;
+    NxStorage *m_inStorage;
+    QString m_file;
+    NxHandle *m_outHandle;
+    params_t m_params;
+    WorkerMode m_mode;
 
 public:
     timepoint_t begin_time;
 };
 
+class WorkerInstance  {
+
+public:
+    WorkerInstance(QWidget *parent, WorkerMode mode, params_t *params, NxStorage *workingStorage = nullptr, const QString& output = "", NxStorage *input = nullptr);
+    WorkerInstance(QWidget *parent, WorkerMode mode, const QString& file = "") { WorkerInstance(parent, mode, nullptr, nullptr, file, nullptr);}
+    int exec();
+
+private:
+    Progress* m_ProgressDialog;
+    Worker* m_Worker;
+};
+
+
+static Worker* worker_instance = nullptr;
+static ProgressInfo s_pi;
+static ProgressInfo s_sub_pi;
+static u64 buf64 = 0;
+static bool WorkInProgress = false;
 #endif // WORKER_H
