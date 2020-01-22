@@ -118,6 +118,7 @@ class NxHandle {
         HCRYPTHASH md5Hash() { return m_md5_hash; }
         int getSplitCount() { return m_splitFileCount; }
         u64 getChunkSize() { return m_chunksize; }
+        std::wstring getPath() { return m_path; }
         NxSplitFile* getLastSplitFile() { return m_lastSplitFile; }
         std::wstring getFistPartPath() { return m_firstPart_path; }
         int getDefaultBuffSize();

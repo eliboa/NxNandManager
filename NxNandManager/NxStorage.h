@@ -28,7 +28,7 @@ extern bool isdebug;
 #include "NxHandle.h"
 #include "NxPartition.h"
 #include "NxCrypto.h"
-
+#include "lib/ZipLib/ZipFile.h"
 
 typedef struct MagicOffsets MagicOffsets;
 struct MagicOffsets {
@@ -46,7 +46,7 @@ typedef struct _GptHeader
     u64 signature;
     u32 revision;
     u32 size;
-    u32 crc32;
+    u32 c_crc32;
     u32 res1;
     u64 my_lba;
     u64 alt_lba;

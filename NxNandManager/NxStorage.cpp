@@ -16,6 +16,7 @@
 
 #include "NxStorage.h"
 
+
 static MagicOffsets mgkOffArr[] =
 {
     // { offset, magic, size, type, firwmare }
@@ -378,7 +379,7 @@ NxStorage::NxStorage(const char *p_path)
                 dbg_printf("first use lba %I64d (off 0x%s)\n", hdr->first_use_lba, n2hexstr((u64)hdr->first_use_lba * NX_BLOCKSIZE, 10).c_str());
                 dbg_printf("last use lba %I64d (off 0x%s)\n", hdr->last_use_lba, n2hexstr((u64)hdr->last_use_lba * NX_BLOCKSIZE, 10).c_str());
                 
-                dbg_printf("GPT Header CRC32 = %I32d\n", hdr->crc32);
+                dbg_printf("GPT Header CRC32 = %I32d\n", hdr->c_crc32);
                 unsigned char header[92];
                 memcpy(header, buff, 92);
                 header[16] = 0;
@@ -1093,7 +1094,7 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         unsigned char header[92];
         memcpy(&header[0], &hdr[0], 92);
         memset(&header[16], 0, 4);
-        hdr->crc32 = crc32Hash(header, 92);
+        hdr->c_crc32 = crc32Hash(header, 92);
 
         // Save GPT header
         memcpy(gpt_header_backup, &hdr[0], 0x200);
@@ -1327,7 +1328,9 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
 
     if (par.zipOutput)
     {
-        // TO DO
+        std::wstring fwpath = outHandle->getPath();
+        std::string fpath(fwpath.begin(), fwpath.end());
+        ZipFile::AddFile(fpath + ".zip", fpath, LzmaMethod::Create());
     }
 
     delete [] buffer;
@@ -1618,7 +1621,7 @@ int NxStorage::resizeUser(NxHandle *outHandle, u32 user_new_size, void(&updatePr
     unsigned char header[92];
     memcpy(&header[0], &hdr[0], 92);
     memset(&header[16], 0, 4);
-    hdr->crc32 = crc32Hash(header, 92);
+    hdr->c_crc32 = crc32Hash(header, 92);
 
     // Save GPT header
     memcpy(gpt_header_backup, &hdr[0], 0x200);
@@ -1773,7 +1776,7 @@ int NxStorage::resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *
         unsigned char header[92];
         memcpy(&header[0], &hdr[0], 92);
         memset(&header[16], 0, 4);
-        hdr->crc32 = crc32Hash(header, 92);
+        hdr->c_crc32 = crc32Hash(header, 92);
 
         // Save GPT header
         memcpy(gpt_header_buffer, &hdr[0], 0x200);

@@ -24,6 +24,8 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 CONFIG += c++11
 CONFIG += console
+CONFIG += static create_prl link_prl
+CONFIG += object_parallel_to_source
 
 SOURCES += \
     ../main.cpp \
@@ -46,8 +48,13 @@ SOURCES += \
     worker.cpp \
     opendrive.cpp \
     dump.cpp \
-    progress.cpp
-
+    progress.cpp \
+    explorer.cpp \
+    $$files(../lib/ZipLib/*.cpp, false) \
+    $$files(../lib/ZipLib/detail/*.cpp, false) \
+    $$files(../lib/ZipLib/extlibs/bzip2/*.c, false) \
+    $$files(../lib/ZipLib/extlibs/lzma/*.c, false) \
+    $$files(../lib/ZipLib/extlibs/zlib/*.c, false)
 HEADERS += \
     ../NxNandManager.h \
     ../res/hex_string.h \
@@ -72,7 +79,24 @@ HEADERS += \
     worker.h \
     opendrive.h \
     dump.h \
-    progress.h
+    progress.h \
+    dump.h \
+    emunand.h \
+    explorer.h \
+    gui.h \
+    keyset.h \
+    mainwindow.h \
+    opendrive.h \
+    progress.h \
+    properties.h \
+    qutils.h \
+    resizeuser.h \
+    worker.h \
+    ../lib/ZipLib/*.h \
+    ../lib/ZipLib/detail/*.h \
+    ../lib/ZipLib/extlibs/bzip2/*.h \
+    ../lib/ZipLib/extlibs/lzma/*.h \
+    ../lib/ZipLib/extlibs/zlib/*.h
 FORMS += \
     emunand.ui \
     mainwindow.ui \
@@ -81,7 +105,8 @@ FORMS += \
     properties.ui \
     resizeuser.ui \
     dump.ui \
-    progress.ui
+    progress.ui \
+    explorer.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -91,14 +116,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 RESOURCES += \
     application.qrc
 
-DISTFILES += \
-    images/save_advanced.png
-
 QT += winextras
 
-RC_FILE = NxNandManager.rc
-
-#PRE_TARGETDEPS += C:\msys64\mingw64\lib\libcrypto.a
+#RC_FILE = NxNandManager.rc
 
 #ARCH = 32
 ARCH = 64
@@ -117,4 +137,7 @@ contains( ARCH, 64 ) {
     win32:!win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw64/lib/crypto.lib
     else:win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw64/lib/libcrypto.a
 }
-
+LIBS += -lpthread
+#win32: LIBS += -L$$PWD/../lib/ZipLib/bin/ -lzip
+#INCLUDEPATH += $$PWD/../lib/ZipLib
+#DEPENDPATH += $$PWD/../lib/ZipLib
