@@ -59,7 +59,7 @@ class ZipFile
      * \param fileName  Filename of the file to add.
      * \param level     (Optional) The level of compression. Use CompressionLevel::Stored for no compression.
      */
-    static void AddFile(const std::string& zipPath, const std::string& fileName, ICompressionMethod::Ptr method = DeflateMethod::Create());
+    static void AddFile(const std::string& zipPath, const std::string& fileName, ICompressionMethod::Ptr method = DeflateMethod::Create(), void(*updateProgress)(ProgressInfo) = nullptr);
     
     /**
      * \brief Adds a file to the zip archive.
@@ -69,7 +69,7 @@ class ZipFile
      * \param inArchiveName Final name of the file in the archive.
      * \param level         (Optional) The level of compression. Use CompressionLevel::Stored for no compression.
      */
-    static void AddFile(const std::string& zipPath, const std::string& fileName, const std::string& inArchiveName, ICompressionMethod::Ptr method = DeflateMethod::Create());
+    static void AddFile(const std::string& zipPath, const std::string& fileName, const std::string& inArchiveName, ICompressionMethod::Ptr method = DeflateMethod::Create(), void(*updateProgress)(ProgressInfo) = nullptr);
 
     /**
      * \brief Adds an encrypted file to the zip archive.
@@ -80,7 +80,7 @@ class ZipFile
      * \param password  The password.
      * \param level     (Optional) The level of compression. Use CompressionLevel::Stored for no compression.
      */
-    static void AddEncryptedFile(const std::string& zipPath, const std::string& fileName, const std::string& password, ICompressionMethod::Ptr method = DeflateMethod::Create());
+    static void AddEncryptedFile(const std::string& zipPath, const std::string& fileName, const std::string& password, ICompressionMethod::Ptr method = DeflateMethod::Create(), void(*updateProgress)(ProgressInfo) = nullptr);
 
     /**
      * \brief Adds an encrypted file to the zip archive.
@@ -91,7 +91,7 @@ class ZipFile
      * \param password      The password.
      * \param level         (Optional) The level of compression. Use CompressionLevel::Stored for no compression.
      */
-    static void AddEncryptedFile(const std::string& zipPath, const std::string& fileName, const std::string& inArchiveName, const std::string& password, ICompressionMethod::Ptr method = DeflateMethod::Create());
+    static void AddEncryptedFile(const std::string& zipPath, const std::string& fileName, const std::string& inArchiveName, const std::string& password, ICompressionMethod::Ptr method = DeflateMethod::Create(), void(*updateProgress)(ProgressInfo) = nullptr);
 
     /**
      * \brief Extracts the file from the zip archive.

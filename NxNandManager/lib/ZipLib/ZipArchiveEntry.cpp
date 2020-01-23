@@ -721,7 +721,15 @@ void ZipArchiveEntry::InternalCompressStream(std::istream& inputStream, std::ost
     _compressionMethod->GetEncoderProperties(),
     *intermediateStream);
   intermediateStream = &compressionStream;
-  utils::stream::copy(crc32Stream, *intermediateStream);
+
+  ProgressInfo pi;
+  pi.mode = ZIP;
+
+  // get length of file:
+  inputStream.seekg (0, inputStream.end);
+  pi.bytesTotal = inputStream.tellg();
+  inputStream.seekg (0, inputStream.beg);
+  utils::stream::copy(crc32Stream, *intermediateStream, 1024 * 1024, updateProgress, &pi);
 
   intermediateStream->flush();
 

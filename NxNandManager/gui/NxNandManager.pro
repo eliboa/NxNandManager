@@ -93,6 +93,7 @@ HEADERS += \
     resizeuser.h \
     worker.h \
     ../lib/ZipLib/*.h \
+    ../lib/ZipLib/utils/*.h \
     ../lib/ZipLib/detail/*.h \
     ../lib/ZipLib/extlibs/bzip2/*.h \
     ../lib/ZipLib/extlibs/lzma/*.h \

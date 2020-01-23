@@ -86,22 +86,22 @@ bool ZipFile::IsInArchive(const std::string& zipPath, const std::string& fileNam
   return zipArchive->GetEntry(fileName) != nullptr;
 }
 
-void ZipFile::AddFile(const std::string& zipPath, const std::string& fileName, ICompressionMethod::Ptr method)
+void ZipFile::AddFile(const std::string& zipPath, const std::string& fileName, ICompressionMethod::Ptr method, void(*updateProgress)(ProgressInfo))
 {
-  AddFile(zipPath, fileName, GetFilenameFromPath(fileName), method);
+  AddFile(zipPath, fileName, GetFilenameFromPath(fileName), method, updateProgress);
 }
 
-void ZipFile::AddFile(const std::string& zipPath, const std::string& fileName, const std::string& inArchiveName, ICompressionMethod::Ptr method)
+void ZipFile::AddFile(const std::string& zipPath, const std::string& fileName, const std::string& inArchiveName, ICompressionMethod::Ptr method, void(*updateProgress)(ProgressInfo))
 {
-  AddEncryptedFile(zipPath, fileName, inArchiveName, std::string(), method);
+  AddEncryptedFile(zipPath, fileName, inArchiveName, std::string(), method, updateProgress);
 }
 
-void ZipFile::AddEncryptedFile(const std::string& zipPath, const std::string& fileName, const std::string& password, ICompressionMethod::Ptr method)
+void ZipFile::AddEncryptedFile(const std::string& zipPath, const std::string& fileName, const std::string& password, ICompressionMethod::Ptr method, void(*updateProgress)(ProgressInfo))
 {
-  AddEncryptedFile(zipPath, fileName, GetFilenameFromPath(fileName), std::string(), method);
+  AddEncryptedFile(zipPath, fileName, GetFilenameFromPath(fileName), std::string(), method, updateProgress);
 }
 
-void ZipFile::AddEncryptedFile(const std::string& zipPath, const std::string& fileName, const std::string& inArchiveName, const std::string& password, ICompressionMethod::Ptr method)
+void ZipFile::AddEncryptedFile(const std::string& zipPath, const std::string& fileName, const std::string& inArchiveName, const std::string& password, ICompressionMethod::Ptr method, void(*updateProgress)(ProgressInfo))
 {
   std::string tmpName = MakeTempFilename(zipPath);
 
@@ -118,12 +118,16 @@ void ZipFile::AddEncryptedFile(const std::string& zipPath, const std::string& fi
 
     auto fileEntry = zipArchive->CreateEntry(inArchiveName);
 
+
     if (fileEntry == nullptr)
     {
       //throw std::runtime_error("input file already exist in the archive");
       zipArchive->RemoveEntry(inArchiveName);
       fileEntry = zipArchive->CreateEntry(inArchiveName);
     }
+
+    if (updateProgress != nullptr)
+        fileEntry->setProgressPtr(updateProgress);
 
     if (!password.empty())
     {

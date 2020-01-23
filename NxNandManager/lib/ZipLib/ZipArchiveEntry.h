@@ -1,4 +1,5 @@
 #pragma once
+#include "../../res/progress_info.h"
 #include "detail/ZipLocalFileHeader.h"
 #include "detail/ZipCentralDirectoryFileHeader.h"
 
@@ -29,6 +30,8 @@ class ZipArchiveEntry
 
   public:
     typedef std::shared_ptr<ZipArchiveEntry> Ptr;
+    void(*updateProgress)(ProgressInfo) = nullptr;
+    void setProgressPtr(void(*func)(ProgressInfo)) { updateProgress = func; }
 
     /**
      * \brief Values that represent the way the zip entry will be compressed.
@@ -303,6 +306,8 @@ class ZipArchiveEntry
     static const uint16_t VERSION_NEEDED_DEFAULT            = 10;
     static const uint16_t VERSION_NEEDED_EXPLICIT_DIRECTORY = 20;
     static const uint16_t VERSION_NEEDED_ZIP64              = 45;
+
+
 
     enum class BitFlag : uint16_t
     {

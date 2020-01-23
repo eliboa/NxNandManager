@@ -29,6 +29,8 @@ extern bool isdebug;
 #include "NxPartition.h"
 #include "NxCrypto.h"
 #include "lib/ZipLib/ZipFile.h"
+#include "lib/ZipLib/streams/memstream.h"
+#include "lib/ZipLib/methods/Bzip2Method.h"
 
 typedef struct MagicOffsets MagicOffsets;
 struct MagicOffsets {
