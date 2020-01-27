@@ -145,35 +145,35 @@ void printCopyProgress(int mode, const char *storage_name, timepoint_t begin_tim
         GetReadableSize(bytesTotal).c_str(), bytesCount * 100 / bytesTotal);
     printf(" %s          \r", buf.c_str());
 }
-void printProgress(ProgressInfo* pi)
+void printProgress(ProgressInfo pi)
 {
    // printCopyProgress(pi.mode, pi.storage_name.c_str(), pi.begin_time, pi.bytesCount, pi.bytesTotal);    
     auto time = std::chrono::system_clock::now();
-    std::chrono::duration<double> tmp_elapsed_seconds = time - pi->begin_time;
+    std::chrono::duration<double> tmp_elapsed_seconds = time - pi.begin_time;
 
-    if (!((int)tmp_elapsed_seconds.count() > pi->elapsed_seconds) && pi->bytesCount != 0 && pi->bytesCount != pi->bytesTotal)
+    if (!((int)tmp_elapsed_seconds.count() > pi.elapsed_seconds) && pi.bytesCount != 0 && pi.bytesCount != pi.bytesTotal)
         return;
 
-    pi->elapsed_seconds = tmp_elapsed_seconds.count();
-    std::chrono::duration<double> remaining_seconds = (tmp_elapsed_seconds / pi->bytesCount) * (pi->bytesTotal - pi->bytesCount);
+    pi.elapsed_seconds = tmp_elapsed_seconds.count();
+    std::chrono::duration<double> remaining_seconds = (tmp_elapsed_seconds / pi.bytesCount) * (pi.bytesTotal - pi.bytesCount);
     std::string buf = GetReadableElapsedTime(remaining_seconds).c_str();
     char label[0x40];
 
-    if (pi->bytesCount == pi->bytesTotal)
+    if (pi.bytesCount == pi.bytesTotal)
     {
-        if (pi->mode == MD5_HASH) sprintf(label, "verified");
-        else if (pi->mode == RESTORE) sprintf(label, "restored");
+        if (pi.mode == MD5_HASH) sprintf(label, "verified");
+        else if (pi.mode == RESTORE) sprintf(label, "restored");
         else sprintf(label, "dumped");
-        printf("%s %s. %s - Elapsed time: %s                                              \n", pi->storage_name, label,
-            GetReadableSize(pi->bytesTotal).c_str(), GetReadableElapsedTime(tmp_elapsed_seconds).c_str());
+        printf("%s %s. %s - Elapsed time: %s                                              \n", pi.storage_name, label,
+            GetReadableSize(pi.bytesTotal).c_str(), GetReadableElapsedTime(tmp_elapsed_seconds).c_str());
     }
     else
     {
-        if (pi->mode == MD5_HASH) sprintf(label, "Computing MD5 hash for");
-        else if (pi->mode == RESTORE) sprintf(label, "Restoring to");
+        if (pi.mode == MD5_HASH) sprintf(label, "Computing MD5 hash for");
+        else if (pi.mode == RESTORE) sprintf(label, "Restoring to");
         else sprintf(label, "Copying");
-        printf("%s %s... %s /%s (%d%%) - Remaining time:", label, pi->storage_name, GetReadableSize(pi->bytesCount).c_str(),
-            GetReadableSize(pi->bytesTotal).c_str(), pi->bytesCount * 100 / pi->bytesTotal);
+        printf("%s %s... %s /%s (%d%%) - Remaining time:", label, pi.storage_name, GetReadableSize(pi.bytesCount).c_str(),
+            GetReadableSize(pi.bytesTotal).c_str(), pi.bytesCount * 100 / pi.bytesTotal);
         printf(" %s          \r", buf.c_str());
     }
     
@@ -188,6 +188,7 @@ int main(int argc, char *argv[])
     printf("[ NxNandManager v3.0.3 by eliboa ]\n\n");
     const char *input = NULL, *output = NULL, *partitions = NULL, *keyset = NULL, *user_resize = NULL;
     BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE, createEmuNAND = FALSE;
+    u64 chunksize = 0;
     int io_num = 1;
 
     // Arguments, controls & usage
@@ -210,6 +211,8 @@ int main(int argc, char *argv[])
             "                    Use FORMAT_USER flag to format partition during copy\n"
             "                    GPT and USER's FAT will be modified\n"
             "                    output (-o) must be a new file\n"
+            "  -split=N          When this argument is provided output file will be\n"
+            "                    splitted in several part. N = chunksize in bytes\n"
             "=> Options:\n\n"
 #if defined(ENABLE_GUI)
             "  --gui             Start the program in graphical mode, doesn't need other argument\n"
@@ -273,6 +276,7 @@ int main(int argc, char *argv[])
     const char RESIZE_USER_ARGUMENT[] = "-user_resize";
     const char FORMAT_USER_FLAG[] = "FORMAT_USER";
     const char CREATE_EMUNAND_ARGUMENT[] = "--create_SD_emuNAND";
+    const char SPLIT_OUTPUT_ARGUMENT[] = "-split";
 
     for (int i = 1; i < argc; i++)
     {
@@ -297,6 +301,14 @@ int main(int argc, char *argv[])
             u32 len = array_countof(PARTITION_ARGUMENT) - 1;            
             if (currArg[len] == '=')
                 partitions = &currArg[len + 1];
+            else if (currArg[len] == 0 && i == argc - 1)
+                return PrintUsage();
+        }
+        else if (!strncmp(currArg, SPLIT_OUTPUT_ARGUMENT, array_countof(SPLIT_OUTPUT_ARGUMENT) - 1))
+        {
+            u32 len = array_countof(SPLIT_OUTPUT_ARGUMENT) - 1;
+            if (currArg[len] == '=')
+                chunksize = std::stoull(&currArg[len + 1]);
             else if (currArg[len] == 0 && i == argc - 1)
                 return PrintUsage();
         }
@@ -388,7 +400,7 @@ int main(int argc, char *argv[])
     ///
     ///  I/O Init
     ///
-    /*
+
     // New NxStorage for input
     printf("Accessing input...\r");
     NxStorage nx_input = NxStorage(input);
@@ -451,12 +463,15 @@ int main(int argc, char *argv[])
             if (is_file("PRODINFO.backup"))
                 remove("PRODINFO.backup");
 
+            NxHandle *outHandle = new NxHandle("PRODINFO.backup", 0);
+            params_t par;
+            par.partition = PRODINFO;
             u64 bytesCount = 0, bytesToRead = cal0->size();
-            int rc = cal0->dumpToFile("PRODINFO.backup", NO_CRYPTO, nullptr);
+            int rc = nx_input.dump(outHandle, par, printProgress);
 
             if(rc != SUCCESS)
                 throwException(rc);
-
+            delete outHandle;
             printf("\"PRODINFO.backup\" file created in application directory\n");
         }
 
@@ -773,12 +788,18 @@ int main(int argc, char *argv[])
             if (dump_rawnand)
                 printf("BOOT0 & BOOT1 skipped (RAWNAND only)\n");
 
-            int rc = nx_input.dumpToFile(output, crypto_mode, printProgress, dump_rawnand);
+            params_t par;
+            par.chunksize = chunksize;
+            par.rawnand_only = dump_rawnand;
+            par.crypto_mode = crypto_mode;
 
+            NxHandle *outHandle = new NxHandle(output, chunksize);
+            int rc = nx_input.dump(outHandle, par, printProgress);
             // Failure
             if (rc != SUCCESS)
                 throwException(rc);
 
+            delete outHandle;
         }
         // Dump one or several partitions (-part is provided)
         else
@@ -832,14 +853,21 @@ int main(int argc, char *argv[])
                     strcat(new_out, "\\");
                     strcat(new_out, part_name);
                 }
-                else strcpy(new_out, output);              
+                else strcpy(new_out, output);
 
-                // Copy
-                int rc = partition->dumpToFile(new_out, crypto_mode, printProgress);
+                params_t par;
+                par.chunksize = chunksize;
+                par.crypto_mode = crypto_mode;
+                par.partition = partition->type();
+
+                NxHandle *outHandle = new NxHandle(new_out, chunksize);
+                int rc = nx_input.dump(outHandle, par, printProgress);
 
                 // Failure
                 if (rc != SUCCESS)
                     throwException(rc);
+
+                delete outHandle;
             }
         }
     }
@@ -855,7 +883,9 @@ int main(int argc, char *argv[])
             if (!FORCE && !AskYesNoQuestion("%s to be fully restored. Are you sure you want to continue ?", (void*)nx_output.getNxTypeAsStr()))
                 throwException("Operation cancelled");
 
-            int rc = nx_output.restoreFromStorage(&nx_input, NO_CRYPTO, printProgress);
+            params_t par;
+            par.crypto_mode = crypto_mode;
+            int rc = nx_output.restore(&nx_input, par, printProgress);
 
             // Failure
             if (rc != SUCCESS)
@@ -883,7 +913,11 @@ int main(int argc, char *argv[])
                 else
                     crypto_mode = BYPASS_MD5SUM ? NO_CRYPTO : MD5_HASH;
 
-                int rc = out_part->restoreFromStorage(&nx_input, crypto_mode, printProgress);
+                params_t par;
+                par.crypto_mode = crypto_mode;
+                par.partition = in_part->type();
+
+                int rc = nx_output.restore(&nx_input, par, printProgress);
 
                 // Failure
                 if (rc != SUCCESS)
@@ -893,7 +927,7 @@ int main(int argc, char *argv[])
     }
 
     SetThreadExecutionState(ES_CONTINUOUS);
-    */
+
     exit(EXIT_SUCCESS);
 }
 
