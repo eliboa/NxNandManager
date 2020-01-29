@@ -97,16 +97,12 @@ void Progress::updateProgress(const ProgressInfo pi)
     std::chrono::duration<double> elapsed_seconds = time - pi.begin_time;
     QString label;
 
-    if(!pi.isSubProgressInfo)
-        ;
-
-
     QProgressBar* progressBar;
     if(pi.isSubProgressInfo)
         progressBar = ui->progressBar2;
     else
     {
-        if (pi.mode == MD5_HASH)
+        if (is_in(pi.mode, {MD5_HASH, ZIP}))
         {
             if (pi.bytesCount == pi.bytesTotal)
             {
@@ -122,7 +118,7 @@ void Progress::updateProgress(const ProgressInfo pi)
     if (!pi.bytesCount)
     {
         progressBar->setValue(0);
-        setProgressBarStyle(progressBar, pi.mode == MD5_HASH ? "0FB3FF" : nullptr);
+        setProgressBarStyle(progressBar, is_in(pi.mode, {MD5_HASH, ZIP}) ? "0FB3FF" : nullptr);
 
         // Initialize Main Progress Bar
         if(!pi.isSubProgressInfo)
@@ -130,7 +126,7 @@ void Progress::updateProgress(const ProgressInfo pi)
             TaskBarProgress->setValue(0);
 
             // First init
-            if (pi.mode != MD5_HASH)
+            if (not_in(pi.mode, {MD5_HASH, ZIP}))
             {
                 m_begin_time = pi.begin_time;
             }
@@ -145,6 +141,7 @@ void Progress::updateProgress(const ProgressInfo pi)
         else if (pi.mode == RESTORE) label.append(" restored");
         else if (pi.mode == RESIZE) label.append(" resized");
         else if (pi.mode == CREATE) label.append(" created");
+        else if (pi.mode == ZIP) label.append(" zipped");
         else label.append(" dumped");
         label.append(" (").append(GetReadableSize(pi.bytesTotal).c_str()).append(")");
 
@@ -165,6 +162,7 @@ void Progress::updateProgress(const ProgressInfo pi)
         else if (pi.mode == RESTORE) label.append("Restoring to ");
         else if (pi.mode == RESIZE) label.append("Resizing ");
         else if (pi.mode == CREATE) label.append("Creating ");
+        else if (pi.mode == ZIP) label.append("Compressing ");
         else label.append("Copying ");
         label.append(pi.storage_name);
         label.append("... ").append(GetReadableSize(pi.bytesCount).c_str());

@@ -1330,24 +1330,8 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
     {
         std::wstring fwpath = outHandle->getPath();
         std::string fpath(fwpath.begin(), fwpath.end());
-        //ZipFile::AddFile(fpath + ".zip", fpath, LzmaMethod::Create());
         ZipFile::AddFile(fpath + ".zip", fpath, DeflateMethod::Create(), updateProgress);
-        /*
-        ZipArchive::Ptr archive = ZipFile::Open(fpath + ".zip");
-        ZipArchiveEntry::Ptr entry = archive->CreateEntry(base_name(fpath));
-        if (entry != nullptr)
-        {
-            std::ifstream contentStream;
-            contentStream.open(fpath.c_str(), std::ios::binary);
-            assert(contentStream.is_open());
-
-            //DeflateMethod::Ptr ctx = DeflateMethod::Create();
-            //ctx->SetCompressionLevel(DeflateMethod::CompressionLevel::L1);
-            StoreMethod::Ptr ctx = StoreMethod::Create();
-            entry->SetCompressionStream(contentStream, ctx, ZipArchiveEntry::CompressionMode::Deferred);
-        }
-        ZipFile::SaveAndClose(archive, fpath + ".zip");
-        */
+        remove(fpath.c_str());
     }
 
     delete [] buffer;

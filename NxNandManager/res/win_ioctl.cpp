@@ -165,6 +165,14 @@ bool operator == (diskDescriptor a, diskDescriptor b)
         return false;
 };
 
+bool operator == (const volumeDescriptor a, const volumeDescriptor b)
+{
+    if (a.vId == b.vId && a.pId == b.pId)
+        return true;
+    else
+        return false;
+};
+
 bool GetVolumeName(DWORD diskNumber, u64 startOffset, WCHAR *pVolumeName, size_t size)
 {
     std::vector<volumeDescriptor> volumes;

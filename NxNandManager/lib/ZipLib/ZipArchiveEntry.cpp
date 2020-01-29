@@ -698,6 +698,18 @@ void ZipArchiveEntry::UnloadCompressionData()
 
 void ZipArchiveEntry::InternalCompressStream(std::istream& inputStream, std::ostream& outputStream)
 {
+
+    ProgressInfo pi;
+    pi.mode = ZIP;
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.elapsed_seconds = 0;
+    // get length of file:
+    inputStream.seekg (0, inputStream.end);
+    pi.bytesTotal = inputStream.tellg();
+    inputStream.seekg (0, inputStream.beg);
+    sprintf_s(pi.storage_name, 256, "%s", this->GetName().c_str());
+
+
   std::ostream* intermediateStream = &outputStream;
 
   std::unique_ptr<zip_cryptostream> cryptoStream;
@@ -722,13 +734,7 @@ void ZipArchiveEntry::InternalCompressStream(std::istream& inputStream, std::ost
     *intermediateStream);
   intermediateStream = &compressionStream;
 
-  ProgressInfo pi;
-  pi.mode = ZIP;
 
-  // get length of file:
-  inputStream.seekg (0, inputStream.end);
-  pi.bytesTotal = inputStream.tellg();
-  inputStream.seekg (0, inputStream.beg);
   utils::stream::copy(crc32Stream, *intermediateStream, 1024 * 1024, updateProgress, &pi);
 
   intermediateStream->flush();

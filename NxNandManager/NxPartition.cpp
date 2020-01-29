@@ -310,6 +310,15 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
             return error(ERR_MD5_COMPARE);
     }
 
+
+    if (par.zipOutput)
+    {
+        std::wstring fwpath = outHandle->getPath();
+        std::string fpath(fwpath.begin(), fwpath.end());
+        ZipFile::AddFile(fpath + ".zip", fpath, DeflateMethod::Create(), updateProgress);
+        remove(fpath.c_str());
+    }
+
     delete[] buffer;
     return SUCCESS;
 }

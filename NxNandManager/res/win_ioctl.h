@@ -57,6 +57,7 @@ typedef struct {
 } diskDescriptor;
 
 bool operator == (diskDescriptor a, diskDescriptor b);
+bool operator == (volumeDescriptor a, volumeDescriptor b);
 
 bool GetVolumeMountPoint(wchar_t* letter, LPWSTR volumeName);
 bool GetVolumeDescriptor(volumeDescriptor* vd, LPWSTR volumeName);

@@ -50,17 +50,38 @@ void Emunand::timer1000()
                 removableDisks.push_back(disk);
         }
 
-        if (removableDisks.size() == m_disks.size() && m_disks.size() && std::equal(m_disks.begin(), m_disks.end(), removableDisks.begin()))
-            int test = 1;
-        else
-            int test = 2;
+        if (m_disks.size() && (removableDisks.size() != m_disks.size() || !std::equal(m_disks.begin(), m_disks.end(), removableDisks.begin())))
+           listDisks();
     }
     else
-        listVolumes();
+    {
+        std::vector<volumeDescriptor> volumes, removableVolumes;
+        GetVolumes(&volumes);
+        for (volumeDescriptor volume : volumes)
+        {
+            if (volume.removableMedia)
+                removableVolumes.push_back(volume);
+        }
+        if (m_volumes.size() && (removableVolumes.size() != m_volumes.size() || !std::equal(m_volumes.begin(), m_volumes.end(), removableVolumes.begin())))
+            listVolumes();
+    }
 }
 
 void Emunand::listVolumes()
 {
+    volumeDescriptor *selected_vol = nullptr;
+    if(ui->driveList->selectedItems().count())
+    {
+        QListWidgetItem *item = ui->driveList->selectedItems().at(0);
+        int selected = 0;
+        for(int i(0); i < ui->driveList->count(); i++)
+        {
+            if(ui->driveList->item(i) == item)
+                selected = i;
+        }
+        selected_vol = &m_volumes.at(selected);
+    }
+
     ui->driveList->clear();
     std::vector<volumeDescriptor> v_volumes;
     m_volumes.clear();
@@ -80,13 +101,30 @@ void Emunand::listVolumes()
         drivename.append(" (" + QString::fromStdString(GetReadableSize(vol.size)) + ")");
 
         QListWidgetItem *item = new QListWidgetItem(drivename);
+        if (nullptr != selected_vol && vol == *selected_vol)
+            item->setSelected(true);
         ui->driveList->insertItem(ui->driveList->count(), item);
         m_volumes.push_back(vol);
     }
+
+
 }
 
 void Emunand::listDisks()
 {
+    diskDescriptor *selected_disk = nullptr;
+    if(ui->driveList->selectedItems().count())
+    {
+        QListWidgetItem *item = ui->driveList->selectedItems().at(0);
+        int selected = 0;
+        for(int i(0); i < ui->driveList->count(); i++)
+        {
+            if(ui->driveList->item(i) == item)
+                selected = i;
+        }
+        selected_disk = &m_disks.at(selected);
+    }
+
     ui->driveList->clear();
     std::vector<diskDescriptor> disks;
     m_disks.clear();
@@ -119,6 +157,8 @@ void Emunand::listDisks()
         }
 
         QListWidgetItem *item = new QListWidgetItem(drivename);
+        if (nullptr != selected_disk && disk == *selected_disk)
+            item->setSelected(true);
         ui->driveList->insertItem(ui->driveList->count(), item);
         m_disks.push_back(disk);
     }
