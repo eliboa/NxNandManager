@@ -986,6 +986,7 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         {
             params.crypto_mode = par.crypto_mode;
             params.passThroughZero = par.passThroughZero;
+            params.zipOutput = par.zipOutput;
         }
         int rc = in_part->dump(outHandle, params, updateProgress);
         return rc;
@@ -995,6 +996,7 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
     ProgressInfo pi;
     DWORD bytesCount = 0, bytesWrite = 0;
     bool sendProgress = nullptr != updateProgress ? true : false;
+    std::wstring fwpath = outHandle->getPath();
 
     // Init buffer and handle
     BYTE *buffer = new BYTE[DEFAULT_BUFF_SIZE];
@@ -1328,10 +1330,23 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
 
     if (par.zipOutput)
     {
-        std::wstring fwpath = outHandle->getPath();
-        std::string fpath(fwpath.begin(), fwpath.end());
-        ZipFile::AddFile(fpath + ".zip", fpath, DeflateMethod::Create(), updateProgress);
-        remove(fpath.c_str());
+        outHandle->closeHandle();
+        outHandle->setPath(fwpath);
+        outHandle->createHandle();
+        outHandle->detectSplittedStorage();
+        outHandle->closeHandle();
+        std::string zip_path(fwpath.begin(), fwpath.end());
+        zip_path.append(".zip");
+
+        do
+        {
+            std::string cur_path(fwpath.begin(), fwpath.end());
+            ZipFile::AddFile(zip_path, cur_path, DeflateMethod::Create(), updateProgress);
+            remove(cur_path.c_str());
+
+            if(!outHandle->isSplitted() || !outHandle->getNextSplitFile(fwpath, fwpath))
+                 break;
+        } while(file_exists(fwpath.c_str()));
     }
 
     delete [] buffer;

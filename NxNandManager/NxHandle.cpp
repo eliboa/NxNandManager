@@ -526,10 +526,27 @@ bool NxHandle::read(u32 lba, void *buffer, DWORD* bytesRead, DWORD length)
 
 bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
 {
-    DWORD save_length = length;
     if (nullptr != bw) *bw = 0;
     if (!length) length = getDefaultBuffSize();
     DWORD bytesWrite;
+
+    // Switch to next out file
+    if (m_chunksize && lp_CurrentPointer.QuadPart >= m_chunksize)
+    {
+        DWORD bytesWrite_save = bytesWrite;
+
+        // Set path for new file
+        if (!getNextSplitFile(m_path))
+            return false;
+
+        // Clear current handle then create new file
+        clearHandle();
+        if(!createFile((wchar_t*)m_path.c_str(), GENERIC_WRITE))
+            return false;
+
+        // Init cur pointer
+        lp_CurrentPointer.QuadPart = 0;
+    }
 
     // TO-DO : Resize buffer if there's not enough bytes in split file
     if (b_isSplitted)
@@ -584,23 +601,6 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     }
 
     lp_CurrentPointer.QuadPart += bytesWrite;
-    // Switch to next out file
-    if (m_chunksize && lp_CurrentPointer.QuadPart + save_length > m_chunksize)
-    {
-        DWORD bytesWrite_save = bytesWrite;
-
-        // Set path for new file
-        if (!getNextSplitFile(m_path))
-            return false;
-
-        // Clear current handle then create new file
-        clearHandle();
-        if(!createFile((wchar_t*)m_path.c_str(), GENERIC_WRITE))
-            return false;
-
-        // Init cur pointer
-        lp_CurrentPointer.QuadPart = 0;
-    }
     *bw = bytesWrite;
     return true;
 }

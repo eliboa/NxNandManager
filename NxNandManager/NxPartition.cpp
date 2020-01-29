@@ -185,6 +185,7 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
 
     ProgressInfo pi;
     bool sendProgress = nullptr != updateProgress ? true : false;
+    std::wstring fwpath = outHandle->getPath();
 
     // Lock volume
     if(nxHandle->isDrive())
@@ -310,13 +311,25 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
             return error(ERR_MD5_COMPARE);
     }
 
-
     if (par.zipOutput)
     {
-        std::wstring fwpath = outHandle->getPath();
-        std::string fpath(fwpath.begin(), fwpath.end());
-        ZipFile::AddFile(fpath + ".zip", fpath, DeflateMethod::Create(), updateProgress);
-        remove(fpath.c_str());
+        outHandle->closeHandle();
+        outHandle->setPath(fwpath);
+        outHandle->createHandle();
+        outHandle->detectSplittedStorage();
+        outHandle->closeHandle();
+        std::string zip_path(fwpath.begin(), fwpath.end());
+        zip_path.append(".zip");
+
+        do
+        {
+            std::string cur_path(fwpath.begin(), fwpath.end());
+            ZipFile::AddFile(zip_path, cur_path, DeflateMethod::Create(), updateProgress);
+            remove(cur_path.c_str());
+
+            if(!outHandle->isSplitted() || !outHandle->getNextSplitFile(fwpath, fwpath))
+                 break;
+        } while(file_exists(fwpath.c_str()));
     }
 
     delete[] buffer;
