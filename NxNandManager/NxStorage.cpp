@@ -225,12 +225,27 @@ NxStorage::NxStorage(const char *p_path)
             std::string p_name(part.name);
             std::transform(p_name.begin(), p_name.end(), p_name.begin(), ::toupper);
 
-            if (!basename.compare(p_name) && part.size == m_size)
-            {                
-                type = getNxTypeAsInt(part.name);
-                // Add new Nxpartition
-                NxPartition *part = new NxPartition(this, basename.c_str(), (u32)0, (u32)m_size / NX_BLOCKSIZE - 1);
-                break;
+            if (!basename.compare(p_name))
+            {
+                bool found = false;
+                if (p_name == "USER") found = true;
+                else if (part.size != m_size && part.magic != nullptr)
+                {
+                    // If size doesn't match, check for magic if file is unencrypted
+                    unsigned char first_cluster[CLUSTER_SIZE];
+                    nxHandle->initHandle(NO_CRYPTO);
+                    if(nxHandle->read(first_cluster, nullptr, CLUSTER_SIZE) && !memcmp(&first_cluster[part.magic_off], part.magic, strlen(part.magic)))
+                        found = true;
+                }
+                else if (part.size == m_size) found = true;
+
+                if (found)
+                {
+                    type = getNxTypeAsInt(part.name);
+                    // Add new Nxpartition
+                    NxPartition *part = new NxPartition(this, basename.c_str(), (u32)0, (u32)m_size / NX_BLOCKSIZE - 1);
+                    break;
+                }
             }
             else if (part.size == m_size)
                 b_MayBeNxStorage = true;

@@ -119,7 +119,7 @@ RESOURCES += \
 
 QT += winextras
 
-#RC_FILE = NxNandManager.rc
+RC_FILE = NxNandManager.rc
 
 #ARCH = 32
 ARCH = 64

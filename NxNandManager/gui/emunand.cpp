@@ -196,7 +196,7 @@ void Emunand::on_emunandType_toggled(int type)
             if(ui->emunandType_SDFileSXChkBox->isChecked()) ui->emunandType_SDFileSXChkBox->setChecked(false);
             if(!ui->emunandType_PartitionChkBox->isChecked()) ui->emunandType_PartitionChkBox->setChecked(true);
             ui->emunandType_lbl->setText(
-                "A hidden partition emuNAND will be created on target disk.\n"
+                "An hidden partition for emuNAND will be created on target disk.\n"
                 "A second partition (FAT32) for user purpose (SD Files) will be \n"
                 "created with space left. All data on target disk will be erased.\n"
                 "emuNAND will be compatible with both Atmosphere and SX OS."
@@ -212,7 +212,7 @@ void Emunand::on_emunandType_toggled(int type)
             if(ui->emunandType_PartitionChkBox->isChecked()) ui->emunandType_PartitionChkBox->setChecked(false);
             if(!ui->emunandType_SDFileAMSChkBox->isChecked()) ui->emunandType_SDFileAMSChkBox->setChecked(true);
             ui->emunandType_lbl->setText(
-                "This will create file based emuNAND and needed files for\n"
+                "This will create a file based emuNAND and needed files for\n"
                 "Atmosphere CFW on target volume."
             );
             ui->driveListBox->setTitle("Select target volume:");
@@ -226,7 +226,7 @@ void Emunand::on_emunandType_toggled(int type)
             if(ui->emunandType_PartitionChkBox->isChecked()) ui->emunandType_PartitionChkBox->setChecked(false);
             if(!ui->emunandType_SDFileSXChkBox->isChecked()) ui->emunandType_SDFileSXChkBox->setChecked(true);
             ui->emunandType_lbl->setText(
-                "This will create file based emuNAND and needed files for\n"
+                "This will create a file based emuNAND and needed files for\n"
                 "SX OS CFW on target volume."
             );
             ui->driveListBox->setTitle("Select target volume:");

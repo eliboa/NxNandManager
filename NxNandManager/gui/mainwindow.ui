@@ -684,7 +684,7 @@
    <widget class="QPushButton" name="moreinfo_button">
     <property name="geometry">
      <rect>
-      <x>260</x>
+      <x>330</x>
       <y>90</y>
       <width>121</width>
       <height>22</height>
@@ -1114,7 +1114,7 @@ QTableCornerButton::section {background-color: transparent;}</string>
      <x>0</x>
      <y>0</y>
      <width>458</width>
-     <height>24</height>
+     <height>20</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

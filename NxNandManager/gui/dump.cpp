@@ -14,25 +14,36 @@ Dump::Dump(QWidget *parent, NxStorage* input, int in_part) :
     if (in_part != UNKNOWN && nullptr != input->getNxPartition(in_part))
         m_par.partition = in_part;
 
+    bool isNativeEncrypted = true;
+    int type = UNKNOWN;
+
     if(m_par.partition != UNKNOWN)
     {
         m_in_size = input->getNxPartition(m_par.partition)->size();
-        ui->inTypeValue->setText(QString(input->getNxTypeAsStr(m_par.partition)));
+        NxPartition *part = input->getNxPartition(m_par.partition);
+        if (part->nxPart_info.isEncrypted)
+            isNativeEncrypted = true;
+        ui->inTypeValue->setText(QString(input->getNxTypeAsStr(type)));
     }
     else
     {
         m_in_size = input->size();
+        if (input->isSinglePartType())
+        {
+            NxPartition *part = input->getNxPartition();
+            if (nullptr != part && part->nxPart_info.isEncrypted)
+                isNativeEncrypted = true;
+        }
         ui->inTypeValue->setText(QString(input->getNxTypeAsStr()));
     }
     ui->inPathValue->setText(QString::fromWCharArray(m_input->m_path));
     ui->inSizeValue->setText(QString::fromStdString(GetReadableSize(m_in_size)));
 
-
-    m_good_crypto = m_input->isEncrypted() && m_input->isCryptoSet() && !m_input->badCrypto() ? true : false;
+    m_good_crypto = isNativeEncrypted && m_input->isCryptoSet() && !m_input->badCrypto() ? true : false;
     if (m_good_crypto)
     {
-        ui->decryptValue->setEnabled(true);
-        ui->encryptValue->setEnabled(true);
+        if (m_input->isEncrypted()) ui->decryptValue->setEnabled(true);
+        else ui->encryptValue->setEnabled(true);
         ui->ptZeroesCheckBox->setEnabled(true);
         ui->formatUserCheckBox->setEnabled(true);
     }
