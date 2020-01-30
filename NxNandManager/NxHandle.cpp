@@ -274,6 +274,34 @@ bool NxHandle::getNextSplitFile(std::wstring &next_file, std::wstring cur_filepa
     return true;
 }
 
+bool NxHandle::getJoinFileName(std::wstring &join_name, std::wstring cur_filepath)
+{
+    splitFileName_t fna = getSplitFileNameAttributes(cur_filepath);
+
+    if (!fna.f_type)
+    {
+        join_name = cur_filepath;
+        return false;
+    }
+    join_name.clear();
+
+    wstring extension(get_extensionW((cur_filepath)));
+    wstring basename(remove_extensionW(cur_filepath));
+    if (extension.compare(basename) == 0)
+        extension.erase();
+    else if (!basename.compare(L"\\\\"))
+    {
+        basename = basename + extension;
+        extension.erase();
+    }
+    if (fna.f_type == 1)
+        join_name = basename;
+    else
+        join_name = basename.substr(0, wcslen(basename.c_str()) - fna.f_digits + 1)+ extension;
+
+    return true;
+}
+
 bool NxHandle::detectSplittedStorage()
 {
     splitFileName_t fna = getSplitFileNameAttributes();

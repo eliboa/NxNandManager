@@ -126,6 +126,7 @@ class NxHandle {
         u64 getCurrentPointer() { return lp_CurrentPointer.QuadPart - m_off_start; }
         NxCrypto* crypto() { return nxCrypto; }
 
+
         // Setters
         void setSplitted(bool b) { b_isSplitted = b; }
         void setSize(u64 u_size) { m_size = u_size; }
@@ -141,6 +142,7 @@ class NxHandle {
         bool detectSplittedStorage();
         splitFileName_t getSplitFileNameAttributes(std::wstring filepath = L"");
         bool getNextSplitFile(std::wstring &next_file, std::wstring cur_filepath = L"");
+        bool getJoinFileName(std::wstring &join_name, std::wstring cur_filepath);
         void clearHandle();
         void closeHandle();
         bool read(void *buffer, DWORD* bytesRead, DWORD length = 0);

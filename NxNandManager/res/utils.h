@@ -83,6 +83,7 @@ extern bool isdebug;
 #define ERR_INVALID_BOOT1          -1044
 #define ERR_OUTPUT_NOT_DRIVE       -1045
 #define ERR_CREATE_DIR_FAILED      -1046
+#define ERR_CREATE_ZIP             -1047
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -126,7 +127,8 @@ static ErrorLabel ErrorLabelArr[] =
     { ERR_BAD_CRYPTO, "Failed to validate crypto (wrong keys ?)"},
     { ERR_VOL_MOUNT_FAILED, "Failed to mount new FAT32 partition. Needed files for CFW (Atmosphere) cannot be created"},
     { ERR_OUTPUT_NOT_DRIVE, "Output is not a volume/drive"},
-    { ERR_CREATE_DIR_FAILED, "Failed to create directory on ouput drive/volume"}
+    { ERR_CREATE_DIR_FAILED, "Failed to create directory on ouput drive/volume"},
+    { ERR_CREATE_ZIP, "An error occured while creating archive (zip)"}
 };
 
 typedef struct KeySet KeySet;

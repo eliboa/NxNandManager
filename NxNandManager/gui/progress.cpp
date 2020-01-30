@@ -102,7 +102,7 @@ void Progress::updateProgress(const ProgressInfo pi)
         progressBar = ui->progressBar2;
     else
     {
-        if (is_in(pi.mode, {MD5_HASH, ZIP}))
+        if (is_in(pi.mode, {MD5_HASH}))
         {
             if (pi.bytesCount == pi.bytesTotal)
             {
@@ -118,7 +118,11 @@ void Progress::updateProgress(const ProgressInfo pi)
     if (!pi.bytesCount)
     {
         progressBar->setValue(0);
-        setProgressBarStyle(progressBar, is_in(pi.mode, {MD5_HASH, ZIP}) ? "0FB3FF" : nullptr);
+        QString color;
+        if(pi.mode == MD5_HASH) color = "0FB3FF";
+        else if (pi.mode == ZIP) color = "FF6A00";
+        else color = nullptr;
+        setProgressBarStyle(progressBar, color);
 
         // Initialize Main Progress Bar
         if(!pi.isSubProgressInfo)
@@ -141,7 +145,7 @@ void Progress::updateProgress(const ProgressInfo pi)
         else if (pi.mode == RESTORE) label.append(" restored");
         else if (pi.mode == RESIZE) label.append(" resized");
         else if (pi.mode == CREATE) label.append(" created");
-        else if (pi.mode == ZIP) label.append(" zipped");
+        else if (pi.mode == ZIP) label.append(pi.isSubProgressInfo ? " zipped" : " archived");
         else label.append(" dumped");
         label.append(" (").append(GetReadableSize(pi.bytesTotal).c_str()).append(")");
 
@@ -162,7 +166,7 @@ void Progress::updateProgress(const ProgressInfo pi)
         else if (pi.mode == RESTORE) label.append("Restoring to ");
         else if (pi.mode == RESIZE) label.append("Resizing ");
         else if (pi.mode == CREATE) label.append("Creating ");
-        else if (pi.mode == ZIP) label.append("Compressing ");
+        else if (pi.mode == ZIP) label.append(pi.isSubProgressInfo ? "Archiving " : "Creating archive ");
         else label.append("Copying ");
         label.append(pi.storage_name);
         label.append("... ").append(GetReadableSize(pi.bytesCount).c_str());

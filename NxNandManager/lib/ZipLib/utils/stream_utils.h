@@ -12,6 +12,7 @@ static void copy(std::istream& from, std::ostream& to, size_t bufferSize = 1024 
   if (updateProgress != nullptr)
   {
       pi->bytesCount = 0;
+      updateProgress(*pi);
   }
   do
   {

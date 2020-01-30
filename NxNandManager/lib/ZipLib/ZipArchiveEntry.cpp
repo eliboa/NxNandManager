@@ -701,6 +701,7 @@ void ZipArchiveEntry::InternalCompressStream(std::istream& inputStream, std::ost
 
     ProgressInfo pi;
     pi.mode = ZIP;
+    pi.isSubProgressInfo = true;
     pi.begin_time = std::chrono::system_clock::now();
     pi.elapsed_seconds = 0;
     // get length of file:
