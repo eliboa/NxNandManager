@@ -1504,6 +1504,8 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
         return error(ERR_WHILE_COPY);
 
     // Write UserDataRoot
+    this->nxHandle->initHandle(NO_CRYPTO);
+    this->nxHandle->setPointer(pi.bytesCount);
     if(!nxHandle->write(buffer, &bytesCount, 0x4400))
         return error(ERR_WHILE_COPY);
 
@@ -1528,7 +1530,7 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
             updateProgress(subPi);
         }
 
-        while(in_part-nxHandle->read(buffer, &bytesCount, DEFAULT_BUFF_SIZE))
+        while(in_part->nxHandle->read(buffer, &bytesCount, DEFAULT_BUFF_SIZE))
         {
             if(stopWork) return error(userAbort());
 
@@ -1549,6 +1551,9 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
 
     // Last sectors
     input->nxHandle->setPointer(pi.bytesCount);
+    input->nxHandle->initHandle(par.crypto_mode);
+    this->nxHandle->initHandle(NO_CRYPTO);
+    this->nxHandle->setPointer(pi.bytesCount);
     while(pi.bytesCount < pi.bytesTotal)
     {
         if (!input->nxHandle->read(buffer, &bytesCount, DEFAULT_BUFF_SIZE))
