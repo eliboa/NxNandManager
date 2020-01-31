@@ -19,7 +19,7 @@ static void copy(std::istream& from, std::ostream& to, size_t bufferSize = 1024 
     from.read(buff.data(), buff.size());
     to.write(buff.data(), from.gcount());
 
-    if (updateProgress != nullptr)
+    if (updateProgress != nullptr && static_cast<size_t>(from.gcount()) == buff.size())
     {
         pi->bytesCount += static_cast<size_t>(from.gcount());
         updateProgress(*pi);

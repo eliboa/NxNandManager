@@ -46,6 +46,10 @@ namespace
     {
       return fullPath.substr(dirSeparatorPos + 1);
     }
+    else if ((dirSeparatorPos = fullPath.find_last_of('\\')) != std::string::npos)
+    {
+      return fullPath.substr(dirSeparatorPos + 1);
+    }
     else
     {
       return fullPath;

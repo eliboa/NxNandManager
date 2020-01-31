@@ -163,20 +163,25 @@ void printProgress(ProgressInfo pi)
     {
         if (pi.mode == MD5_HASH) sprintf(label, "verified");
         else if (pi.mode == RESTORE) sprintf(label, "restored");
+        else if (pi.mode == RESIZE) sprintf(label, "resized");
+        else if (pi.mode == CREATE) sprintf(label, "created");
+        else if (pi.mode == ZIP) sprintf(label, "archived");
         else sprintf(label, "dumped");
-        printf("%s %s. %s - Elapsed time: %s                                              \n", pi.storage_name, label,
-            GetReadableSize(pi.bytesTotal).c_str(), GetReadableElapsedTime(tmp_elapsed_seconds).c_str());
+        printf("%s%s %s. %s - Elapsed time: %s                                              \n", pi.isSubProgressInfo ? "  " : "",
+            pi.storage_name, label, GetReadableSize(pi.bytesTotal).c_str(), GetReadableElapsedTime(tmp_elapsed_seconds).c_str());
     }
     else
     {
         if (pi.mode == MD5_HASH) sprintf(label, "Computing MD5 hash for");
         else if (pi.mode == RESTORE) sprintf(label, "Restoring to");
+        else if (pi.mode == RESIZE) sprintf(label, "Resizing");
+        else if (pi.mode == CREATE) sprintf(label, "Creating");
+        else if (pi.mode == ZIP) sprintf(label, "Archiving");
         else sprintf(label, "Copying");
-        printf("%s %s... %s /%s (%d%%) - Remaining time:", label, pi.storage_name, GetReadableSize(pi.bytesCount).c_str(),
-            GetReadableSize(pi.bytesTotal).c_str(), pi.bytesCount * 100 / pi.bytesTotal);
+        printf("%s%s %s... %s /%s (%d%%) - Remaining time:", pi.isSubProgressInfo ? "  " : "", label, pi.storage_name,
+            GetReadableSize(pi.bytesCount).c_str(), GetReadableSize(pi.bytesTotal).c_str(), pi.bytesCount * 100 / pi.bytesTotal);
         printf(" %s          \r", buf.c_str());
-    }
-    
+    }    
 }
 
 int main(int argc, char *argv[])
@@ -187,7 +192,7 @@ int main(int argc, char *argv[])
     std::locale::global(std::locale(""));
     printf("[ NxNandManager v3.0.3 by eliboa ]\n\n");
     const char *input = NULL, *output = NULL, *partitions = NULL, *keyset = NULL, *user_resize = NULL;
-    BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE, createEmuNAND = FALSE;
+    BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE, createEmuNAND = FALSE, zipOutput = false, passThroughZeroes = false;
     u64 chunksize = 0;
     int io_num = 1;
 
@@ -212,7 +217,7 @@ int main(int argc, char *argv[])
             "                    GPT and USER's FAT will be modified\n"
             "                    output (-o) must be a new file\n"
             "  -split=N          When this argument is provided output file will be\n"
-            "                    splitted in several part. N = chunksize in bytes\n"
+            "                    splitted in several part. N = chunksize in MB\n"
             "=> Options:\n\n"
 #if defined(ENABLE_GUI)
             "  --gui             Start the program in graphical mode, doesn't need other argument\n"
@@ -230,6 +235,8 @@ int main(int argc, char *argv[])
         printf("=> Flags:\n\n"
             "                    \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
             "                    \"FORMAT_USER\" to format USER partition (-user_resize arg mandatory)\n"
+            "                    \"ZIP\" to create a zip archive for output file(s)\n"
+            "                    \"PASSTHROUGH_0\" to fill unallocated clusetes in FAT with zeroes (keyset needed)\n"
             "                    \"FORCE\" to disable prompt for user input (no question asked)\n");
 
         throwException(ERR_WRONG_USE);
@@ -277,6 +284,8 @@ int main(int argc, char *argv[])
     const char FORMAT_USER_FLAG[] = "FORMAT_USER";
     const char CREATE_EMUNAND_ARGUMENT[] = "--create_SD_emuNAND";
     const char SPLIT_OUTPUT_ARGUMENT[] = "-split";
+    const char ZIP_OUTPUT_FLAG[] = "ZIP";
+    const char PASSTHROUGH_0[] = "PASSTHROUGH_0";
 
     for (int i = 1; i < argc; i++)
     {
@@ -308,7 +317,7 @@ int main(int argc, char *argv[])
         {
             u32 len = array_countof(SPLIT_OUTPUT_ARGUMENT) - 1;
             if (currArg[len] == '=')
-                chunksize = std::stoull(&currArg[len + 1]);
+                chunksize = std::stoull(&currArg[len + 1]) * 1024 * 1024;
             else if (currArg[len] == 0 && i == argc - 1)
                 return PrintUsage();
         }
@@ -341,6 +350,12 @@ int main(int argc, char *argv[])
 
         else if (!strncmp(currArg, FORCE_FLAG, array_countof(FORCE_FLAG) - 1))
             FORCE = TRUE;
+
+        else if (!strncmp(currArg, PASSTHROUGH_0, array_countof(PASSTHROUGH_0) - 1))
+            passThroughZeroes = true;
+
+        else if (!strncmp(currArg, ZIP_OUTPUT_FLAG, array_countof(ZIP_OUTPUT_FLAG) - 1))
+            zipOutput = true;
 
         else if (!strncmp(currArg, FORMAT_USER_FLAG, array_countof(FORMAT_USER_FLAG) - 1))
             FORMAT_USER = TRUE;
@@ -792,6 +807,8 @@ int main(int argc, char *argv[])
             par.chunksize = chunksize;
             par.rawnand_only = dump_rawnand;
             par.crypto_mode = crypto_mode;
+            par.zipOutput = zipOutput;
+            par.passThroughZero = passThroughZeroes;
 
             NxHandle *outHandle = new NxHandle(output, chunksize);
             int rc = nx_input.dump(outHandle, par, printProgress);
@@ -859,6 +876,8 @@ int main(int argc, char *argv[])
                 par.chunksize = chunksize;
                 par.crypto_mode = crypto_mode;
                 par.partition = partition->type();
+                par.zipOutput = zipOutput;
+                par.passThroughZero = passThroughZeroes;
 
                 NxHandle *outHandle = new NxHandle(new_out, chunksize);
                 int rc = nx_input.dump(outHandle, par, printProgress);
