@@ -4,7 +4,7 @@
 
 #include "gui/gui.h"
 #if defined(ENABLE_GUI)
-#include "mainwindow.h"
+#include "gui/mainwindow.h"
 #include <QApplication>
 #include <QtCore>
 #endif
