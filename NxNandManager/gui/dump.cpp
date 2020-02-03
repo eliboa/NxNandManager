@@ -23,7 +23,7 @@ Dump::Dump(QWidget *parent, NxStorage* input, int in_part) :
         NxPartition *part = input->getNxPartition(m_par.partition);
         if (part->nxPart_info.isEncrypted)
             isNativeEncrypted = true;
-        ui->inTypeValue->setText(QString(input->getNxTypeAsStr(type)));
+        ui->inTypeValue->setText(QString(input->getNxTypeAsStr(m_par.partition)));
     }
     else
     {

@@ -1052,6 +1052,31 @@ QTableCornerButton::section {background-color: transparent;}</string>
        <bool>false</bool>
       </property>
      </widget>
+     <widget class="QPushButton" name="partCustom1Btn">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="geometry">
+       <rect>
+        <x>110</x>
+        <y>20</y>
+        <width>30</width>
+        <height>30</height>
+       </rect>
+      </property>
+      <property name="toolTip">
+       <string/>
+      </property>
+      <property name="statusTip">
+       <string/>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="flat">
+       <bool>false</bool>
+      </property>
+     </widget>
     </widget>
     <widget class="QTableWidget" name="partition_table">
      <property name="geometry">
@@ -1114,7 +1139,7 @@ QTableCornerButton::section {background-color: transparent;}</string>
      <x>0</x>
      <y>0</y>
      <width>458</width>
-     <height>20</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

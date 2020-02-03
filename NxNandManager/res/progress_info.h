@@ -42,6 +42,8 @@ struct params_t {
     std::vector<part_params_t> parts;
     int emunand_type = 0;
     bool isSubParam = false;
+    char boot0_path[260];
+    char boot1_path[260];
 };
 part_params_t* GetPartParam(params_t *params, int nxType);
 

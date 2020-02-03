@@ -162,8 +162,6 @@ NxStorage::NxStorage(const char *p_path)
     if (!nxHandle->exists)
         return;
 
-    nxHandle->detectSplittedStorage();
-
     // Get size from handle (will probably be overwritten later)
     m_size = nxHandle->size();
     m_freeSpace = nxHandle->getDiskFreeSpace();
@@ -362,7 +360,9 @@ NxStorage::NxStorage(const char *p_path)
 
     // RAWNAND or FULL NAND : Add NxPartition for each GPP or BOOT partition
     if(is_in(type, {RAWNAND, RAWMMC, EMMC_PART }))
-    {        
+    {
+        nxHandle->detectSplittedStorage();
+
         if (type == EMMC_PART)
         {
             mmc_b0_lba_start = 0x8000;
@@ -2277,18 +2277,38 @@ int NxStorage::applyIncognito()
     return SUCCESS;
 }
 
-int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(ProgressInfo))
+int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(ProgressInfo), const char* boot0_path, const char* boot1_path)
 {
 
-    if (this->type != RAWMMC)
-        return -1;
+    if (not_in(type, {RAWMMC, RAWNAND}))
+        return ERR_INVALID_NAND;
+
+    if (type == RAWNAND) {
+        if (nullptr == boot0_path)
+            return ERR_INVALID_BOOT0;
+        if (nullptr == boot1_path)
+            return ERR_INVALID_BOOT1;
+    }
+    NxPartition *boot0, *boot1;
+    NxStorage nx1(boot0_path);
+    NxStorage nx2(boot1_path);
+    u64 boot_size = 0;
+    if (type == RAWNAND)
+    {
+        if (nx1.type != BOOT0) return ERR_INVALID_BOOT0;
+        if (nx2.type != BOOT1) return ERR_INVALID_BOOT1;
+        boot0 = nx1.getNxPartition();
+        boot1 = nx2.getNxPartition();
+        boot_size = boot0->size() + boot0->size();
+    }
+    u64 nand_size = size() + boot_size;
 
     NxStorage mmc(mmc_path);
 
     if (!mmc.isDrive())
         return ERR_OUTPUT_NOT_MMC;
 
-    // Recreate handle for mmc (because mmc can already 0b0e a0000000000000000000000 valid NxStorage)
+    // Recreate handle for mmc (because mmc can already be a valid NxStorage)
     mbstowcs(mmc.m_path, mmc_path, MAX_PATH);
     mmc.m_size = 0;
     mmc.mmc_b0_lba_start = 0;
@@ -2311,7 +2331,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     mmc.nxHandle->lockVolume();
 
     // Calculate new values for MBR
-    u32 nand_sector_count = (u32)(this->m_size / NX_BLOCKSIZE);
+    u32 nand_sector_count = (u32)(nand_size / NX_BLOCKSIZE);
     u32 mmc_sector_count = (u32)(mmc.nxHandle->size() / NX_BLOCKSIZE);
     u32 first_part_lba_start = u32((nand_sector_count + 3) / 32 + 1) * 32; //cluster align
     u32 first_part_lba_count = mmc_sector_count - first_part_lba_start;
@@ -2370,7 +2390,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     sprintf(pi.storage_name, "emuNAND");
     pi.begin_time = std::chrono::system_clock::now();
     pi.bytesCount = 0;
-    pi.bytesTotal = size() + (u64((bs->reserved_sector_count + bs->fat_size * bs->num_fats) * NX_BLOCKSIZE + CLUSTER_SIZE));
+    pi.bytesTotal = nand_size + (u64((bs->reserved_sector_count + bs->fat_size * bs->num_fats) * NX_BLOCKSIZE + CLUSTER_SIZE));
     updateProgress(pi);
     spi.isSubProgressInfo = true;
 
@@ -2391,12 +2411,36 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
 
     // Sub Progress
     spi.mode = COPY;
-    sprintf(spi.storage_name, getNxTypeAsStr());
+    sprintf(spi.storage_name, "NAND");
     spi.bytesCount = 0;
-    spi.bytesTotal = size();
+    spi.bytesTotal = nand_size;
     updateProgress(spi);
 
-    // Copy
+    // Copy provided boot partitions if needed
+    if (type == RAWNAND)
+    {
+        // Copy boot partitions
+        for (int i(0); i < 2; i++)
+        {
+            NxPartition *part = i ? boot1 : boot0;
+            part->nxHandle->initHandle();
+            while(part->nxHandle->read(cpy_buffer, &bytesRead, buff_size))
+            {
+                if(stopWork) return userAbort();
+
+                if (!mmc.nxHandle->write(cpy_buffer, &bytesWrite, bytesRead))
+                    break;
+
+                spi.bytesCount += bytesWrite;
+                updateProgress(spi);
+            }
+        }
+
+        if (spi.bytesCount != boot0->size() + boot1->size())
+            return ERR_WHILE_COPY;
+    }
+
+    // Copy NxStorage
     while(this->nxHandle->read(cpy_buffer, &bytesRead, buff_size))
     {
         if(stopWork) return userAbort();
@@ -2746,6 +2790,7 @@ int NxStorage::createFileBasedEmuNand(EmunandType emu_type, const char* volume_p
         if (!is_dir(cur_dir.c_str()) && !CreateDirectoryA(cur_dir.c_str(), nullptr))
             return end(ERR_CREATE_DIR_FAILED);
 
+
         std::string sd_emu_dir("\\emuMMC\\SD" + std::string(n22dstr(emu_count)));
         cur_dir = getDir(sd_emu_dir.c_str());
         if (!CreateDirectoryA(cur_dir.c_str(), nullptr))
@@ -2756,6 +2801,21 @@ int NxStorage::createFileBasedEmuNand(EmunandType emu_type, const char* volume_p
             return end(ERR_CREATE_DIR_FAILED);
 
         emu_dir = cur_dir;
+
+        std::string filepath("\\emuMMC\\emummc.ini");
+        std::ofstream emummcIni (getDir(filepath.c_str()));
+        if (emummcIni.is_open())
+        {
+            emummcIni << "[emummc]\n";
+            emummcIni << "enabled=1\n";
+            emummcIni << "sector=0x0\n";
+            emummcIni << "path=emuMMC/SD" + n22dstr(emu_count) + "\n";
+            emummcIni << "id=0x0000\n";
+            emummcIni << "nintendo_path=emuMMC/SD" + n22dstr(emu_count) + "/Nintendo\n";
+            emummcIni.close();
+        }
+        else return end(ERR_CREATE_FILE_FAILED);
+
         break;
     }
     case fileBasedSXOS : {

@@ -40,29 +40,32 @@ Emunand::~Emunand()
 
 void Emunand::timer1000()
 {
+    if (stop_timer) return;
+
     if (m_emu_type == rawBased)
     {
-        std::vector<diskDescriptor> disks, removableDisks;
+        std::vector<diskDescriptor> disks, removableDisks, disks_tmp;
         GetDisks(&disks);
         for (diskDescriptor disk : disks)
         {
             if(disk.removableMedia)
                 removableDisks.push_back(disk);
         }
-
-        if (m_disks.size() && (removableDisks.size() != m_disks.size() || !std::equal(m_disks.begin(), m_disks.end(), removableDisks.begin())))
+        disks_tmp = m_disks;
+        if (disks_tmp.size() && (removableDisks.size() != disks_tmp.size() || !std::equal(disks_tmp.begin(), disks_tmp.end(), removableDisks.begin())))
            listDisks();
     }
     else
     {
-        std::vector<volumeDescriptor> volumes, removableVolumes;
+        std::vector<volumeDescriptor> volumes, removableVolumes, volumes_tmp;
         GetVolumes(&volumes);
         for (volumeDescriptor volume : volumes)
         {
             if (volume.removableMedia)
                 removableVolumes.push_back(volume);
         }
-        if (m_volumes.size() && (removableVolumes.size() != m_volumes.size() || !std::equal(m_volumes.begin(), m_volumes.end(), removableVolumes.begin())))
+        volumes_tmp = m_volumes;
+        if (volumes_tmp.size() && (removableVolumes.size() != volumes_tmp.size() || !std::equal(volumes_tmp.begin(), volumes_tmp.end(), removableVolumes.begin())))
             listVolumes();
     }
 }
@@ -171,7 +174,10 @@ void Emunand::on_boo0_pushBtn_clicked()
     {
         NxStorage storage(fileName.toLocal8Bit().constData());
         if(storage.isNxStorage() && storage.isSinglePartType() && storage.getNxPartition(BOOT0) != nullptr)
+        {
             ui->boot0_path->setText(fileName);
+            sprintf_s(m_par.boot0_path, 260, "%s", fileName.toLocal8Bit().constData());
+        }
         else QMessageBox::critical(nullptr,"Error", "Selected file is not a valid BOOT0 file");
     }
 }
@@ -183,7 +189,10 @@ void Emunand::on_boo1_pushBtn_clicked()
     {
         NxStorage storage(fileName.toLocal8Bit().constData());
         if(storage.isNxStorage() && storage.isSinglePartType() && storage.getNxPartition(BOOT1) != nullptr)
+        {
             ui->boot1_path->setText(fileName);
+            sprintf_s(m_par.boot1_path, 260, "%s", fileName.toLocal8Bit().constData());
+        }
         else QMessageBox::critical(nullptr,"Error", "Selected file is not a valid BOOT1 file");
     }
 }
@@ -379,13 +388,24 @@ void Emunand::on_driveList_itemSelectionChanged()
 }
 
 void Emunand::on_createEmunandBtn_clicked()
-{
+{    
     std::vector<QString> errors;
 
     if(nullptr == input)
         return error("Input is missing");
     else if(not_in(input->type, { RAWNAND, RAWMMC}))
         return error("Input must be RAWNAND or FULL NAND");
+
+    if (input->type == RAWNAND)
+    {
+        NxStorage boot0((const char*) m_par.boot0_path);
+        if (boot0.type != BOOT0)
+            return error("Input BOOT0 is missing or invalid");
+
+        NxStorage boot1((const char*) m_par.boot1_path);
+        if (boot1.type != BOOT1)
+            return error("Input BOOT1 is missing or invalid");
+    }
 
     if(!ui->driveList->selectedItems().count())
         return;
@@ -400,10 +420,14 @@ void Emunand::on_createEmunandBtn_clicked()
         output = volumename;
     }
 
+    if (m_emu_type == rawBased && QMessageBox::question(this, "Warning", "All data on target disk will be lost. Are you sure you want to continue ?", QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+        return;
+
     // Do WORK
+    stop_timer = true;
     WorkerInstance wi(this, create_emunand, &m_par, input, output.c_str());
     wi.exec();
-
+    stop_timer = false;
 }
 void Emunand::error(QString err)
 {

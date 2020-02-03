@@ -204,7 +204,7 @@ class NxStorage
         std::string getFirmwareVersion(firmware_version_t *fmv = nullptr);
         void setFirmwareVersion(firmware_version_t *fwv, const char* fwv_string);
         int fwv_cmp(firmware_version_t fwv1, firmware_version_t fwv2);
-        int createMmcEmuNand(const char* mmc_path, void(*updateProgress)(ProgressInfo));
+        int createMmcEmuNand(const char* mmc_path, void(*updateProgress)(ProgressInfo), const char* boot0_path, const char* boot1_path);
         int createFileBasedEmuNand(EmunandType type, const char* volume_path, void(*updateProgress)(ProgressInfo), const char* boot0_path, const char* boot1_path);
         int userAbort(){stopWork = false; return ERR_USER_ABORT;}
 };

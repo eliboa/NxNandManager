@@ -49,6 +49,7 @@ private:
     int m_driveList_type = 0;
     params_t m_par;
     EmunandType m_emu_type;
+    bool stop_timer = false;
 
     void listVolumes();
     void listDisks();

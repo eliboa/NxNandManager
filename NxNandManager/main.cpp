@@ -532,7 +532,7 @@ int main(int argc, char *argv[])
     {
         dbg_printf("Main.cpp > createEmuNAND\n");
         delete &nx_output;
-        int res = nx_input.createMmcEmuNand(output, printProgress);
+        int res = nx_input.createMmcEmuNand(output, printProgress, nullptr, nullptr);
         dbg_printf("Main.cpp > createEmuNAND returned %d\n", res);
         exit(EXIT_SUCCESS);
     }

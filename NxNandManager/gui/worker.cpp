@@ -77,10 +77,10 @@ void Worker::run()
     case create_emunand :
     {
         if (m_params.emunand_type == rawBased)
-            rc = m_WorkingStorage->createMmcEmuNand(m_file.toLocal8Bit().constData(), updateProgressWrapper);
+            rc = m_WorkingStorage->createMmcEmuNand(m_file.toLocal8Bit().constData(), updateProgressWrapper, m_params.boot0_path, m_params.boot1_path);
         else {
             EmunandType i = static_cast<EmunandType>(m_params.emunand_type);
-            rc = m_WorkingStorage->createFileBasedEmuNand(i, m_file.toLocal8Bit().constData(), updateProgressWrapper, nullptr, nullptr);
+            rc = m_WorkingStorage->createFileBasedEmuNand(i, m_file.toLocal8Bit().constData(), updateProgressWrapper, m_params.boot0_path, m_params.boot1_path);
         }
         break;
     }}

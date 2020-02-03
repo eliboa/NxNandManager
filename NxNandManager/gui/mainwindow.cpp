@@ -54,6 +54,8 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->partQDumpBtn->setVisible(false);
     ui->partADumpBtn->setVisible(false);
     ui->partRestoreBtn->setVisible(false);
+    ui->partCustom1Btn->setVisible(false);
+    ui->partCustom1Btn->setVisible(false);
 
     input = nullptr;
 
@@ -238,6 +240,7 @@ void MainWindow::on_rawdump_button_clicked(int crypto_mode, bool rawnand_dump)
         // Call WorkerInstance to copy data
         params_t params;
         params.crypto_mode = crypto_mode;
+        if(rawnand_dump) params.rawnand_only = true;
         WorkerInstance wi(this, WorkerMode::dump, &params, input, fileName);
         wi.exec();
     }
@@ -605,6 +608,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 	foreach (QAction *action, ui->partition_table->actions()) {
 		ui->partition_table->removeAction(action);
 	}
+    ui->partCustom1Btn->disconnect();
 
     ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
 
@@ -628,7 +632,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
             break;
         case FAT32 : fs = "FAT32";
             break;
-        default : fs = "RAW";
+        default : fs = "None (RAW)";
     }
     ui->properties_table->setItem(index, 1, new QTableWidgetItem(fs));
 
@@ -665,6 +669,14 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     ui->properties_table->setItem(index, 0, new QTableWidgetItem("Encrypted:"));
     ui->properties_table->setItem(index, 1, new QTableWidgetItem(selected_part->isEncryptedPartition() ? "Yes" : "No"));
 
+    if (selected_part->type() == BOOT0)
+    {
+        index = ui->properties_table->rowCount();
+        ui->properties_table->insertRow(index);
+        ui->properties_table->setItem(index, 0, new QTableWidgetItem("AutoRCM:"));
+        ui->properties_table->setItem(index, 1, new QTableWidgetItem(input->autoRcm ? "Enabled" : "Disabled"));
+    }
+
     ui->properties_table->resizeColumnsToContents();
     ui->properties_table->resizeRowsToContents();
 
@@ -674,6 +686,9 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     ui->partQDumpBtn->setEnabled(true);
     ui->partADumpBtn->setEnabled(true);
     ui->partRestoreBtn->setEnabled(true);
+
+    ui->partCustom1Btn->setVisible(false);
+    ui->partCustom1Btn->setEnabled(false);
 
     // Dump action
     const QIcon dumpIcon = QIcon::fromTheme("document-open", QIcon(":/images/save.png"));
@@ -724,10 +739,19 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     {
         const QIcon rcmIcon = QIcon::fromTheme("document-open", QIcon(":/images/autorcm.png"));
         ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
-        QAction* action = new QAction(rcmIcon, input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM");
-        action->setStatusTip(tr(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM"));
+        QString statusTip(tr(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM"));
+        QAction* action = new QAction(rcmIcon, statusTip);
+
+        action->setStatusTip(statusTip);
         ui->partition_table->connect(action, SIGNAL(triggered()), this, SLOT(toggleAutoRCM()));
         ui->partition_table->addAction(action);
+
+        ui->partCustom1Btn->setIcon(rcmIcon);
+        ui->partCustom1Btn->setStatusTip(statusTip);
+        ui->partCustom1Btn->setToolTip(statusTip);
+        ui->partCustom1Btn->connect(ui->partCustom1Btn, SIGNAL(clicked()), this, SLOT(toggleAutoRCM()));
+        ui->partCustom1Btn->setVisible(true);
+        ui->partCustom1Btn->setEnabled(true);
     }
 
     // Incognito action
@@ -735,9 +759,17 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     {
         const QIcon icon = QIcon::fromTheme("document-open", QIcon(":/images/incognito.png"));
         QAction* incoAction = new QAction(icon, "Apply incognito");
-        incoAction->setStatusTip(tr("Wipe personnal information from PRODINFO"));
+        QString statusTip(tr("Wipe personnal information from PRODINFO"));
+        incoAction->setStatusTip(statusTip);
         ui->partition_table->connect(incoAction, SIGNAL(triggered()), this, SLOT(incognito()));
         ui->partition_table->addAction(incoAction);
+
+        ui->partCustom1Btn->setIcon(icon);
+        ui->partCustom1Btn->setStatusTip(statusTip);
+        ui->partCustom1Btn->setToolTip(statusTip);
+        ui->partCustom1Btn->connect(ui->partCustom1Btn, SIGNAL(clicked()), this, SLOT(incognito()));
+        ui->partCustom1Btn->setVisible(true);
+        ui->partCustom1Btn->setEnabled(true);
     }
 
     // Explorer action
