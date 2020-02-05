@@ -313,8 +313,6 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
 
     if (par.zipOutput)
     {
-
-
         outHandle->closeHandle();
         outHandle->setPath(fwpath);
         outHandle->createHandle();
@@ -436,6 +434,87 @@ int NxPartition::restore(NxStorage* input, part_params_t par, void(*updateProgre
 
     return SUCCESS;
 }
+
+int NxPartition::formatPartition(void(*updateProgress)(ProgressInfo))
+{
+    if (not_in(m_type, { SYSTEM, USER }))
+        return ERR_FORMAT_BAD_PART;
+
+    if (isEncryptedPartition())
+    {
+        if (!parent->isCryptoSet())
+            return ERR_CRYPTO_KEY_MISSING;
+
+        if (badCrypto())
+            return ERR_BAD_CRYPTO;
+    }
+
+    bool sendProgress = nullptr != updateProgress ? true : false;
+    BYTE buffer[CLUSTER_SIZE];
+    DWORD bytesCount = 0, bytesWrite = 0;
+    u32 cur_cluster_num = 1;
+
+    nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
+
+    // Read reserved sectors
+    if (!nxHandle->read(buffer, &bytesCount, CLUSTER_SIZE))
+        return ERR_WHILE_COPY;
+
+    fat32::boot_sector *bs = (fat32::boot_sector *)(buffer);
+    u32 fat_size_in_cluster = bs->fat_size / 32;
+    int num_fats = bs->num_fats;
+
+    ProgressInfo pi;
+    pi.mode = FORMAT;
+    sprintf(pi.storage_name, partitionName().c_str());
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.bytesTotal = num_fats * fat_size_in_cluster * CLUSTER_SIZE + CLUSTER_SIZE;
+    if (sendProgress) updateProgress(pi);
+
+    // For each FAT
+    for (int x(0); x < num_fats; x++)
+    {
+        // For each cluster in FAT
+        for (u32 i(0); i < fat_size_in_cluster; i++)
+        {
+            memset(buffer, 0, CLUSTER_SIZE);
+            // Write first 3 FAT entries (each entry is 4 bytes long)
+            if (!i)
+            {
+                u8 first_entries[12] = { 0xf8, 0xff, 0xff, 0x0f, 0xff, 0xff, 0xff, 0x0f, 0xff, 0xff, 0xff, 0x0f };
+                memcpy(buffer, first_entries, ARRAYSIZE(first_entries));
+            }
+
+            if (isEncryptedPartition())
+                crypto()->encrypt(buffer, cur_cluster_num++);
+
+            if (!nxHandle->write(buffer, &bytesWrite, CLUSTER_SIZE))
+                return ERR_WHILE_COPY;
+
+            pi.bytesCount += bytesWrite;
+            if (sendProgress) updateProgress(pi);
+        }
+    }
+
+    // Write empty cluster for root dir
+    memset(buffer, 0, CLUSTER_SIZE);
+    if (isEncryptedPartition())
+        crypto()->encrypt(buffer, cur_cluster_num++);
+
+    if (!nxHandle->write(buffer, &bytesWrite, CLUSTER_SIZE))
+        return ERR_WHILE_COPY;
+
+    pi.bytesCount += bytesWrite;
+
+    // Check completeness
+    if (pi.bytesCount != pi.bytesTotal)
+        return ERR_WHILE_COPY;
+
+    if (sendProgress) updateProgress(pi);
+
+    return SUCCESS;
+}
+
 
 // Get fat32 entries for given path
 // If path is a file, only one entry is pushed back to entries vector

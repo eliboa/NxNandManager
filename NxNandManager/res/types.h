@@ -54,6 +54,7 @@
 #define DUMP_ADVANCED 7
 #define CREATE        8
 #define ZIP           9
+#define FORMAT        10
 
 #define RAW     0
 #define FAT12   1

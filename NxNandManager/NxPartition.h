@@ -121,11 +121,9 @@ class NxPartition
         bool setCrypto(char* crypto, char* tweak);
         int compare(NxPartition *partition);
         ProgressInfo pi;
-        int dumpToFile(const char *file, int crypto_mode, void(*updateProgress)(ProgressInfo*) = nullptr);
-        int restoreFromStorage(NxStorage* input, int crypto_mode, void(*updateProgress)(ProgressInfo*) = nullptr);
-
         int dump(NxHandle *outHandle, part_params_t params, void(*updateProgress)(ProgressInfo) = nullptr);
         int restore(NxStorage* input, part_params_t params, void(*updateProgress)(ProgressInfo) = nullptr);
+        int formatPartition(void(*updateProgress)(ProgressInfo) = nullptr);
 
         void clearHandles();
         int userAbort(){stopWork = false; return ERR_USER_ABORT;}

@@ -146,6 +146,7 @@ void Progress::updateProgress(const ProgressInfo pi)
         else if (pi.mode == RESIZE) label.append(" resized");
         else if (pi.mode == CREATE) label.append(" created");
         else if (pi.mode == ZIP) label.append(pi.isSubProgressInfo ? " zipped" : " archived");
+        else if (pi.mode == FORMAT) label.append(" formatted");
         else label.append(" dumped");
         label.append(" (").append(GetReadableSize(pi.bytesTotal).c_str()).append(")");
 
@@ -166,6 +167,7 @@ void Progress::updateProgress(const ProgressInfo pi)
         else if (pi.mode == RESTORE) label.append("Restoring to ");
         else if (pi.mode == RESIZE) label.append("Resizing ");
         else if (pi.mode == CREATE) label.append("Creating ");
+        else if (pi.mode == FORMAT) label.append("Formatting ");
         else if (pi.mode == ZIP) label.append(pi.isSubProgressInfo ? "Archiving " : "Creating archive ");
         else label.append("Copying ");
         label.append(pi.storage_name);

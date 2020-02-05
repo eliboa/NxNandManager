@@ -39,7 +39,7 @@
 class NxStorage;
 class Progress;
 
-enum WorkerMode { dump, restore, new_storage, list_storage, create_emunand };
+enum WorkerMode { dump, restore, new_storage, list_storage, create_emunand, format_partition };
 
 class Worker : public QThread {
 	Q_OBJECT

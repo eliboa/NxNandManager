@@ -83,6 +83,12 @@ void Worker::run()
             rc = m_WorkingStorage->createFileBasedEmuNand(i, m_file.toLocal8Bit().constData(), updateProgressWrapper, m_params.boot0_path, m_params.boot1_path);
         }
         break;
+    }
+    case format_partition :
+    {
+        NxPartition *part = m_WorkingStorage->getNxPartition(m_params.partition);
+        rc = part->formatPartition(updateProgressWrapper);
+        break;
     }}
 
     if (rc != SUCCESS)

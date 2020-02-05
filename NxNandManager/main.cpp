@@ -595,26 +595,20 @@ int main(int argc, char *argv[])
 
         SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
 
-        int rc = 0;
-        u64 bytesCount = 0, bytesToRead = nx_input.size() - user->size() + (u64)user_new_size * NX_BLOCKSIZE;
 
-        timepoint_t begin_time = std::chrono::system_clock::now();
-        elapsed_seconds = 0;
+        params_t par;
+        par.user_new_size = user_new_size;
+        par.format_user = FORMAT_USER;
 
-        // Copy
-        printf("Copying %s...\r", nx_input.getNxTypeAsStr());
-        while (!(rc = nx_input.resizeUser(output, user_new_size, &bytesCount, &bytesToRead, FORMAT_USER)))
-            printCopyProgress(COPY, nx_input.getNxTypeAsStr(), begin_time, bytesCount, bytesToRead);
-
-        std::chrono::duration<double> elapsed_total = std::chrono::system_clock::now() - begin_time;
-
+        NxHandle *outHandle = new NxHandle(output);
+        int rc = nx_input.dump(outHandle, par, printProgress);
         // Failure
-        if (rc != NO_MORE_BYTES_TO_COPY)
+        if (rc != SUCCESS)
             throwException(rc);
 
-        // EOF
-        printf("%s dumped & resized. %s - Elapsed time: %s                         \n", nx_input.getNxTypeAsStr(),
-            GetReadableSize(bytesCount).c_str(), GetReadableElapsedTime(elapsed_total).c_str());
+        delete outHandle;
+
+        SetThreadExecutionState(ES_CONTINUOUS);
 
         exit(EXIT_SUCCESS);
     }

@@ -85,6 +85,7 @@ extern bool isdebug;
 #define ERR_CREATE_DIR_FAILED      -1046
 #define ERR_CREATE_ZIP             -1047
 #define ERR_CREATE_FILE_FAILED     -1048
+#define ERR_FORMAT_BAD_PART        -1049
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -130,7 +131,8 @@ static ErrorLabel ErrorLabelArr[] =
     { ERR_OUTPUT_NOT_DRIVE, "Output is not a volume/drive"},
     { ERR_CREATE_DIR_FAILED, "Failed to create directory in ouput drive/volume"},
     { ERR_CREATE_FILE_FAILED, "Failed to create file in ouput drive/volume"},
-    { ERR_CREATE_ZIP, "An error occured while creating archive (zip)"}
+    { ERR_CREATE_ZIP, "An error occured while creating archive (zip)"},
+    { ERR_FORMAT_BAD_PART, "Partition formating is only possible for USER et SYSTEM"}
 };
 
 typedef struct KeySet KeySet;

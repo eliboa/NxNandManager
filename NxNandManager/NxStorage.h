@@ -195,9 +195,6 @@ class NxStorage
         int dumpControl(params_t par);
         int restore(NxStorage* input, params_t params, void(*updateProgress)(ProgressInfo) = nullptr);
 
-        int resizeUser(const char *file, u32 new_size, u64 *bytesCount, u64 *bytesToRead, bool format = false);
-        int resizeUser(NxHandle *outHandle, u32 new_size, void(&updateProgress)(ProgressInfo*));
-
         bool setAutoRcm(bool enable);
         int applyIncognito();
         void clearHandles();

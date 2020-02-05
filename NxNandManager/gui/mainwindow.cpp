@@ -55,7 +55,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->partADumpBtn->setVisible(false);
     ui->partRestoreBtn->setVisible(false);
     ui->partCustom1Btn->setVisible(false);
-    ui->partCustom1Btn->setVisible(false);
+    ui->partCustom1Btn->setDisabled(true);
 
     input = nullptr;
 
@@ -412,7 +412,9 @@ void MainWindow::beforeInputSet()
     ui->partRestoreBtn->setDisabled(true);
     ui->partQDumpBtn->setVisible(false);
     ui->partADumpBtn->setVisible(false);
-    ui->partRestoreBtn->setVisible(false);
+    ui->partRestoreBtn->setVisible(false);    
+    ui->partCustom1Btn->setVisible(false);
+    ui->partCustom1Btn->setDisabled(true);
 
     ui->properties_table->setRowCount(0);
 }
@@ -735,7 +737,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     }
 
     // AutoRCM action
-    if(selected_part->type() == BOOT0)
+    if (selected_part->type() == BOOT0)
     {
         const QIcon rcmIcon = QIcon::fromTheme("document-open", QIcon(":/images/autorcm.png"));
         ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
@@ -755,7 +757,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     }
 
     // Incognito action
-    if(selected_part->type() == PRODINFO)
+    if (selected_part->type() == PRODINFO)
     {
         const QIcon icon = QIcon::fromTheme("document-open", QIcon(":/images/incognito.png"));
         QAction* incoAction = new QAction(icon, "Apply incognito");
@@ -768,6 +770,24 @@ void MainWindow::on_partition_table_itemSelectionChanged()
         ui->partCustom1Btn->setStatusTip(statusTip);
         ui->partCustom1Btn->setToolTip(statusTip);
         ui->partCustom1Btn->connect(ui->partCustom1Btn, SIGNAL(clicked()), this, SLOT(incognito()));
+        ui->partCustom1Btn->setVisible(true);
+        ui->partCustom1Btn->setEnabled(true);
+    }
+
+    // Format partition action
+    if (is_in(selected_part->type(), {SYSTEM, USER}))
+    {
+        const QIcon icon = QIcon::fromTheme("document-open", QIcon(":/images/format.png"));
+        QAction* incoAction = new QAction(icon, "Format partition (FAT32)");
+        QString statusTip(tr("Erase all data on selected partition (quick format)"));
+        incoAction->setStatusTip(statusTip);
+        ui->partition_table->connect(incoAction, SIGNAL(triggered()), this, SLOT(formatPartition()));
+        ui->partition_table->addAction(incoAction);
+
+        ui->partCustom1Btn->setIcon(icon);
+        ui->partCustom1Btn->setStatusTip(statusTip);
+        ui->partCustom1Btn->setToolTip(statusTip);
+        ui->partCustom1Btn->connect(ui->partCustom1Btn, SIGNAL(clicked()), this, SLOT(formatPartition()));
         ui->partCustom1Btn->setVisible(true);
         ui->partCustom1Btn->setEnabled(true);
     }
@@ -921,12 +941,40 @@ void MainWindow::toggleAutoRCM()
     else {
 		QMessageBox::information(this, "Success", "AutoRCM is "  + QString(input->autoRcm ? "enabled" : "disabled"));
         qApp->processEvents();
+        beforeInputSet();
         QString filename = QString::fromWCharArray(input->m_path);
         delete input;
         workThread = new Worker(this, WorkerMode::new_storage, filename);
         workThread->start();
 
     }
+}
+
+void MainWindow::formatPartition()
+{
+    if(!ui->partition_table->selectionModel()->selectedRows().count())
+        return;
+
+    QString cur_partition(ui->partition_table->selectedItems().at(0)->text());
+    NxPartition *curPartition = input->getNxPartition(cur_partition.toLocal8Bit().constData());
+
+    if (nullptr == curPartition)
+        return;
+
+    if(QMessageBox::question(this, "Warning", "Formatting will erase all data on partition. Are you sure you want to continue ?", QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+        return;
+
+    params_t par;
+    par.partition = curPartition->type();
+
+    WorkerInstance wi(this, WorkerMode::format_partition, &par, input);
+    wi.exec();
+
+    beforeInputSet();
+    QString filename = QString::fromWCharArray(input->m_path);
+    delete input;
+    workThread = new Worker(this, WorkerMode::new_storage, filename);
+    workThread->start();
 }
 
 void MainWindow::keySetSet()

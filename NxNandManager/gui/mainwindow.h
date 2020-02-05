@@ -102,6 +102,7 @@ private slots:
     void dumpEncPartition();
 	void restorePartition();
 	void toggleAutoRCM();
+    void formatPartition();
     void on_rawdump_button_clicked(int crypto_mode, bool rawnand_dump);
     void on_rawdumpDec_button_clicked();
     void on_rawdumpEnc_button_clicked();

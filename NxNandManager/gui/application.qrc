@@ -19,5 +19,6 @@
         <file>images/close-window-32.ico</file>
         <file>images/save_advanced.png</file>
         <file>images/emunand.png</file>
+        <file>images/format.png</file>
     </qresource>
 </RCC>
