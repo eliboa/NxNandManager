@@ -38,40 +38,46 @@ Emunand::~Emunand()
     delete ui;
 }
 
+// This timer is used to update m_volumes & m_disks every seconds
+// Depending on selected emunand's type, the drive list will be update when new volume/disk is (un)mounted
 void Emunand::timer1000()
 {
     if (stop_timer) return;
 
-    if (m_emu_type == rawBased)
+    // Update disks
+    std::vector<diskDescriptor> disks, removableDisks, disks_tmp;
+    GetDisks(&disks);
+    for (diskDescriptor disk : disks)
     {
-        std::vector<diskDescriptor> disks, removableDisks, disks_tmp;
-        GetDisks(&disks);
-        for (diskDescriptor disk : disks)
-        {
-            if(disk.removableMedia)
-                removableDisks.push_back(disk);
-        }
-        disks_tmp = m_disks;
-        if (disks_tmp.size() && (removableDisks.size() != disks_tmp.size() || !std::equal(disks_tmp.begin(), disks_tmp.end(), removableDisks.begin())))
-           listDisks();
+        if(disk.removableMedia)
+            removableDisks.push_back(disk);
     }
-    else
+    disks_tmp = m_disks;
+    if (disks_tmp.size() && (removableDisks.size() != disks_tmp.size() || !std::equal(disks_tmp.begin(), disks_tmp.end(), removableDisks.begin())))
     {
-        std::vector<volumeDescriptor> volumes, removableVolumes, volumes_tmp;
-        GetVolumes(&volumes);
-        for (volumeDescriptor volume : volumes)
-        {
-            if (volume.removableMedia)
-                removableVolumes.push_back(volume);
-        }
-        volumes_tmp = m_volumes;
-        if (volumes_tmp.size() && (removableVolumes.size() != volumes_tmp.size() || !std::equal(volumes_tmp.begin(), volumes_tmp.end(), removableVolumes.begin())))
-            listVolumes();
+       m_disks = removableDisks;
+       if (m_emu_type == rawBased) updateDisksList();
     }
-}
 
-void Emunand::listVolumes()
+    // Update volumes
+    std::vector<volumeDescriptor> volumes, removableVolumes, volumes_tmp;
+    GetVolumes(&volumes);
+    for (volumeDescriptor volume : volumes)
+    {
+        if (volume.removableMedia)
+            removableVolumes.push_back(volume);
+    }
+    volumes_tmp = m_volumes;
+    if (volumes_tmp.size() && (removableVolumes.size() != volumes_tmp.size() || !std::equal(volumes_tmp.begin(), volumes_tmp.end(), removableVolumes.begin())))
+    {
+        m_volumes = removableVolumes;
+        if (m_emu_type != rawBased) updateVolumesList();
+    }
+
+}
+void Emunand::updateVolumesList()
 {
+    // Get selected volume
     volumeDescriptor *selected_vol = nullptr;
     if(ui->driveList->selectedItems().count())
     {
@@ -86,20 +92,17 @@ void Emunand::listVolumes()
     }
 
     ui->driveList->clear();
-    std::vector<volumeDescriptor> v_volumes;
-    m_volumes.clear();
-    GetVolumes(&v_volumes);
+    // Copy volumes
+    std::vector<volumeDescriptor> v_volumes = m_volumes;
+
+    // Add WidgetItems to driveList
     for (volumeDescriptor vol : v_volumes)
     {
-        if(!vol.removableMedia)
-            continue;
-
         QString drivename;
         if(vol.mountPt.length())
             drivename.append(QString::fromWCharArray(vol.mountPt.c_str()).toUpper() + ":\\ - ");
 
-        if(vol.vId.length())
-            drivename.append(QString::fromStdString(vol.vId) + " ");
+        if(vol.vId.length()) drivename.append(QString::fromStdString(vol.vId) + " ");
         drivename.append(QString::fromStdString(vol.pId));
         drivename.append(" (" + QString::fromStdString(GetReadableSize(vol.size)) + ")");
 
@@ -107,14 +110,12 @@ void Emunand::listVolumes()
         if (nullptr != selected_vol && vol == *selected_vol)
             item->setSelected(true);
         ui->driveList->insertItem(ui->driveList->count(), item);
-        m_volumes.push_back(vol);
     }
-
-
 }
 
-void Emunand::listDisks()
+void Emunand::updateDisksList()
 {
+    // Get selected disk
     diskDescriptor *selected_disk = nullptr;
     if(ui->driveList->selectedItems().count())
     {
@@ -129,20 +130,17 @@ void Emunand::listDisks()
     }
 
     ui->driveList->clear();
-    std::vector<diskDescriptor> disks;
-    m_disks.clear();
-    GetDisks(&disks);
+    // Copy disks
+    std::vector<diskDescriptor> v_disks = m_disks;
 
-    for (diskDescriptor disk : disks)
+    // Add WidgetItems to driveList
+    for (diskDescriptor disk : v_disks)
     {
-        if(!disk.removableMedia)
-            continue;
-
         QString drivename;
-        if(disk.vId.length())
-            drivename.append(QString::fromStdString(disk.vId) + " ");
+        if(disk.vId.length()) drivename.append(QString::fromStdString(disk.vId) + " ");
         drivename.append(QString::fromStdString(disk.pId));
         drivename.append(" (" + QString::fromStdString(GetReadableSize(disk.size)) + ")");
+
         if(disk.volumes.size())
         {
             int count = 0;
@@ -162,8 +160,8 @@ void Emunand::listDisks()
         QListWidgetItem *item = new QListWidgetItem(drivename);
         if (nullptr != selected_disk && disk == *selected_disk)
             item->setSelected(true);
+
         ui->driveList->insertItem(ui->driveList->count(), item);
-        m_disks.push_back(disk);
     }
 }
 
@@ -211,7 +209,7 @@ void Emunand::on_emunandType_toggled(int type)
                 "emuNAND will be compatible with both Atmosphere and SX OS."
             );
             ui->driveListBox->setTitle("Select target disk:");
-            listDisks();
+            updateDisksList();
             m_driveList_type = DISK;
             m_emu_type = rawBased;
             break;
@@ -225,7 +223,7 @@ void Emunand::on_emunandType_toggled(int type)
                 "Atmosphere CFW on target volume."
             );
             ui->driveListBox->setTitle("Select target volume:");
-            listVolumes();
+            updateVolumesList();
             m_driveList_type = VOLUME;
             m_emu_type = fileBasedAMS;
             break;
@@ -239,7 +237,7 @@ void Emunand::on_emunandType_toggled(int type)
                 "SX OS CFW on target volume."
             );
             ui->driveListBox->setTitle("Select target volume:");
-            listVolumes();
+            updateVolumesList();
             m_driveList_type = VOLUME;
             m_emu_type = fileBasedSXOS;
             break;

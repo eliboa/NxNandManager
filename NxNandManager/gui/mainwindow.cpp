@@ -775,7 +775,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     }
 
     // Format partition action
-    if (is_in(selected_part->type(), {SYSTEM, USER}))
+    if (selected_part->type() == USER)
     {
         const QIcon icon = QIcon::fromTheme("document-open", QIcon(":/images/format.png"));
         QAction* incoAction = new QAction(icon, "Format partition (FAT32)");
@@ -820,17 +820,17 @@ void MainWindow::resizeUser(QString file, int new_size, bool format)
     //workThread = new Worker(this, input, file, new_size, format);
     //startWorkThread();
 }
-
+/*
 void MainWindow::openExplorer()
 {
-    /*
+
     ExplorerDialog = new Explorer(this, selected_part);
     ExplorerDialog->setWindowTitle("Explorer");
     ExplorerDialog->show();
     ExplorerDialog->exec();
-    */
-}
 
+}
+*/
 void MainWindow::error(int err, QString label)
 {
 	if(err != ERR_WORK_RUNNING)

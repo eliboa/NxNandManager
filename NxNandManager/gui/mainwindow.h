@@ -34,6 +34,7 @@
 #include "resizeuser.h"
 #include "emunand.h"
 #include "dump.h"
+//#include "explorer.h"
 
 QT_BEGIN_NAMESPACE
 class QAction;
@@ -118,7 +119,7 @@ public slots:
 	void inputSet(NxStorage *storage = nullptr);
 	void driveSet(QString);
     void resizeUser(QString file, int new_size, bool format);
-    void openExplorer();
+    //void openExplorer();
     void keySetSet();
 	void error(int err, QString label = nullptr);
 

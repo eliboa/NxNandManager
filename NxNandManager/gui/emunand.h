@@ -51,11 +51,10 @@ private:
     EmunandType m_emu_type;
     bool stop_timer = false;
 
-    void listVolumes();
-    void listDisks();
     void on_emunandType_toggled(int type);
     void error(QString err);
-
+    void updateVolumesList();
+    void updateDisksList();
 
 signals:
     void finished();
