@@ -28,6 +28,7 @@ Emunand::Emunand(QWidget *parent, NxStorage *input) :
 
     connect(this, SIGNAL(finished(WorkParam_t)), parent, SLOT(startWorkThread(WorkParam_t)));
 
+    timer1000();
     QTimer *timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(timer1000()));
     timer->start(1000);
@@ -53,10 +54,10 @@ void Emunand::timer1000()
             removableDisks.push_back(disk);
     }
     disks_tmp = m_disks;
-    if (disks_tmp.size() && (removableDisks.size() != disks_tmp.size() || !std::equal(disks_tmp.begin(), disks_tmp.end(), removableDisks.begin())))
+    if (removableDisks.size() != disks_tmp.size() || (disks_tmp.size() && !std::equal(disks_tmp.begin(), disks_tmp.end(), removableDisks.begin())))
     {
        m_disks = removableDisks;
-       if (m_emu_type == rawBased) updateDisksList();
+       if (m_driveList_type == DISK) updateDisksList();
     }
 
     // Update volumes
@@ -68,35 +69,41 @@ void Emunand::timer1000()
             removableVolumes.push_back(volume);
     }
     volumes_tmp = m_volumes;
-    if (volumes_tmp.size() && (removableVolumes.size() != volumes_tmp.size() || !std::equal(volumes_tmp.begin(), volumes_tmp.end(), removableVolumes.begin())))
+    if (removableVolumes.size() != volumes_tmp.size() || (volumes_tmp.size() && !std::equal(volumes_tmp.begin(), volumes_tmp.end(), removableVolumes.begin())))
     {
         m_volumes = removableVolumes;
-        if (m_emu_type != rawBased) updateVolumesList();
+        if (m_driveList_type == VOLUME) updateVolumesList();
     }
 
 }
+
 void Emunand::updateVolumesList()
 {
+    stop_timer = true;
+
     // Get selected volume
-    volumeDescriptor *selected_vol = nullptr;
-    if(ui->driveList->selectedItems().count())
+    BOOL isSelected = false;
+    std::wstring selected_vol;
+    if(ui->driveList->selectedItems().count() && m_driveList_type == VOLUME)
     {
         QListWidgetItem *item = ui->driveList->selectedItems().at(0);
-        int selected = 0;
+        int selected = -1;
         for(int i(0); i < ui->driveList->count(); i++)
         {
             if(ui->driveList->item(i) == item)
                 selected = i;
+        }       
+        if(selected > -1 && l_volumes.size())
+        {
+            selected_vol.append(l_volumes.at(selected).volumeName);
+            isSelected = true;
         }
-        selected_vol = &m_volumes.at(selected);
     }
 
     ui->driveList->clear();
-    // Copy volumes
-    std::vector<volumeDescriptor> v_volumes = m_volumes;
 
     // Add WidgetItems to driveList
-    for (volumeDescriptor vol : v_volumes)
+    for (volumeDescriptor vol : m_volumes)
     {
         QString drivename;
         if(vol.mountPt.length())
@@ -107,34 +114,43 @@ void Emunand::updateVolumesList()
         drivename.append(" (" + QString::fromStdString(GetReadableSize(vol.size)) + ")");
 
         QListWidgetItem *item = new QListWidgetItem(drivename);
-        if (nullptr != selected_vol && vol == *selected_vol)
-            item->setSelected(true);
         ui->driveList->insertItem(ui->driveList->count(), item);
+
+        if (isSelected && vol.volumeName == selected_vol)
+            ui->driveList->setCurrentItem(item);
     }
+
+    // Save disks
+    l_volumes = m_volumes;
+    stop_timer = false;
 }
 
 void Emunand::updateDisksList()
 {
+    stop_timer = true;
     // Get selected disk
-    diskDescriptor *selected_disk = nullptr;
-    if(ui->driveList->selectedItems().count())
+    DWORD selected_disk;
+    BOOL isSelected = false;
+    if(ui->driveList->selectedItems().count() && m_driveList_type == DISK)
     {
         QListWidgetItem *item = ui->driveList->selectedItems().at(0);
-        int selected = 0;
+        int selected = -1;
         for(int i(0); i < ui->driveList->count(); i++)
         {
             if(ui->driveList->item(i) == item)
                 selected = i;
         }
-        selected_disk = &m_disks.at(selected);
+        if(selected > -1 && l_disks.size())
+        {
+            selected_disk = l_disks.at(selected).diskNumber;
+            isSelected = true;
+        }
     }
 
     ui->driveList->clear();
-    // Copy disks
-    std::vector<diskDescriptor> v_disks = m_disks;
 
     // Add WidgetItems to driveList
-    for (diskDescriptor disk : v_disks)
+    for (diskDescriptor disk : m_disks)
     {
         QString drivename;
         if(disk.vId.length()) drivename.append(QString::fromStdString(disk.vId) + " ");
@@ -157,12 +173,16 @@ void Emunand::updateDisksList()
                 drivename.append(" [" + letters + "]");
         }
 
-        QListWidgetItem *item = new QListWidgetItem(drivename);
-        if (nullptr != selected_disk && disk == *selected_disk)
-            item->setSelected(true);
-
+        QListWidgetItem *item = new QListWidgetItem(drivename);        
         ui->driveList->insertItem(ui->driveList->count(), item);
+
+        if (isSelected && disk.diskNumber == selected_disk)
+            ui->driveList->setCurrentItem(item);
     }
+
+    // Save disks
+    l_disks = m_disks;
+    stop_timer = false;
 }
 
 void Emunand::on_boo0_pushBtn_clicked()
@@ -219,7 +239,7 @@ void Emunand::on_emunandType_toggled(int type)
             if(ui->emunandType_PartitionChkBox->isChecked()) ui->emunandType_PartitionChkBox->setChecked(false);
             if(!ui->emunandType_SDFileAMSChkBox->isChecked()) ui->emunandType_SDFileAMSChkBox->setChecked(true);
             ui->emunandType_lbl->setText(
-                "This will create a file based emuNAND and needed files for\n"
+                "This will create file based emuNAND and needed files for\n"
                 "Atmosphere CFW on target volume."
             );
             ui->driveListBox->setTitle("Select target volume:");
@@ -233,7 +253,7 @@ void Emunand::on_emunandType_toggled(int type)
             if(ui->emunandType_PartitionChkBox->isChecked()) ui->emunandType_PartitionChkBox->setChecked(false);
             if(!ui->emunandType_SDFileSXChkBox->isChecked()) ui->emunandType_SDFileSXChkBox->setChecked(true);
             ui->emunandType_lbl->setText(
-                "This will create a file based emuNAND and needed files for\n"
+                "This will create file based emuNAND and needed files for\n"
                 "SX OS CFW on target volume."
             );
             ui->driveListBox->setTitle("Select target volume:");
@@ -259,7 +279,7 @@ void Emunand::on_emunandType_toggled(int type)
                         "text-align: center;"
                         "background: #eeeeee;}");
     ui->outBar->setStyleSheet(st);
-
+    on_driveList_itemSelectionChanged();
 }
 
 void Emunand::on_emunandType_PartitionChkBox_clicked()

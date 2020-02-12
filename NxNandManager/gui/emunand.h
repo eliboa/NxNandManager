@@ -46,6 +46,8 @@ private:
     NxStorage *input = nullptr;
     std::vector<volumeDescriptor> m_volumes;
     std::vector<diskDescriptor> m_disks;
+    std::vector<volumeDescriptor> l_volumes;
+    std::vector<diskDescriptor> l_disks;
     int m_driveList_type = 0;
     params_t m_par;
     EmunandType m_emu_type;
