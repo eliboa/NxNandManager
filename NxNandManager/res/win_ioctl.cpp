@@ -159,7 +159,7 @@ void GetDisks(std::vector<diskDescriptor> *disks)
 
 bool operator == (diskDescriptor a, diskDescriptor b)
 {
-    if (a.vId == b.vId && a.pId == b.pId)
+    if (a.serialNumber == b.serialNumber)
         return true;
     else
         return false;
@@ -167,7 +167,7 @@ bool operator == (diskDescriptor a, diskDescriptor b)
 
 bool operator == (const volumeDescriptor a, const volumeDescriptor b)
 {
-    if (a.vId == b.vId && a.pId == b.pId)
+    if (a.volumeName == b.volumeName)
         return true;
     else
         return false;
@@ -202,6 +202,7 @@ bool DisMountVolume(volumeDescriptor vd)
 
     return result;
 }
+
 bool DisMountAllVolumes(diskDescriptor dd)
 {
     bool result = true;
