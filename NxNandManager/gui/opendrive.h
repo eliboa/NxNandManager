@@ -50,7 +50,7 @@ public slots:
     void list_callback(QString);
 
 private:
-
+    std::vector<diskDescriptor> m_disks;
 
 signals:
     void finished(QString);

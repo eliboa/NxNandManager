@@ -32,6 +32,38 @@ OpenDrive::OpenDrive(QWidget *parent) :
 
     Worker* workThread = new Worker(this, WorkerMode::list_storage);
     workThread->start();
+
+    GetDisks(&m_disks);
+
+    ui->treeWidget->setColumnHidden(2, true);
+    ui->treeWidget->setColumnWidth(0, 180);
+    QTreeWidgetItem *topLevelItem = new QTreeWidgetItem(ui->treeWidget);
+    ui->treeWidget->addTopLevelItem(topLevelItem);
+    topLevelItem->setText(0,"Drives");
+
+    for (diskDescriptor disk : m_disks)
+    {
+        QTreeWidgetItem *item = new QTreeWidgetItem(topLevelItem);
+        item->setText(0, QString::fromStdString(disk.pId) + QString::fromStdString(disk.vId));
+        item->setText(1, QString::fromStdString(GetReadableSize(disk.size)));
+        item->setText(2, QString::number(disk.diskNumber));
+
+        for (volumeDescriptor vol : disk.volumes)
+        {
+            QTreeWidgetItem *child = new QTreeWidgetItem(item);
+
+            QString label;
+            if (vol.mountPt.size())
+                label.append(QString::fromStdWString(vol.mountPt).toUpper() + ":");
+            else
+                label.append(QString::fromStdWString(vol.volumeName));
+
+            child->setText(0, label);
+            child->setText(1, QString::fromStdString(GetReadableSize(vol.volumeTotalBytes)));
+            child->setText(2, QString::fromStdWString(vol.volumeName));
+        }
+    }
+    ui->treeWidget->expandAll();
 }
 
 OpenDrive::~OpenDrive()
