@@ -685,6 +685,11 @@ void MainWindow::on_partition_table_itemSelectionChanged()
         ui->properties_table->insertRow(index);
         ui->properties_table->setItem(index, 0, new QTableWidgetItem("AutoRCM:"));
         ui->properties_table->setItem(index, 1, new QTableWidgetItem(input->autoRcm ? "Enabled" : "Disabled"));
+
+        index = ui->properties_table->rowCount();
+        ui->properties_table->insertRow(index);
+        ui->properties_table->setItem(index, 0, new QTableWidgetItem("Bootloader ver.:"));
+        ui->properties_table->setItem(index, 1, new QTableWidgetItem(QString::number(input->bootloader_ver)));
     }
 
     ui->properties_table->resizeColumnsToContents();

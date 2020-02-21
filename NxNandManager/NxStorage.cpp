@@ -518,14 +518,15 @@ NxStorage::NxStorage(const char *p_path)
             autoRcm = buff[0x10] != 0xF7 ? true : false;
         
         // Get bootloader version
-        if (nxHandle->read((u64)0x2200, buff, &bytesRead, NX_BLOCKSIZE))
-            memcpy(&bootloader_ver, &buff[0x130], sizeof(unsigned char));
+        //if (nxHandle->read((u64)0x2200, buff, &bytesRead, NX_BLOCKSIZE))
+        //    memcpy(&bootloader_ver, &buff[0x130], sizeof(unsigned char));
 
         // Read package1loader header (copied from Atmosphere/fusee/fusee-secondary/src/nxboot.c)
         if (nxHandle->read((u64)0x100000, buff, &bytesRead, NX_BLOCKSIZE))
         {
-            package1ldr_header_t pk1ldr;
+            package1ldr_header_t pk1ldr;            
             memcpy(&pk1ldr, &buff[0], 0x20);            
+            bootloader_ver = pk1ldr.version;
             switch (pk1ldr.version) {
                 case 0x01:          /* 1.0.0 */
                     firmware_version_boot0.major = 1;

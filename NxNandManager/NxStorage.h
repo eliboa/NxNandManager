@@ -158,7 +158,8 @@ class NxStorage
         s8 serial_number[18];
         s8 deviceId[21];
         std::string macAddress;
-        unsigned char bootloader_ver = 0;
+        //unsigned char bootloader_ver = 0;
+        int bootloader_ver = 0;
         bool autoRcm = false;
         bool exFat_driver = false;
         NxKeys keys;
