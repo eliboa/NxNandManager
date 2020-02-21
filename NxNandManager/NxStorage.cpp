@@ -2570,6 +2570,8 @@ int NxStorage::fwv_cmp(firmware_version_t fwv1, firmware_version_t fwv2)
     return 0;
 }
 
+bool NxStorage::isSplitted() { return this->nxHandle != nullptr ? this->nxHandle->isSplitted() : false; }
+
 std::string BuildChecksum(HCRYPTHASH hHash)
 {
     std::string md5hash;

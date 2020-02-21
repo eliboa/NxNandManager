@@ -115,6 +115,7 @@ void GetVolumes(std::vector<volumeDescriptor> *volumes)
         volumeDescriptor vd;
         if (GetVolumeDescriptor(&vd, VolumeName))
             volumes->push_back(vd);
+
     } while (FindNextVolumeW(hVol, VolumeName, ARRAYSIZE(VolumeName)));
     FindVolumeClose(hVol);
     if (hHandle != INVALID_HANDLE_VALUE) CloseHandle(hHandle);

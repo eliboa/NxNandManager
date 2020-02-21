@@ -175,7 +175,7 @@ class NxStorage
         u64 backupGPT() { return m_backupGPT; }
         u64 size() { return m_size; }
         bool isCryptoSet() { return m_keySet_set; }
-        bool isSplitted() { return b_isSplitted; }
+        bool isSplitted();
         bool isEncrypted();
         bool isDrive();
         bool badCrypto();

@@ -472,6 +472,8 @@ void MainWindow::inputSet(NxStorage *storage)
         path.resize(50);
         path.append("...");
     }
+    if (input->isSplitted())
+        path.append(" (+" + QString::number(input->nxHandle->getSplitCount() - 1) + ")");
 
     ui->filedisk_value->setText(path);
     ui->nxtype_value->setText(input->getNxTypeAsStr());
@@ -563,7 +565,7 @@ void MainWindow::inputSet(NxStorage *storage)
     if(input->firmware_version.major > 0)
     {
         QString version = QString::number(input->firmware_version.major) + "." + QString::number(input->firmware_version.minor);
-        if (input->firmware_version.micro)
+        if (input->firmware_version.micro > 0)
             version.append("." + QString::number(input->firmware_version.micro));
 
         ui->fwversion_value->setText(version);
