@@ -1463,13 +1463,23 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
     }
 
     // NAND restore
-    if (input->type != this->type)
+    bool partial_restore = false;
+    if (is_in(input->type, {RAWNAND, RAWMMC}) && is_in(this->type, {RAWNAND, RAWMMC}) && input->type != this->type)
+        partial_restore = true;
+
+    else if (input->type != this->type)
         return ERR_NX_TYPE_MISSMATCH;
 
     if (par.crypto_mode == DECRYPT || par.crypto_mode == ENCRYPT)
         return ERR_CRYPTO_RAW_COPY;
 
-    if (input->size() != size()) // Alow restore overflow if freeSpace is available
+    u64 in_skip = partial_restore && input->type == RAWMMC ? input->getNxPartition(BOOT0)->size() + input->getNxPartition(BOOT1)->size() : 0;
+    u64 out_skip = partial_restore && this->type == RAWMMC ? this->getNxPartition(BOOT0)->size() + this->getNxPartition(BOOT1)->size() : 0;
+    u64 in_size = input->size() - in_skip;
+    u64 out_size = this->size() - out_skip;
+
+
+    if (in_size != out_size) // Alow restore overflow if freeSpace is available ?
         return ERR_IO_MISMATCH;
 
     if (input->isEncrypted() && !isEncrypted())
@@ -1482,7 +1492,7 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
     DWORD bytesCount = 0, bytesWrite = 0;
     bool sendProgress = nullptr != updateProgress ? true : false;
     pi.bytesCount = 0;
-    pi.bytesTotal = input->size();
+    pi.bytesTotal = in_size;
     if (sendProgress)
     {
         pi.mode = RESTORE;
@@ -1517,7 +1527,7 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
     };
 
     // Restore BOOT partitions
-    if(type == RAWMMC)
+    if(type == RAWMMC && !partial_restore)
     {
         NxPartition *boot0 = getNxPartition(BOOT0);
         NxPartition *boot1 = getNxPartition(BOOT1);
@@ -1542,13 +1552,13 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
 
     // UserDataRoot (GPT header)
     input->nxHandle->initHandle(par.crypto_mode);
-    input->nxHandle->setPointer(pi.bytesCount);
+    input->nxHandle->setPointer(pi.bytesCount + in_skip);
     if(!input->nxHandle->read(buffer, &bytesCount, 0x4400))
         return error(ERR_WHILE_COPY);
 
     // Write UserDataRoot
     this->nxHandle->initHandle(NO_CRYPTO);
-    this->nxHandle->setPointer(pi.bytesCount);
+    this->nxHandle->setPointer(pi.bytesCount + out_skip);
     if(!nxHandle->write(buffer, &bytesCount, 0x4400))
         return error(ERR_WHILE_COPY);
 
@@ -1592,11 +1602,11 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
 
     }
 
-    // Last sectors
-    input->nxHandle->setPointer(pi.bytesCount);
+    // Last sectors    
     input->nxHandle->initHandle(par.crypto_mode);
+    input->nxHandle->setPointer(pi.bytesCount + in_skip);
     this->nxHandle->initHandle(NO_CRYPTO);
-    this->nxHandle->setPointer(pi.bytesCount);
+    this->nxHandle->setPointer(pi.bytesCount + out_skip);
     while(pi.bytesCount < pi.bytesTotal)
     {
         if (!input->nxHandle->read(buffer, &bytesCount, DEFAULT_BUFF_SIZE))

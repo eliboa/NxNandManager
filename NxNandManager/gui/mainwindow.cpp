@@ -169,6 +169,12 @@ void MainWindow::openKeySet()
 
 void MainWindow::openResizeDialog()
 {
+    if (input->isEncrypted() && (!input->isCryptoSet() || input->badCrypto()))
+    {
+        QMessageBox::critical(nullptr,"Error", "Keys missing or invalid (use CTRL+K to set keys)");
+        return;
+    }
+
     ResizeUserDialog = new ResizeUser(this, input);
     ResizeUserDialog->setWindowTitle("Resize USER");
     ResizeUserDialog->show();
@@ -877,15 +883,15 @@ void MainWindow::on_fullrestore_button_clicked()
         error(ERR_IN_PART_NOT_FOUND);
         return;
     }
-
+    /*
     if(!input->isSinglePartType() && ( selected_io->type != input->type ||  selected_io->size() > input->size()))
     {
         error(ERR_IO_MISMATCH);
         return;
     }
-
+    */
     QString message;
-    message.append("You are about to restore an existing " + QString(input->isDrive() ? "drive" : "file") + "\nAre you sure you want to continue ?");
+    message.append("You are about to restore to an existing " + QString(input->isDrive() ? "drive" : "file") + "\nAre you sure you want to continue ?");
     if(QMessageBox::question(this, "Warning", message, QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
         return;
 

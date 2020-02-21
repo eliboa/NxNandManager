@@ -104,6 +104,7 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_RESTORE_TO_SPLIT, "Restore to splitted dump is not supported"},
 	{ ERR_WHILE_COPY, "An error occured during copy"},
 	{ ERR_IO_MISMATCH, "Input type/size doesn't match output size/type"},
+    { ERR_NX_TYPE_MISSMATCH, "Input type doesn't match output type"},
 	{ ERR_INVALID_INPUT, "Input is not a valid NX storage"},
     { ERR_INVALID_NAND, "Input is missing or is not a valid NAND (FULL NAND or RAWNAND"},
     { ERR_INVALID_BOOT0, "BOOT0 is missing or is not valid"},
