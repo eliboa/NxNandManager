@@ -40,14 +40,8 @@ public:
     ~OpenDrive();
     Ui::DialogOpenDrive *ui;
 
-    void ListDrives(QString drives);
-    void ShowLabel();
-
 private slots:
-    void on_listWidget_itemDoubleClicked(QListWidgetItem *item);
-
-public slots:
-    void list_callback(QString);
+    void on_treeWidget_itemDoubleClicked(QTreeWidgetItem *item, int column);
 
 private:
     std::vector<diskDescriptor> m_disks;

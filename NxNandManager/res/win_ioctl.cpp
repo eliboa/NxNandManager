@@ -81,12 +81,18 @@ bool GetVolumeDescriptor(volumeDescriptor* vd, LPWSTR VolumeName)
         vd->size = gli.Length.QuadPart;
     }
 
+
+
     DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
     if(GetDiskFreeSpace(VolumeName, &dwSectPerClust, &dwBytesPerSect, &dwFreeClusters, &dwTotalClusters))
     {
         vd->volumeTotalBytes = (u64)dwTotalClusters * dwSectPerClust * dwBytesPerSect;
         vd->volumeFreeBytes = (u64)dwFreeClusters * dwSectPerClust * dwBytesPerSect;
     }
+
+    if (!vd->volumeTotalBytes)
+        vd->volumeTotalBytes = pDiskExtent->ExtentLength.QuadPart;
+
     return true;
 }
 

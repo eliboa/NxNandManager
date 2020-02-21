@@ -6,32 +6,19 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>329</width>
-    <height>307</height>
+    <width>442</width>
+    <height>210</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <widget class="QListWidget" name="listWidget">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>331</width>
-     <height>101</height>
-    </rect>
-   </property>
-   <property name="editTriggers">
-    <set>QAbstractItemView::AnyKeyPressed|QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed</set>
-   </property>
-  </widget>
   <widget class="QLabel" name="label">
    <property name="geometry">
     <rect>
      <x>6</x>
-     <y>30</y>
-     <width>321</width>
+     <y>70</y>
+     <width>421</width>
      <height>41</height>
     </rect>
    </property>
@@ -91,9 +78,9 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>110</y>
-     <width>311</width>
-     <height>192</height>
+     <y>10</y>
+     <width>421</width>
+     <height>191</height>
     </rect>
    </property>
    <property name="autoExpandDelay">
@@ -127,6 +114,8 @@
     </property>
    </column>
   </widget>
+  <zorder>treeWidget</zorder>
+  <zorder>label</zorder>
  </widget>
  <resources/>
  <connections/>

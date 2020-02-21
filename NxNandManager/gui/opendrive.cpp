@@ -24,29 +24,26 @@ OpenDrive::OpenDrive(QWidget *parent) :
     ui->setupUi(this);
     connect(this, SIGNAL(finished(QString)), parent, SLOT(driveSet(QString)));
 
-    ui->listWidget->setEnabled(false);
-    ui->listWidget->hide();
+    ui->treeWidget->setEnabled(false);
+    ui->treeWidget->hide();
     ui->label->setEnabled(true);
     ui->label->show();
-    setWindowTitle("Physical drives");
-
-    Worker* workThread = new Worker(this, WorkerMode::list_storage);
-    workThread->start();
+    setWindowTitle("Drives");
 
     GetDisks(&m_disks);
 
     ui->treeWidget->setColumnHidden(2, true);
-    ui->treeWidget->setColumnWidth(0, 180);
+    ui->treeWidget->setColumnWidth(0, 280);
     QTreeWidgetItem *topLevelItem = new QTreeWidgetItem(ui->treeWidget);
     ui->treeWidget->addTopLevelItem(topLevelItem);
-    topLevelItem->setText(0,"Drives");
+    topLevelItem->setText(0,"Drives & volumes");
 
     for (diskDescriptor disk : m_disks)
     {
         QTreeWidgetItem *item = new QTreeWidgetItem(topLevelItem);
         item->setText(0, QString::fromStdString(disk.pId) + QString::fromStdString(disk.vId));
         item->setText(1, QString::fromStdString(GetReadableSize(disk.size)));
-        item->setText(2, QString::number(disk.diskNumber));
+        item->setText(2, "\\\\.\\PhysicalDrive" + QString::number(disk.diskNumber));
 
         for (volumeDescriptor vol : disk.volumes)
         {
@@ -64,49 +61,28 @@ OpenDrive::OpenDrive(QWidget *parent) :
         }
     }
     ui->treeWidget->expandAll();
+
+    keyEnterReceiver* key = new keyEnterReceiver();
+        this->installEventFilter(key);
+
+    ui->treeWidget->setEnabled(true);
+    ui->treeWidget->show();
+    ui->label->setEnabled(false);
+    ui->label->hide();
 }
 
 OpenDrive::~OpenDrive()
 {
     delete ui;
 }
-void OpenDrive::ShowLabel()
-{
-    ui->listWidget->setEnabled(false);
-    ui->listWidget->hide();
-    ui->label->setEnabled(true);
-    ui->label->show();
-}
-void OpenDrive::ListDrives(QString drives)
-{
-    //QString drives = QString(ListPhysicalDrives().c_str());
-    ui->label->setEnabled(false);
-    ui->label->hide();
-    ui->listWidget->setEnabled(true);
-    ui->listWidget->show();
-    QString drivename;
-    int li = 0;
-    for (int i = 0; i < drives.count(); ++i)
-    {
-        if(drives[i] == '\n' && drives.count() > 0)
-        {
-            drivename = drivename.toUpper();
-            QListWidgetItem *item = new QListWidgetItem(drivename);
-            ui->listWidget->insertItem(li, item);
-            drivename.clear();
-            ui->listWidget->setCurrentItem(item);
-            li++;
-        } else {
-            drivename += drives[i];
-        }
-    }
-    keyEnterReceiver* key = new keyEnterReceiver();
-    this->installEventFilter(key);    
-}
 
-void OpenDrive::on_listWidget_itemDoubleClicked(QListWidgetItem *item)
-{    
-    emit finished(item->text().left(item->text().indexOf(" ")));
+
+void OpenDrive::on_treeWidget_itemDoubleClicked(QTreeWidgetItem *item, int column)
+{
+    if (!item->text(2).length())
+        return;
+
+    emit finished(item->text(2));
     close();
 }
 
@@ -116,26 +92,16 @@ bool keyEnterReceiver::eventFilter(QObject* obj, QEvent* event)
         QKeyEvent* key = static_cast<QKeyEvent*>(event);
         if ( (key->key()==Qt::Key_Enter) || (key->key()==Qt::Key_Return) ) {
             OpenDrive *parent = (OpenDrive *) obj;
-            if(parent->ui->listWidget->selectedItems().count() > 0)
+            if (parent->ui->treeWidget->selectedItems().first()->text(2).length())
             {
-                QString item = parent->ui->listWidget->selectedItems().first()->text();
-                emit parent->finished(item.left(item.indexOf(" ")));
+                emit parent->finished(parent->ui->treeWidget->selectedItems().first()->text(2));
                 parent->close();
             }
-
-        } else {
-            return QObject::eventFilter(obj, event);
-        }
+        } else return QObject::eventFilter(obj, event);
         return true;
-    } else {
-        return QObject::eventFilter(obj, event);
-    }
-    return false;
+    } else return QObject::eventFilter(obj, event);
 }
 
-void OpenDrive::list_callback(QString drives)
-{
-    ListDrives(drives);
-}
+
 
 
