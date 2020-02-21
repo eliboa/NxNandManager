@@ -1159,6 +1159,8 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
     {
         NxPartition *user = getNxPartition(USER);
         nxHandle->initHandle(user->isEncryptedPartition() ? DECRYPT : NO_CRYPTO, user);
+
+        u32 old_fat_size_in_cluster = fat32::getFatSize(user->lbaEnd() - user->lbaStart() + 1) / 32;
         u32 fat_size = fat32::getFatSize(par.user_new_size);
         u32 fat_size_in_cluster = fat_size / 32;
         u32 user_size_in_cluster = par.user_new_size / 32;
@@ -1198,8 +1200,35 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         // For each FAT
         for (int x(0); x < 2; x++)
         {
-            // For each cluster in FAT
-            for (u32 i(0); i < fat_size_in_cluster; i++)
+            u32 cur_fat_cluster = 0;
+            if (!par.format_user)
+            {
+                // For each cluster in input FAT
+                for (u32 i(0); i < old_fat_size_in_cluster; i++)
+                {
+                    // Read
+                    if (!nxHandle->read(s_buffer, &bytesCount, CLUSTER_SIZE))
+                        return error(ERR_WHILE_COPY);
+
+                    if (i < fat_size_in_cluster)
+                    {
+                        // Encrypt
+                        user->crypto()->encrypt(s_buffer, cur_cluster_num++);
+
+                        // Write cluster
+                        if (!outHandle->write(s_buffer, &bytesWrite, CLUSTER_SIZE))
+                            return error(ERR_WHILE_COPY);
+
+                        spi.bytesCount += bytesWrite;
+                        if (sendProgress) updateProgress(spi);
+
+                        cur_fat_cluster++;
+                    }
+                }
+            }
+
+            // Fill output FAT with more clusters if needed
+            for (u32 i = cur_fat_cluster; i < fat_size_in_cluster; i++)
             {
                 memset(s_buffer, 0, CLUSTER_SIZE);
                 // Write first 3 FAT entries (each entry is 4 bytes long)
@@ -1209,9 +1238,10 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
                     memcpy(s_buffer, first_entries, ARRAYSIZE(first_entries));
                 }
 
-                if (user->isEncryptedPartition())
-                    user->crypto()->encrypt(s_buffer, cur_cluster_num++);
+                // Encrypt
+                user->crypto()->encrypt(s_buffer, cur_cluster_num++);
 
+                // Write cluster
                 if (!outHandle->write(s_buffer, &bytesWrite, CLUSTER_SIZE))
                     return error(ERR_WHILE_COPY);
 
@@ -1220,21 +1250,34 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
             }
         }
 
-        // Encrypt & write empty root cluster
-        memset(s_buffer, 0, CLUSTER_SIZE);
-        if (user->isEncryptedPartition())
-            user->crypto()->encrypt(s_buffer, cur_cluster_num++);
+        u32 data_clusters_to_copy = !par.format_user ? user->freeSpace / CLUSTER_SIZE - user->freeSpaceRaw / CLUSTER_SIZE : 0;
 
+        // Encrypt & write root cluster
+        if (data_clusters_to_copy && !nxHandle->read(s_buffer, &bytesCount, CLUSTER_SIZE))
+            return error(ERR_WHILE_COPY);
+        else memset(s_buffer, 0, CLUSTER_SIZE);
+
+        user->crypto()->encrypt(s_buffer, cur_cluster_num++);
         if (!outHandle->write(s_buffer, &bytesWrite, CLUSTER_SIZE))
             return error(ERR_WHILE_COPY);
 
         spi.bytesCount += bytesWrite;
         if (sendProgress) updateProgress(spi);
 
-        // Write empty data clusters (encryption is not needed)
+        // Write data clusters (encryption is not needed for empty clusters)
+        if (data_clusters_to_copy) data_clusters_to_copy--;
         memset(s_buffer, 0, CLUSTER_SIZE);
         while (cur_cluster_num < user_size_in_cluster)
         {
+            if (data_clusters_to_copy)
+            {
+                if (!nxHandle->read(s_buffer, &bytesCount, CLUSTER_SIZE))
+                    return error(ERR_WHILE_COPY);
+
+                data_clusters_to_copy--;
+            }
+            else memset(s_buffer, 0, CLUSTER_SIZE);
+
             if (!outHandle->write(s_buffer, &bytesWrite, CLUSTER_SIZE))
                 return error(ERR_WHILE_COPY);
 
