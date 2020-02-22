@@ -23,25 +23,46 @@ OpenDrive::OpenDrive(QWidget *parent) :
 {
     ui->setupUi(this);
     connect(this, SIGNAL(finished(QString)), parent, SLOT(driveSet(QString)));
-
-    ui->treeWidget->setEnabled(false);
-    ui->treeWidget->hide();
-    ui->label->setEnabled(true);
-    ui->label->show();
     setWindowTitle("Drives");
 
     GetDisks(&m_disks);
 
+    build_DriveList();
+
+    keyEnterReceiver* key = new keyEnterReceiver();
+        this->installEventFilter(key);
+
+    QTimer *timer = new QTimer(this);
+    connect(timer, SIGNAL(timeout()), this, SLOT(timer1000()));
+    timer->start(1000);
+}
+
+OpenDrive::~OpenDrive()
+{
+    delete ui;
+}
+
+void OpenDrive::build_DriveList()
+{
+    ui->treeWidget->setEnabled(false);
+    ui->treeWidget->hide();
+    ui->label->setEnabled(true);
+    ui->label->show();
     ui->treeWidget->setColumnHidden(2, true);
-    ui->treeWidget->setColumnWidth(0, 280);
+    ui->treeWidget->setColumnWidth(0, 310);
+    ui->treeWidget->clear();
+
     QTreeWidgetItem *topLevelItem = new QTreeWidgetItem(ui->treeWidget);
     ui->treeWidget->addTopLevelItem(topLevelItem);
     topLevelItem->setText(0,"Drives & volumes");
 
     for (diskDescriptor disk : m_disks)
     {
+        if (removableDrivesOnly && !disk.removableMedia)
+            continue;
+
         QTreeWidgetItem *item = new QTreeWidgetItem(topLevelItem);
-        item->setText(0, QString::fromStdString(disk.pId) + QString::fromStdString(disk.vId));
+        item->setText(0, QString::fromStdString(disk.pId) + " " + QString::fromStdString(disk.vId));
         item->setText(1, QString::fromStdString(GetReadableSize(disk.size)));
         item->setText(2, "\\\\.\\PhysicalDrive" + QString::number(disk.diskNumber));
 
@@ -61,19 +82,10 @@ OpenDrive::OpenDrive(QWidget *parent) :
         }
     }
     ui->treeWidget->expandAll();
-
-    keyEnterReceiver* key = new keyEnterReceiver();
-        this->installEventFilter(key);
-
     ui->treeWidget->setEnabled(true);
     ui->treeWidget->show();
     ui->label->setEnabled(false);
     ui->label->hide();
-}
-
-OpenDrive::~OpenDrive()
-{
-    delete ui;
 }
 
 
@@ -84,6 +96,20 @@ void OpenDrive::on_treeWidget_itemDoubleClicked(QTreeWidgetItem *item, int colum
 
     emit finished(item->text(2));
     close();
+}
+
+void OpenDrive::timer1000()
+{
+    // Update disks
+    std::vector<diskDescriptor> disks, disks_tmp;
+    GetDisks(&disks);
+
+    disks_tmp = m_disks;
+    if (disks.size() != disks_tmp.size() || (disks_tmp.size() && !std::equal(disks_tmp.begin(), disks_tmp.end(), disks.begin())))
+    {
+       m_disks = disks;
+       build_DriveList();
+    }
 }
 
 bool keyEnterReceiver::eventFilter(QObject* obj, QEvent* event)
@@ -102,6 +128,8 @@ bool keyEnterReceiver::eventFilter(QObject* obj, QEvent* event)
     } else return QObject::eventFilter(obj, event);
 }
 
-
-
-
+void OpenDrive::on_RemovableCheckBox_stateChanged(int arg1)
+{
+    removableDrivesOnly = ui->RemovableCheckBox->isChecked();
+    build_DriveList();
+}

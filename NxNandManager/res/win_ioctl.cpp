@@ -66,7 +66,9 @@ bool GetVolumeDescriptor(volumeDescriptor* vd, LPWSTR VolumeName)
     vd->volumeName = std::wstring(VolumeName);
     vd->diskNumber = pDiskExtent->DiskNumber;
     vd->pId = std::string(productId);
-    vd->vId = std::string(vendorId);
+    vd->vId = std::string(vendorId);    
+    if (!vd->pId.find("UMS disk") && !vd->vId.find("Linux"))
+        vd->vId.append(" (memloader)");
     vd->serialNumber = std::string(serialNumber);
     vd->diskSize = pdg.Cylinders.QuadPart * (ULONG)pdg.TracksPerCylinder * (ULONG)pdg.SectorsPerTrack * (ULONG)pdg.BytesPerSector;
     vd->diskStartOffset = pDiskExtent->StartingOffset.QuadPart;
@@ -126,6 +128,21 @@ void GetVolumes(std::vector<volumeDescriptor> *volumes)
     FindVolumeClose(hVol);
     if (hHandle != INVALID_HANDLE_VALUE) CloseHandle(hHandle);
 
+    // Get offline drives (memloader sometimes mounts NAND as on offline drive)
+    for (int drive = 0; drive < 26; drive++)
+    {
+        bool found = false;
+        for (volumeDescriptor vol : *volumes) if (vol.diskNumber == drive) found = true;
+        if (found)
+            continue;
+
+        swprintf_s(VolumeName, MAX_PATH, L"\\\\.\\PhysicalDrive%d", drive);
+
+        volumeDescriptor vd;
+        if (GetVolumeDescriptor(&vd, VolumeName))
+            volumes->push_back(vd);
+    }
+
     std::sort(volumes->begin(), volumes->end(), compareVolByInt);
 }
 
@@ -160,13 +177,14 @@ void GetDisks(std::vector<diskDescriptor> *disks)
             disk = &disks->back();
         }
 
-        disk->volumes.push_back(vol);
+        if (vol.volumeName.find(L"\\\\.\\PhysicalDrive"))
+            disk->volumes.push_back(vol);
     }
 }
 
 bool operator == (diskDescriptor a, diskDescriptor b)
 {
-    if (a.serialNumber == b.serialNumber)
+    if (a.serialNumber == b.serialNumber && a.volumes.size() == b.volumes.size())
         return true;
     else
         return false;

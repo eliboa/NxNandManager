@@ -42,9 +42,14 @@ public:
 
 private slots:
     void on_treeWidget_itemDoubleClicked(QTreeWidgetItem *item, int column);
+    void timer1000();
+    void on_RemovableCheckBox_stateChanged(int arg1);
 
 private:
     std::vector<diskDescriptor> m_disks;
+    bool removableDrivesOnly = true;
+
+    void build_DriveList();
 
 signals:
     void finished(QString);

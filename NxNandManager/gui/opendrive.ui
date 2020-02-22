@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>442</width>
-    <height>210</height>
+    <height>227</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -114,8 +114,25 @@
     </property>
    </column>
   </widget>
+  <widget class="QCheckBox" name="RemovableCheckBox">
+   <property name="geometry">
+    <rect>
+     <x>271</x>
+     <y>200</y>
+     <width>161</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Show removable drives only</string>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+  </widget>
   <zorder>treeWidget</zorder>
   <zorder>label</zorder>
+  <zorder>RemovableCheckBox</zorder>
  </widget>
  <resources/>
  <connections/>
