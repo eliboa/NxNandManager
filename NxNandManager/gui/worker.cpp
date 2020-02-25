@@ -49,6 +49,15 @@ void Worker::run()
         QString drives = QString(ListPhysicalDrives().c_str());
         emit listCallback(drives);
         return;
+    }
+    case get_disks :
+    {
+        qRegisterMetaType<std::vector<diskDescriptor>>("std::vector<diskDescriptor>");
+        connect(this, SIGNAL(getDisks_callback(const std::vector<diskDescriptor>)), m_parent, SLOT(on_GetDisks_callback(const std::vector<diskDescriptor>)));
+        std::vector<diskDescriptor> disks;
+        GetDisks(&disks);
+        emit getDisks_callback(disks);
+        return;
     }}
 
     connect(this, SIGNAL(error(int, QString)), m_parent, SLOT(error(int, QString)));

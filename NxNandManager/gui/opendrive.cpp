@@ -25,16 +25,20 @@ OpenDrive::OpenDrive(QWidget *parent) :
     connect(this, SIGNAL(finished(QString)), parent, SLOT(driveSet(QString)));
     setWindowTitle("Drives");
 
-    GetDisks(&m_disks);
-
-    build_DriveList();
+    ui->treeWidget->setEnabled(false);
+    ui->treeWidget->hide();
+    ui->label->setEnabled(true);
+    ui->label->show();
+    ui->RemovableCheckBox->hide();
 
     keyEnterReceiver* key = new keyEnterReceiver();
         this->installEventFilter(key);
 
+    timer1000();
     QTimer *timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(timer1000()));
     timer->start(1000);
+
 }
 
 OpenDrive::~OpenDrive()
@@ -44,10 +48,7 @@ OpenDrive::~OpenDrive()
 
 void OpenDrive::build_DriveList()
 {
-    ui->treeWidget->setEnabled(false);
-    ui->treeWidget->hide();
-    ui->label->setEnabled(true);
-    ui->label->show();
+    ui->RemovableCheckBox->show();
     ui->treeWidget->setColumnHidden(2, true);
     ui->treeWidget->setColumnWidth(0, 310);
     ui->treeWidget->clear();
@@ -82,12 +83,7 @@ void OpenDrive::build_DriveList()
         }
     }
     ui->treeWidget->expandAll();
-    ui->treeWidget->setEnabled(true);
-    ui->treeWidget->show();
-    ui->label->setEnabled(false);
-    ui->label->hide();
 }
-
 
 void OpenDrive::on_treeWidget_itemDoubleClicked(QTreeWidgetItem *item, int column)
 {
@@ -100,10 +96,20 @@ void OpenDrive::on_treeWidget_itemDoubleClicked(QTreeWidgetItem *item, int colum
 
 void OpenDrive::timer1000()
 {
-    // Update disks
-    std::vector<diskDescriptor> disks, disks_tmp;
-    GetDisks(&disks);
 
+    Worker *workThread = new Worker(this, WorkerMode::get_disks);
+    workThread->start();
+
+}
+
+void OpenDrive::on_GetDisks_callback(const std::vector<diskDescriptor> disks)
+{
+    ui->treeWidget->setEnabled(true);
+    ui->treeWidget->show();
+    ui->label->setEnabled(false);
+    ui->label->hide();
+
+    std::vector<diskDescriptor> disks_tmp;
     disks_tmp = m_disks;
     if (disks.size() != disks_tmp.size() || (disks_tmp.size() && !std::equal(disks_tmp.begin(), disks_tmp.end(), disks.begin())))
     {

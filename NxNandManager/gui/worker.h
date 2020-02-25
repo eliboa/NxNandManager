@@ -39,7 +39,7 @@
 class NxStorage;
 class Progress;
 
-enum WorkerMode { dump, restore, new_storage, list_storage, create_emunand, format_partition };
+enum WorkerMode { dump, restore, new_storage, list_storage, create_emunand, format_partition, get_volumes, get_disks };
 
 class Worker : public QThread {
 	Q_OBJECT
@@ -62,6 +62,7 @@ signals:
     void listCallback(QString);
 	void error(int, QString s = nullptr);
     void sendProgress(const ProgressInfo pi);
+    void getDisks_callback(const std::vector<diskDescriptor> disks);
 
 private:
     // Member vars

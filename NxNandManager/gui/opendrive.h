@@ -48,8 +48,10 @@ private slots:
 private:
     std::vector<diskDescriptor> m_disks;
     bool removableDrivesOnly = true;
-
     void build_DriveList();
+
+public slots:
+    void on_GetDisks_callback(const std::vector<diskDescriptor> disks);
 
 signals:
     void finished(QString);
