@@ -369,11 +369,17 @@ int NxPartition::restore(NxStorage* input, part_params_t par, void(*updateProgre
         return ERR_CRYPTO_ENCRYPTED_YET;
 
     if (not_in(par.crypto_mode, { ENCRYPT, DECRYPT }) && isEncryptedPartition() && !input_part->isEncryptedPartition())
-        return ERR_RESTORE_CRYPTO_MISSING;
-
+    {
+        if (input->isCryptoSet() && input_part->crypto() != nullptr)
+            par.crypto_mode = ENCRYPT;
+        else return ERR_RESTORE_CRYPTO_MISSING;
+    }
     if (not_in(par.crypto_mode, { ENCRYPT, DECRYPT }) && !isEncryptedPartition() && input_part->isEncryptedPartition())
-        return ERR_RESTORE_CRYPTO_MISSIN2;
-
+    {
+        if (input->isCryptoSet() && input_part->crypto() != nullptr)
+            par.crypto_mode = DECRYPT;
+        else return ERR_RESTORE_CRYPTO_MISSIN2;
+    }
     if (input_part->size() > size())
         return ERR_IO_MISMATCH;
 
@@ -393,7 +399,7 @@ int NxPartition::restore(NxStorage* input, part_params_t par, void(*updateProgre
     this->nxHandle->initHandle(NO_CRYPTO, this);
 
     // Set new buffer
-    int buff_size = nxHandle->getDefaultBuffSize();
+    int buff_size = input->nxHandle->getDefaultBuffSize();
     BYTE* buffer = new BYTE[buff_size];
     memset(buffer, 0, buff_size);
     DWORD bytesRead = 0, bytesWrite = 0;

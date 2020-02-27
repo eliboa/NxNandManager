@@ -234,8 +234,9 @@ NxStorage::NxStorage(const char *p_path)
                     nxHandle->initHandle(NO_CRYPTO);
                     if(nxHandle->read(first_cluster, nullptr, CLUSTER_SIZE) && !memcmp(&first_cluster[part.magic_off], part.magic, strlen(part.magic)))
                         found = true;
+                    else if (part.size >= m_size) found = true;
                 }
-                else if (part.size == m_size) found = true;
+                else if (part.size >= m_size) found = true;
 
                 if (found)
                 {
