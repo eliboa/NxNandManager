@@ -2,6 +2,7 @@
 #define __utils_h__
 
 extern bool isdebug;
+extern bool isGUI;
 
 #include <stdio.h>
 #include <string>
@@ -24,6 +25,11 @@ extern bool isdebug;
 #include <vector>
 #include "win_ioctl.h"
 #include "types.h"
+#include "../gui/gui.h"
+
+#if defined(ENABLE_GUI)
+#include "../gui/debug.h"
+#endif
 
 // MinGW
 #if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)

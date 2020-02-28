@@ -54,7 +54,8 @@ SOURCES += \
     $$files(../lib/ZipLib/detail/*.cpp, false) \
     $$files(../lib/ZipLib/extlibs/bzip2/*.c, false) \
     $$files(../lib/ZipLib/extlibs/lzma/*.c, false) \
-    $$files(../lib/ZipLib/extlibs/zlib/*.c, false)
+    $$files(../lib/ZipLib/extlibs/zlib/*.c, false) \
+    debug.cpp
 HEADERS += \
     ../NxNandManager.h \
     ../res/hex_string.h \
@@ -97,7 +98,8 @@ HEADERS += \
     ../lib/ZipLib/detail/*.h \
     ../lib/ZipLib/extlibs/bzip2/*.h \
     ../lib/ZipLib/extlibs/lzma/*.h \
-    ../lib/ZipLib/extlibs/zlib/*.h
+    ../lib/ZipLib/extlibs/zlib/*.h \
+    debug.h
 FORMS += \
     emunand.ui \
     mainwindow.ui \
@@ -107,7 +109,8 @@ FORMS += \
     resizeuser.ui \
     dump.ui \
     progress.ui \
-    explorer.ui
+    explorer.ui \
+    debug.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

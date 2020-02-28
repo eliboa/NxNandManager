@@ -1790,6 +1790,7 @@ bool NxStorage::setAutoRcm(bool enable)
 
 int NxStorage::applyIncognito()
 {
+    dbg_printf("Applying incognito");
     NxPartition *cal0 = getNxPartition(PRODINFO);
     if (nullptr == cal0)
         return ERR_IN_PART_NOT_FOUND;

@@ -1167,6 +1167,8 @@ QTableCornerButton::section {background-color: transparent;}</string>
     <addaction name="actionResize"/>
     <addaction name="actionDumpRawnandOnly"/>
     <addaction name="actionCreateEmunand"/>
+    <addaction name="separator"/>
+    <addaction name="actionDebug_console"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -1432,6 +1434,11 @@ QTableCornerButton::section {background-color: transparent;}</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionDebug_console">
+   <property name="text">
+    <string>Debug console</string>
    </property>
   </action>
  </widget>

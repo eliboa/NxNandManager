@@ -34,6 +34,7 @@
 #include "resizeuser.h"
 #include "emunand.h"
 #include "dump.h"
+#include "debug.h"
 //#include "explorer.h"
 
 QT_BEGIN_NAMESPACE
@@ -64,6 +65,7 @@ private:
     ResizeUser* ResizeUserDialog;
     Emunand* EmunandDialog;
     Dump* DumpDialog;
+    Debug* DebugDialog;
     //Explorer* ExplorerDialog;
 
 
@@ -96,6 +98,7 @@ private slots:
     void openResizeDialog();
     void openEmunandDialog();
     void openDumpDialog(int partition = UNKNOWN);
+    void openDebugDialog();
     void incognito();
     void dumpPartition(int crypto_mode=NULL);
     void dumpPartitionAdvanced();

@@ -44,6 +44,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->actionDumpRawnandOnly, &QAction::triggered, this, &MainWindow::dumpRAWNAND);
     connect(ui->actionCreateEmunand, &QAction::triggered, this, &MainWindow::openEmunandDialog);
     connect(ui->actionSaveAsAdvanced, &QAction::triggered, this, &MainWindow::openDumpDialog);
+    connect(ui->actionDebug_console, &QAction::triggered, this, &MainWindow::openDebugDialog);
     connect(ui->partQDumpBtn, SIGNAL(clicked()), this, SLOT(dumpPartition()));
     connect(ui->partADumpBtn, SIGNAL(clicked()), this, SLOT(dumpPartitionAdvanced()));
     connect(ui->partRestoreBtn, SIGNAL(clicked()), this, SLOT(restorePartition()));
@@ -85,6 +86,9 @@ MainWindow::MainWindow(QWidget *parent) :
         }
         if (!arg.compare("-i")) sw = true;
     }
+
+    if (isdebug)
+        openDebugDialog();
 
     if(input_path.count())
     {
@@ -194,6 +198,13 @@ void MainWindow::openDumpDialog(int partition)
     DumpDialog->setWindowTitle("Advanced copy");
     DumpDialog->show();
     //DumpDialog->exec();
+}
+
+void MainWindow::openDebugDialog()
+{
+    DebugDialog = new Debug(this);
+    DebugDialog->setWindowTitle("Debug console");
+    DebugDialog->show();
 }
 
 void MainWindow::incognito()

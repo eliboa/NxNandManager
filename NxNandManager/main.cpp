@@ -22,6 +22,7 @@
 
 BOOL BYPASS_MD5SUM = FALSE;
 bool isdebug = FALSE;
+bool isGUI = FALSE;
 
 BOOL FORCE = FALSE;
 BOOL LIST = FALSE;
@@ -31,7 +32,7 @@ int startGUI(int argc, char *argv[])
 #if defined(ENABLE_GUI)
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication a(argc, argv);
-
+    isGUI = true;
     a.setApplicationName("NxNandManager");
     MainWindow w;
     a.setStyleSheet("QMessageBox {messagebox-text-interaction-flags: 12;}");

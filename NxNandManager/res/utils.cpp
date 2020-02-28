@@ -478,7 +478,18 @@ void dbg_printf (const char *format, ...)
 	va_list args;
 	va_start( args, format );
 	vprintf(format, args);
-	va_end( args );
+	va_end( args );    
+
+#if defined(ENABLE_GUI)
+    if (isGUI)
+    {
+        char line[MAX_PATH];
+        va_start( args, format );
+        vsprintf(line, format, args);
+        va_end( args );
+        writeDebugLine(std::string(line));
+    }
+#endif
 }
 
 void dbg_wprintf (const wchar_t *format, ...)
@@ -490,6 +501,18 @@ void dbg_wprintf (const wchar_t *format, ...)
 	va_start( args, format );
 	vwprintf(format, args);
 	va_end( args );
+
+#if defined(ENABLE_GUI)
+    if (isGUI)
+    {
+        wchar_t line[MAX_PATH];
+        va_start( args, format );
+        vswprintf(line, format, args);
+        va_end( args );
+        std::wstring sline(line);
+        writeDebugLine(std::string(sline.begin(), sline.end()));
+    }
+#endif
 }
 
 DWORD crc32Hash(const void *data, DWORD size)
