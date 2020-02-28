@@ -187,10 +187,6 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
     bool sendProgress = nullptr != updateProgress ? true : false;
     std::wstring fwpath = outHandle->getPath();
 
-    // Lock volume
-    if(nxHandle->isDrive())
-        nxHandle->lockVolume();
-
     // Init input handle
     nxHandle->initHandle(par.crypto_mode, this);
 
@@ -252,10 +248,6 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
         if (sendProgress)
             updateProgress(pi);
     }
-
-    // Unlock input volume
-    if (nxHandle->isDrive())
-        nxHandle->unlockVolume();
 
     // Check completeness
     if (pi.bytesCount != pi.bytesTotal)

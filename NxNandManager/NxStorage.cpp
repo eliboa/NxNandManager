@@ -988,6 +988,10 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
     if (outHandle->exists)
         return ERR_FILE_ALREADY_EXISTS;
 
+    // Lock volume
+    if (isDrive())
+        nxHandle->lockVolume();
+
     // Single partition dump
     if(isSinglePartType() || par.partition != UNKNOWN)
     {
@@ -1008,6 +1012,10 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
             params.zipOutput = par.zipOutput;
         }
         int rc = in_part->dump(outHandle, params, updateProgress);
+
+        if (isDrive())
+            nxHandle->unlockVolume();
+
         return rc;
     }
 
@@ -1044,10 +1052,6 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
             nxHandle->unlockVolume();
         return rc;
     };
-
-    // Lock volume
-    if (isDrive())
-        nxHandle->lockVolume();
 
     // Create and lock input HASH
     if(par.crypto_mode == MD5_HASH)
@@ -1295,7 +1299,9 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
 
     // Last sectors
     nxHandle->initHandle(par.crypto_mode);
-    nxHandle->setPointer((u64)((getNxPartition(USER)->lbaEnd() + 1) * NX_BLOCKSIZE));
+    NxPartition *user = getNxPartition(USER);
+    u64 new_pointer = u64(user->lbaEnd() + 1) * NX_BLOCKSIZE;
+    nxHandle->setPointer(new_pointer);
 
     while(pi.bytesCount < pi.bytesTotal)
     {

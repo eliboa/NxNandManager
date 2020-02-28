@@ -726,8 +726,8 @@ bool NxHandle::dismountVolume()
         NULL);
 }
 
-#define LOCK_TIMEOUT 10000 // 10 Seconds
-#define LOCK_RETRIES 20
+#define LOCK_TIMEOUT 1000 // 1 Seconds
+#define LOCK_RETRIES 4
 
 bool NxHandle::lockVolume()
 {
