@@ -1890,6 +1890,8 @@ int NxStorage::applyIncognito()
 int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(ProgressInfo), const char* boot0_path, const char* boot1_path)
 {
 
+    dbg_printf("NxStorage::createMmcEmuNand(%s)\n", mmc_path);
+
     if (not_in(type, {RAWMMC, RAWNAND}))
         return ERR_INVALID_NAND;
 
@@ -1898,13 +1900,16 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
             return ERR_INVALID_BOOT0;
         if (nullptr == boot1_path)
             return ERR_INVALID_BOOT1;
+
+        dbg_printf("NxStorage::createMmcEmuNand() - boot0 path : %s\n", boot0_path);
+        dbg_printf("NxStorage::createMmcEmuNand() - boot1 path : %s\n", boot0_path);
     }
     NxPartition *boot0, *boot1;
-    NxStorage nx1(boot0_path);
-    NxStorage nx2(boot1_path);
     u64 boot_size = 0;
     if (type == RAWNAND)
     {
+        NxStorage nx1(boot0_path);
+        NxStorage nx2(boot1_path);
         if (nx1.type != BOOT0) return ERR_INVALID_BOOT0;
         if (nx2.type != BOOT1) return ERR_INVALID_BOOT1;
         boot0 = nx1.getNxPartition();
@@ -1938,7 +1943,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     memcpy(&mbr_tmp, &mbr, sizeof(mbr_t));
 
     // Lock volume
-    mmc.nxHandle->lockVolume();
+    if(!mmc.nxHandle->lockVolume()) dbg_printf("NxStorage::createMmcEmuNand() - failed to lock mmc volume\n");
 
     // Calculate new values for MBR
     u32 nand_sector_count = (u32)(nand_size / NX_BLOCKSIZE);
@@ -1972,16 +1977,21 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     for (int i(0); i < 4; i++)
         memset(&mbr_tmp.parts[i], 0, sizeof(mbr_part_t));
 
+    // Overwrite MBR
     if (!mmc.nxHandle->write((u32)0, &mbr_tmp, &bytesRead, NX_BLOCKSIZE))
+    {
+        dbg_printf("NxStorage::createMmcEmuNand() - failed to overwrite MBR\n");
         return ERR_WHILE_WRITE;
-
+    }
     // Write "TXNAND" sector (mandatory to boot emuNAND via SX OS)
     u8 buffer[NX_BLOCKSIZE];
     memset(buffer, 0, NX_BLOCKSIZE);
     memcpy(buffer, tx_sector, ARRAYSIZE(tx_sector));
     if (!mmc.nxHandle->write(buffer, &bytesRead, NX_BLOCKSIZE))
+    {
+        dbg_printf("NxStorage::createMmcEmuNand() - failed to write TXNAND sector\n");
         return ERR_WHILE_WRITE;    
-
+    }
 
     // Set new boot sector for user partition
     u8 bts[NX_BLOCKSIZE];
@@ -2011,7 +2021,8 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     // Init and lock volume
     this->nxHandle->initHandle(NO_CRYPTO);
     if (isDrive())
-        nxHandle->lockVolume();
+        if(!nxHandle->lockVolume()) dbg_printf("NxStorage::createMmcEmuNand() - failed to lock input volume\n");
+
     // Set new buffer
     int buff_size = nxHandle->getDefaultBuffSize();
     BYTE* cpy_buffer = new BYTE[buff_size];
@@ -2075,7 +2086,10 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
 
     // Set pointer to user partition in mmc output
     if (!mmc.nxHandle->setPointer((u64)first_part_lba_start * NX_BLOCKSIZE))
+    {
+        dbg_printf("NxStorage::createMmcEmuNand() - failed to set pointer to user partition in mmc output\n");
         return ERR_WHILE_WRITE;
+    }
 
     // Sub Progress
     spi.mode = CREATE;
@@ -2089,14 +2103,19 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     {
         // Write bs
         if (!mmc.nxHandle->write(bts, &bytesRead, NX_BLOCKSIZE))
+        {
+            dbg_printf("NxStorage::createMmcEmuNand() - failed to write user partition's boot sector\n");
             return ERR_WHILE_WRITE;
-
+        }
         spi.bytesCount += NX_BLOCKSIZE;
         updateProgress(spi);
 
         // Write info sector
         if (!mmc.nxHandle->write(&fat32::fat32_default_info_sector, &bytesRead, NX_BLOCKSIZE))
+        {
+            dbg_printf("NxStorage::createMmcEmuNand() - failed to write user partition's info sector\n");
             return ERR_WHILE_WRITE;
+        }
 
         spi.bytesCount += NX_BLOCKSIZE;
         updateProgress(spi);
@@ -2107,8 +2126,10 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
             memset(buffer, 0, NX_BLOCKSIZE);
             if (!i) memcpy(buffer + NX_BLOCKSIZE - 2, bs_sign, 2);
             if (!mmc.nxHandle->write(&fat32::fat32_default_info_sector, &bytesRead, NX_BLOCKSIZE))
+            {
+                dbg_printf("NxStorage::createMmcEmuNand() - failed to write user partition's info sector\n");
                 return ERR_WHILE_WRITE;
-
+            }
             spi.bytesCount += NX_BLOCKSIZE;
             updateProgress(spi);
         }
@@ -2121,8 +2142,10 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     for (int i(0); i < res; i++)
     {
         if (!mmc.nxHandle->write(buffer, &bytesRead, NX_BLOCKSIZE))
+        {
+            dbg_printf("NxStorage::createMmcEmuNand() - failed to write user partition's reserved sector %d\n", i);
             return ERR_WHILE_WRITE;
-
+        }
         spi.bytesCount += NX_BLOCKSIZE;
         updateProgress(spi);
     }
@@ -2150,7 +2173,10 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
             if (cur_off + buff_size > fat_size) buff_size = fat_size - cur_off;
 
             if (!mmc.nxHandle->write(buff, &bytesRead, buff_size))
-                return -12;
+            {
+                dbg_printf("NxStorage::createMmcEmuNand() - failed to write user partition's FAT %d cluster at off %I64d\n", j, cur_off);
+                return ERR_WHILE_WRITE;
+            }
 
             if (!cur_off) memset(buff, 0, CLUSTER_SIZE);
 
@@ -2158,13 +2184,15 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
             spi.bytesCount += buff_size;
             updateProgress(spi);
 
-            dbg_printf("Writing %I64d bytes of FAT %d (%I64d)\r", cur_off, j, fat_size);
         }
         dbg_printf("\n");
     }
     // Write empty cluster for root dir
     if (!mmc.nxHandle->write(buff, &bytesRead, CLUSTER_SIZE))
-        return -12;
+    {
+        dbg_printf("NxStorage::createMmcEmuNand() - failed to write user partition's empty cluster\n");
+        return ERR_WHILE_WRITE;
+    }
 
     spi.bytesCount += CLUSTER_SIZE;
     updateProgress(spi);
@@ -2173,21 +2201,30 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
 
     // Write MBR
     if (!mmc.nxHandle->write((u32)0, &mbr, &bytesRead, NX_BLOCKSIZE))
+    {
+        dbg_printf("NxStorage::createMmcEmuNand() - failed to write mmc new MBR\n");
         return ERR_WHILE_WRITE;
+    }
 
     // Unlock volume
-    mmc.nxHandle->unlockVolume();
+    if(!mmc.nxHandle->unlockVolume()) dbg_printf("NxStorage::createMmcEmuNand() - failed to unlock mmc volume\n");
 
     pi.bytesCount += spi.bytesTotal;
     updateProgress(pi);
+
+
+    u64 pt = mmc.nxHandle->getCurrentPointer();
+    mmc.nxHandle->closeHandle();
+    mmc.nxHandle->createHandle();
+    mmc.nxHandle->setPointer(pt);
+    Sleep(1000);
+
 
     // Get volume name for user partition
     WCHAR  volumeName[MAX_PATH] = L"";
     if (!mmc.nxHandle->getVolumeName(volumeName, first_part_lba_start))
         return ERR_PART_CREATE_FAILED;
-    //dbg_wprintf(L"Volume name: %s\n", volumeName);
     
-
     TCHAR Buf[MAX_PATH];    
     TCHAR Volume[] = TEXT("");
     TCHAR AvailableDrive[] = L"";
@@ -2196,7 +2233,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     wcscat(Volume, volumeName);
     wcscat(Volume, L"\\\0");
     wchar_t Drive[4] = L"d:\\";
-    dbg_wprintf(L"Volume name: %s\n", Volume);
+    dbg_wprintf(L"NxStorage::createMmcEmuNand() - Volume name: %s\n", Volume);
    
 
     // Look for existing or available mounting point
@@ -2213,7 +2250,6 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
 
         if (bFlag)
         {
-            dbg_wprintf(L" - comparing %s\n", Buf);
             if (!lstrcmp(Buf, Volume))
             {
                 already_mounted = true;
@@ -2238,10 +2274,8 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
             for(volumeDescriptor vol : disk.volumes)
                 if(!vol.volumeName.compare(volumeName) && vol.mountPt.length())
                 {
-                    dbg_wprintf(L"%s found! %s (%d)\n", vol.volumeName.c_str(), vol.mountPt.c_str(), vol.mountPt.length());
                     std::wstring Drive(vol.mountPt);
                     Drive.append(L":\\");
-                    dbg_wprintf(L"Drive = %s\n", Drive.c_str());
                     fResult = DeleteVolumeMountPoint(Drive.c_str());
                 }
 
@@ -2256,13 +2290,13 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
 
         fResult = DefineDosDevice(DDD_RAW_TARGET_PATH, szDriveLetter, volumeName);
         if (!fResult)
-            dbg_wprintf(TEXT("DefineDosDevice failed : %s\n"), GetLastErrorAsString().c_str());
+            dbg_wprintf(TEXT("NxStorage::createMmcEmuNand() - DefineDosDevice failed : %s\n"), GetLastErrorAsString().c_str());
 
 
         fResult = DefineDosDevice(DDD_RAW_TARGET_PATH | DDD_REMOVE_DEFINITION | DDD_EXACT_MATCH_ON_REMOVE, szDriveLetter, volumeName);
 
         if (!fResult)
-            dbg_wprintf(TEXT("DefineDosDevice failed\n"), GetLastError());
+            dbg_wprintf(TEXT("NxStorage::createMmcEmuNand() - DefineDosDevice failed\n"), GetLastError());
 
         std::wstring volAndSlash(volumeName);
         volAndSlash.append(L"\\");
@@ -2271,7 +2305,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
 
         if (!fResult)
         {
-            dbg_printf("SetVolumeMountPoint failed %s (%d)\n", GetLastErrorAsString().c_str(), GetLastError());
+            dbg_printf("NxStorage::createMmcEmuNand() - SetVolumeMountPoint failed %s (%d)\n", GetLastErrorAsString().c_str(), GetLastError());
             return ERR_VOL_MOUNT_FAILED;
         }
     }
@@ -2280,7 +2314,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     std::wstring drive(AvailableDrive);
     std::wstring path(drive + L":\\emuMMC");
     if(!CreateDirectoryW(path.c_str(), nullptr))
-        dbg_wprintf(L"Failed to mkdir %s (%s)\n", path.c_str(), GetLastErrorAsString().c_str());
+        dbg_wprintf(L"NxStorage::createMmcEmuNand() - Failed to mkdir %s (%s)\n", path.c_str(), GetLastErrorAsString().c_str());
 
     std::string filepath (path.begin(), path.end());
     filepath.append("\\emummc.ini");
@@ -2295,11 +2329,11 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
         emummcIni << "nintendo_path=Emutendo\n";
         emummcIni.close();
     }
-    else dbg_printf("Failed to create %s\n", filepath.c_str());
+    else dbg_printf("NxStorage::createMmcEmuNand() - Failed to create %s\n", filepath.c_str());
 
     path.append(L"\\ER00");
     if(!CreateDirectoryW(path.c_str(), nullptr))
-        dbg_wprintf(L"Failed to mkdir %s (%s)\n", path.c_str(), GetLastErrorAsString().c_str());
+        dbg_wprintf(L"NxStorage::createMmcEmuNand() - Failed to mkdir %s (%s)\n", path.c_str(), GetLastErrorAsString().c_str());
 
     filepath.clear();
     filepath.append(path.begin(), path.end());
@@ -2307,13 +2341,13 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     std::ofstream raw_based (filepath, std::ofstream::binary);
     u8 content[4] = { 0x02, 0x00, 0x00, 0x00 };
     if (!raw_based.write((char *)&content[0], 4))
-        dbg_printf("Failed to write %s\n", filepath.c_str());
+        dbg_printf("NxStorage::createMmcEmuNand() - Failed to write %s\n", filepath.c_str());
     raw_based.close();
 
     path.clear();
     path.append(drive + L":\\Emutendo");
     if(!CreateDirectoryW(path.c_str(), nullptr))
-        dbg_wprintf(L"Failed to mkdir %s (%s)\n", path.c_str(), GetLastErrorAsString().c_str());
+        dbg_wprintf(L"NxStorage::createMmcEmuNand() - Failed to mkdir %s (%s)\n", path.c_str(), GetLastErrorAsString().c_str());
 
 
     return SUCCESS;
