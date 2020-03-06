@@ -1,11 +1,14 @@
 #include "debug.h"
 #include "ui_debug.h"
+#include "../res/utils.h"
 
-Debug::Debug(QWidget *parent) :
+Debug::Debug(QWidget *parent, bool isdebug_old_value) :
     QDialog(parent),
     ui(new Ui::Debug)
 {
     ui->setupUi(this);
+    m_isdebug_old_value = isdebug_old_value;
+    isdebug = true;
     debug_instance = this;
     qRegisterMetaType<std::string>("std::string");
     connect(this, SIGNAL(log(std::string)), this, SLOT(writeDebugLine(std::string)));
@@ -37,6 +40,7 @@ void writeDebugLine(std::string line)
 
 void Debug::on_Debug_finished(int result)
 {
+    isdebug = m_isdebug_old_value;
     if(nullptr != debug_instance)
         debug_instance = nullptr;
 }

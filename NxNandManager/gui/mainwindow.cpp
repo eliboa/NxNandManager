@@ -202,8 +202,7 @@ void MainWindow::openDumpDialog(int partition)
 
 void MainWindow::openDebugDialog()
 {
-    if (!isdebug) isdebug = true;
-    DebugDialog = new Debug(nullptr);
+    DebugDialog = new Debug(nullptr, isdebug);
     DebugDialog->setWindowTitle("Debug console");
     DebugDialog->show();
     this->setFocus();

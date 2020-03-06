@@ -13,7 +13,7 @@ class Debug : public QDialog
     Q_OBJECT
 
 public:
-    explicit Debug(QWidget *parent = nullptr);
+    explicit Debug(QWidget *parent, bool isdebug_old_value);
     ~Debug();
 
 private slots:
@@ -27,6 +27,7 @@ signals:
 
 private:
     Ui::Debug *ui;
+    bool m_isdebug_old_value;
 };
 
 static Debug* debug_instance = nullptr;
