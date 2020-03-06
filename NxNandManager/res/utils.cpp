@@ -540,3 +540,35 @@ DWORD crc32Hash(const void *data, DWORD size)
 }
 
 u32 u32_val(u8* buf) { return *(u32*)buf; }
+
+int hex_to_int(char c){
+        int first = c / 16 - 3;
+        int second = c % 16;
+        int result = first*10 + second;
+        if(result > 9) result--;
+        return result;
+}
+
+int hex_to_ascii(char c, char d)
+{
+        int high = hex_to_int(c) * 16;
+        int low = hex_to_int(d);
+        return high+low;
+}
+
+std::string hexStr_to_ascii(const char* hexStr)
+{
+    int length = strlen(hexStr);
+    char buf = 0, buf2 = 0;
+    std::string destStr = "";
+    for(int i = 0; i < length; i++)
+    {
+        if(i % 2 != 0)
+        {
+            sprintf(&buf2, "%c", hex_to_ascii(buf, hexStr[i]));
+            destStr.append(std::string(1, buf2));
+        }
+        else buf = hexStr[i];
+    }
+    return destStr;
+}

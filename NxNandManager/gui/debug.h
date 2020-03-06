@@ -2,7 +2,7 @@
 #define DEBUG_H
 
 #include <QDialog>
-
+#include <QDateTime>
 
 namespace Ui {
 class Debug;
@@ -16,10 +16,14 @@ public:
     explicit Debug(QWidget *parent = nullptr);
     ~Debug();
 
-    void writeDebugLine(std::string line);
-
 private slots:
     void on_Debug_finished(int result);
+
+public slots:
+    void writeDebugLine(std::string line);
+
+signals:
+    void log(std::string line);
 
 private:
     Ui::Debug *ui;

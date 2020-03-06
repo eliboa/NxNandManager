@@ -173,6 +173,9 @@ std::string ExePath();
 HMODULE GetCurrentModule();
 bool file_exists(const wchar_t *fileName);
 int digit_to_int(char d);
+int hex_to_int(char c);
+int hex_to_ascii(char c, char d);
+std::string hexStr_to_ascii(const char* hexStr);
 
 static DWORD crc32table[256];
 static bool crc32Intalized = false;

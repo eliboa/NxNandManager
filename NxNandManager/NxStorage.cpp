@@ -177,7 +177,7 @@ NxStorage::NxStorage(const char *p_path)
     {
         if (mgk.offset > m_size)
             continue;
-        dbg_printf("NxStorage::NxStorage() - Looking for magic %s at offset %s\n", mgk.magic, n2hexstr(mgk.offset, 10).c_str());
+        dbg_printf("NxStorage::NxStorage() - Looking for magic %s (%s) at offset %s\n", mgk.magic, hexStr_to_ascii(mgk.magic).c_str(), n2hexstr(mgk.offset, 10).c_str());
         int remain = mgk.offset % NX_BLOCKSIZE; // Block align
         if (nxHandle->read(mgk.offset - remain, buff, &bytesRead, NX_BLOCKSIZE) && hexStr(&buff[remain], mgk.size) == mgk.magic)
         {            
@@ -389,29 +389,16 @@ NxStorage::NxStorage(const char *p_path)
             }
             GptHeader *hdr = (GptHeader *)buff;
             
-            
+
             if(isdebug)
             {
-                dbg_printf("-- GPT header --\nstarts at lba %I64d (off 0x%s)\n", hdr->my_lba, n2hexstr((u64)hdr->my_lba * NX_BLOCKSIZE, 10).c_str());
-                dbg_printf("backup at lba %I64d (off 0x%s)\n", hdr->alt_lba, n2hexstr((u64)hdr->alt_lba * NX_BLOCKSIZE, 10).c_str());
+                dbg_printf("-- GPT header --");
+                dbg_printf("starts at lba %I64d (off 0x%s)\n", hdr->my_lba, n2hexstr((u64)hdr->my_lba * NX_BLOCKSIZE, 10).c_str());
+                dbg_printf("backup header at lba %I64d (off 0x%s)\n", hdr->alt_lba, n2hexstr((u64)hdr->alt_lba * NX_BLOCKSIZE, 10).c_str());
                 dbg_printf("first use lba %I64d (off 0x%s)\n", hdr->first_use_lba, n2hexstr((u64)hdr->first_use_lba * NX_BLOCKSIZE, 10).c_str());
-                dbg_printf("last use lba %I64d (off 0x%s)\n", hdr->last_use_lba, n2hexstr((u64)hdr->last_use_lba * NX_BLOCKSIZE, 10).c_str());
-                
-                dbg_printf("GPT Header CRC32 = %I32d\n", hdr->c_crc32);
-                unsigned char header[92];
-                memcpy(header, buff, 92);
-                header[16] = 0;
-                header[17] = 0;
-                header[18] = 0;
-                header[19] = 0;
-                dbg_printf("GPT Header CRC32 new hash = %I32d\n", crc32Hash(header, 92));
-
+                dbg_printf("last use lba %I64d (off 0x%s)\n", hdr->last_use_lba, n2hexstr((u64)hdr->last_use_lba * NX_BLOCKSIZE, 10).c_str());                
+                dbg_printf("GPT header CRC32 = %I32d\n", hdr->c_crc32);
                 dbg_printf("Table CRC32 = %I32d\n", hdr->part_ents_crc32);
-                unsigned char *table = new unsigned char[hdr->num_part_ents * hdr->part_ent_size];
-                u32 off = (hdr->part_ent_lba - 1) * NX_BLOCKSIZE;
-                memcpy(&table[0], &buff[off], hdr->num_part_ents * hdr->part_ent_size);
-                dbg_printf("Table CRC32 new hash = %I32d\n", crc32Hash(table, hdr->num_part_ents * hdr->part_ent_size));
-                delete[] table;
             }
             
 
@@ -596,7 +583,11 @@ NxStorage::~NxStorage()
 
 int NxStorage::setKeys(const char* keyset)
 {
-    dbg_wprintf(L"NxStorage::setKeys(%s) for %s\n", keyset, m_path);
+    if (!isNxStorage())
+    {
+        dbg_printf("NxStorage::setKeys() => Not a valid NxStorage\n");
+        return ERR_INVALID_INPUT;
+    }
 
     memset(keys.crypt0, 0, 33);
     memset(keys.tweak0, 0, 33);
@@ -739,11 +730,13 @@ int NxStorage::setKeys(const char* keyset)
 
     // Retrieve information from encrypted partitions
     if (!badCrypto())
+    {
+        dbg_printf("NxStorage::setKeys(%s) - CRYPTO is GOOD", keyset);
         setStorageInfo();
-
+    }
     if (badCrypto()) 
     {
-        dbg_wprintf(L"NxStorage::setKeys(%s) BAD crypto for %s\n", keyset, m_path);
+        dbg_printf("NxStorage::setKeys(%s) BAD crypto\n", keyset);
         return ERROR_DECRYPT_FAILED;
     }
 
@@ -752,6 +745,8 @@ int NxStorage::setKeys(const char* keyset)
 
 void NxStorage::setStorageInfo(int partition)
 {
+
+    dbg_printf("NxStorage::setStorageInfo(%s)\n", getNxTypeAsStr(partition));
     BYTE buff[CLUSTER_SIZE];
     DWORD bytesRead;
 
@@ -824,6 +819,7 @@ void NxStorage::setStorageInfo(int partition)
             // Read journal report => /save/80000000000000d1
             if (system->fat32_dir(&dir_entries, "/save/80000000000000d1"))
             {
+                dbg_printf("NxStorage::setStorageInfo(%s) - Reading journal report (/save/80000000000000d1)", getNxTypeAsStr(partition));
                 fat32::dir_entry *journal = &dir_entries[0];
                 u64 cur_off = journal->data_offset;
                 u64 max_off = cur_off + journal->entry.file_size;
@@ -866,7 +862,7 @@ void NxStorage::setStorageInfo(int partition)
             // Read play report => /save/80000000000000a1 --> Let's just assume file is not fragmented in SYSTEM (TODO : Scan FAT for fragmentation)
             if (system->fat32_dir(&dir_entries, "/save/80000000000000a1"))
             {                
-
+                dbg_printf("NxStorage::setStorageInfo(%s) - Reading play report (/save/80000000000000a1)", getNxTypeAsStr(partition));
                 fat32::dir_entry *play_report = &dir_entries[0];
                 u64 cur_off = play_report->data_offset;
                 u64 max_off = cur_off + play_report->entry.file_size;
@@ -892,7 +888,6 @@ void NxStorage::setStorageInfo(int partition)
 
                             if (fwv_cmp(fwv_tmp, firmware_version) > 0)
                             {
-                                dbg_printf("%s is greater than %s\n", getFirmwareVersion(&fwv_tmp).c_str(), getFirmwareVersion().c_str());
                                 firmware_version = fwv_tmp;
                             }
                         }

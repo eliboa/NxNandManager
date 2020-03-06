@@ -202,9 +202,11 @@ void MainWindow::openDumpDialog(int partition)
 
 void MainWindow::openDebugDialog()
 {
-    DebugDialog = new Debug(this);
+    if (!isdebug) isdebug = true;
+    DebugDialog = new Debug(nullptr);
     DebugDialog->setWindowTitle("Debug console");
     DebugDialog->show();
+    this->setFocus();
 }
 
 void MainWindow::incognito()
