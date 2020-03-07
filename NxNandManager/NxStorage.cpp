@@ -2219,7 +2219,6 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     mmc.nxHandle->setPointer(pt);
     Sleep(1000);
 
-
     // Get volume name for user partition
     WCHAR  volumeName[MAX_PATH] = L"";
     if (!mmc.nxHandle->getVolumeName(volumeName, first_part_lba_start))
@@ -2636,19 +2635,32 @@ std::string BuildChecksum(HCRYPTHASH hHash)
 
 std::string ListPhysicalDrives()
 {
-    int num_drive = 0;
     std::string compatibleDrives;
-
-    for (int drive = 0; drive < 16; drive++)
+    std::vector<diskDescriptor> disks;
+    GetDisks(&disks);
+    for (diskDescriptor disk : disks)
     {
-        char driveName[256];
-        sprintf_s(driveName, 256, "\\\\.\\PhysicalDrive%d", drive);
+        if (!disk.removableMedia)
+            continue;
 
-        NxStorage storage = NxStorage(driveName);        
-        //printf("Drive %s is type %s\n", driveName, storage.getNxTypeAsStr());
+        std::string compatibleDrives_tmp;
+        for (volumeDescriptor volume : disk.volumes)
+        {
+            NxStorage storage(std::string(volume.volumeName.begin(), volume.volumeName.end()).c_str());
+            if (storage.isNxStorage())
+                compatibleDrives_tmp.append(std::string(volume.volumeName.begin(), volume.volumeName.end()).c_str()).append(" [" + GetReadableSize(storage.size()) + " - " + storage.getNxTypeAsStr() + "]\n");
+        }
+
+        char driveName[256];
+        sprintf_s(driveName, 256, "\\\\.\\PhysicalDrive%d", disk.diskNumber);
+        NxStorage storage(driveName);
         if (storage.isNxStorage())
             compatibleDrives.append(driveName).append(" [" + GetReadableSize(storage.size()) + " - " + storage.getNxTypeAsStr() + "]\n");
-        
+        else if (compatibleDrives_tmp.size())
+            compatibleDrives.append(driveName).append("\n");
+        compatibleDrives.append(compatibleDrives_tmp);
+
     }
+
     return compatibleDrives;
 }
