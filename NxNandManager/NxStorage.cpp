@@ -570,7 +570,7 @@ NxStorage::NxStorage(const char *p_path)
     if (not_in(type, { UNKNOWN, INVALID }))
         setStorageInfo();
     
-    dbg_printf("NxStorage::NxStorage() size is %I64d (diskFreeBytes = %I64d). type is %s\n", m_size, m_freeSpace, getNxTypeAsStr());    
+    dbg_printf("NxStorage::NxStorage() ends. Size is %I64d (diskFreeBytes = %I64d). type is %s - %s\n", m_size, m_freeSpace, getNxTypeAsStr(), isSplitted() ? "is splitted" : "not splitted");
 }
 
 NxStorage::~NxStorage()
@@ -1918,24 +1918,28 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     }
     u64 nand_size = size() + boot_size;
 
+    dbg_printf("NxStorage::createMmcEmuNand() - nand_size : %I64d\n", nand_size);
+
     NxStorage mmc(mmc_path);
 
     if (!mmc.isDrive())
         return ERR_OUTPUT_NOT_MMC;
 
+    dbg_printf("NxStorage::createMmcEmuNand() - recreate Handle for mmc output\n");
     // Recreate handle for mmc (because mmc can already be a valid NxStorage)
     mbstowcs(mmc.m_path, mmc_path, MAX_PATH);
     mmc.m_size = 0;
     mmc.mmc_b0_lba_start = 0;
     delete mmc.nxHandle;
     mmc.nxHandle = new NxHandle(&mmc);
+    dbg_printf("NxStorage::createMmcEmuNand() - Handle for mmc output recreated\n");
    
     // Read MMC boot sector
     DWORD bytesRead;
     mbr_t mbr, mbr_tmp;
     if (!mmc.nxHandle->read(&mbr, &bytesRead, NX_BLOCKSIZE))
         return ERR_OUTPUT_HANDLE;
-        
+
     if (hexStr(mbr.signature, 2) != "55AA")
         return ERR_OUTPUT_NOT_MMC;
 
@@ -1969,6 +1973,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     for (int i(1); i < 4; i++)
         memset(&mbr.parts[i], 0, sizeof(mbr_part_t));
 
+    dbg_printf("NxStorage::createMmcEmuNand() - mmc dismount all volumes\n");
     // Dismount all volumes
     if (!mmc.nxHandle->dismountAllVolumes())
         return ERR_OUT_DISMOUNT_VOL;
@@ -1983,6 +1988,9 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
         dbg_printf("NxStorage::createMmcEmuNand() - failed to overwrite MBR\n");
         return ERR_WHILE_WRITE;
     }
+
+    dbg_printf("NxStorage::createMmcEmuNand() - overwrite MBR : SUCCESS\n");
+
     // Write "TXNAND" sector (mandatory to boot emuNAND via SX OS)
     u8 buffer[NX_BLOCKSIZE];
     memset(buffer, 0, NX_BLOCKSIZE);
@@ -2021,7 +2029,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     // Init and lock volume
     this->nxHandle->initHandle(NO_CRYPTO);
     if (isDrive())
-        if(!nxHandle->lockVolume()) dbg_printf("NxStorage::createMmcEmuNand() - failed to lock input volume\n");
+        if(!nxHandle->lockVolume()) dbg_printf("NxStorage::createMmcEmuNand() - failed to lock input volume\n");    
 
     // Set new buffer
     int buff_size = nxHandle->getDefaultBuffSize();
@@ -2036,6 +2044,8 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     spi.bytesCount = 0;
     spi.bytesTotal = nand_size;
     updateProgress(spi);
+
+    dbg_printf("NxStorage::createMmcEmuNand() - NAND copy begins\n");
 
     // Copy provided boot partitions if needed
     if (type == RAWNAND)
@@ -2062,7 +2072,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     }
 
     // Copy NxStorage
-    while(this->nxHandle->read(cpy_buffer, &bytesRead, buff_size))
+    while(this->nxHandle->read(cpy_buffer, &bytesRead, buff_size) && spi.bytesCount < pi.bytesTotal)
     {
         if(stopWork) return userAbort();
 
@@ -2072,6 +2082,8 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
         spi.bytesCount += bytesWrite;
         updateProgress(spi);
     }
+
+    dbg_printf("NxStorage::createMmcEmuNand() - NAND copy ends, bytes count %I64d\n", spi.bytesCount);
 
     delete[] cpy_buffer;
     if (isDrive())
