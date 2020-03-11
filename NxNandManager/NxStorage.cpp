@@ -1339,7 +1339,7 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
     if (pi.bytesCount != pi.bytesTotal)
         return error(ERR_WHILE_COPY);
 
-    if(par.crypto_mode == MD5_HASH)
+    if(par.crypto_mode == MD5_HASH && !par.passThroughZero)
     {
         nxHandle->unlockHash();
 
@@ -2648,7 +2648,7 @@ std::string ListPhysicalDrives()
         {
             NxStorage storage(std::string(volume.volumeName.begin(), volume.volumeName.end()).c_str());
             if (storage.isNxStorage())
-                compatibleDrives_tmp.append(std::string(volume.volumeName.begin(), volume.volumeName.end()).c_str()).append(" [" + GetReadableSize(storage.size()) + " - " + storage.getNxTypeAsStr() + "]\n");
+                compatibleDrives_tmp.append("  ").append(std::string(volume.volumeName.begin(), volume.volumeName.end()).c_str()).append(" [" + GetReadableSize(storage.size()) + " - " + storage.getNxTypeAsStr() + "]\n");
         }
 
         char driveName[256];

@@ -152,10 +152,10 @@ void printProgress(ProgressInfo pi)
     auto time = std::chrono::system_clock::now();
     std::chrono::duration<double> tmp_elapsed_seconds = time - pi.begin_time;
 
-    if (!((int)tmp_elapsed_seconds.count() > pi.elapsed_seconds) && pi.bytesCount != 0 && pi.bytesCount != pi.bytesTotal)
+    if (!((int)tmp_elapsed_seconds.count() > elapsed_seconds) && pi.bytesCount != 0 && pi.bytesCount != pi.bytesTotal)
         return;
 
-    pi.elapsed_seconds = tmp_elapsed_seconds.count();
+    elapsed_seconds = tmp_elapsed_seconds.count();
     std::chrono::duration<double> remaining_seconds = (tmp_elapsed_seconds / pi.bytesCount) * (pi.bytesTotal - pi.bytesCount);
     std::string buf = GetReadableElapsedTime(remaining_seconds).c_str();
     char label[0x40];
@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
     //std::setlocale(LC_ALL, "en_US.utf8");
     std::setlocale(LC_ALL, "");
     std::locale::global(std::locale(""));
-    printf("[ NxNandManager v3.0.3 by eliboa ]\n\n");
+    printf("[ NxNandManager v4.0-beta by eliboa ]\n\n");
     const char *input = NULL, *output = NULL, *partitions = NULL, *keyset = NULL, *user_resize = NULL;
     BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE, createEmuNAND = FALSE, zipOutput = false, passThroughZeroes = false;
     u64 chunksize = 0;

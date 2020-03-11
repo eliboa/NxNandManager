@@ -254,7 +254,7 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
         return error(ERR_WHILE_COPY);
 
     // Compute & compare md5 hashes
-    if (par.crypto_mode == MD5_HASH)
+    if (par.crypto_mode == MD5_HASH && !par.passThroughZero)
     {
         // Get checksum for input
         HCRYPTHASH in_hash = nxHandle->md5Hash();

@@ -111,6 +111,7 @@ class NxHandle {
         DISK_GEOMETRY pdg;
 
         // Getters
+        HANDLE getHandle() { return m_h; }
         bool isDrive() { return b_isDrive; }
         u64  size() { return m_size; }
         bool isSplitted() { return b_isSplitted; }
