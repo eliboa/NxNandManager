@@ -180,11 +180,11 @@ void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
     // Set pointer at start
     setPointer(0);
     
-    /*
+
     dbg_printf("NxHandle::initHandle() set for %s, current pointer is %s - m_off_start = %s, m_off_end = %s, crypto_mode = %d\n",
         nullptr != partition ? partition->partitionName().c_str() : "NxStorage", n2hexstr(lp_CurrentPointer.QuadPart, 10).c_str(), 
         n2hexstr(m_off_start, 10).c_str(), n2hexstr(m_off_end, 10).c_str(), m_crypto);
-    */
+
 }
 
 splitFileName_t NxHandle::getSplitFileNameAttributes(std::wstring filepath)
@@ -324,7 +324,7 @@ bool NxHandle::detectSplittedStorage()
         createFile(&path[0]);
 
         if (!GetFileSizeEx(m_h, &Lsize))
-            break;
+            break;               
 
         // New NxSplitFile
         NxSplitFile *splitfile = reinterpret_cast<NxSplitFile *>(malloc(sizeof(NxSplitFile)));
@@ -458,6 +458,7 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
         if (wcscmp(file->file_path, m_curSplitFile->file_path)) 
         {            
             setPointer(lp_CurrentPointer.QuadPart - m_off_start);
+            dbg_printf("NxHandle::read() - Switch to next split file at offset %s\n", n2hexstr(u64(lp_CurrentPointer.QuadPart - m_off_start), 10).c_str());
         }
     }
     
