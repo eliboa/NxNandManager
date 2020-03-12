@@ -207,6 +207,7 @@ bool GetVolumeName(DWORD diskNumber, u64 startOffset, WCHAR *pVolumeName, size_t
         if (vol.diskNumber == diskNumber && vol.diskStartOffset == startOffset)
         {
             memcpy(pVolumeName, vol.volumeName.c_str(), size);
+            dbg_wprintf(L"GetVolumeName(diskNumber = %I32d, offset = %I64d, WCHAR *pVolumeName = %s, size = %I32d\n", diskNumber, startOffset, vol.volumeName.c_str(), size);
             return true;
         }
     }

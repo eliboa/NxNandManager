@@ -488,6 +488,7 @@ void dbg_printf (const char *format, ...)
         vsprintf(line, format, args);
         va_end( args );
         writeDebugLine(std::string(line));
+        fflush(stdout);
     }
 #endif
 }
@@ -511,6 +512,7 @@ void dbg_wprintf (const wchar_t *format, ...)
         va_end( args );
         std::wstring sline(line);
         writeDebugLine(std::string(sline.begin(), sline.end()));
+        fflush(stdout);
     }
 #endif
 }

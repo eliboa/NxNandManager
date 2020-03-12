@@ -1905,11 +1905,11 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
         dbg_printf("NxStorage::createMmcEmuNand() - boot1 path : %s\n", boot0_path);
     }
     NxPartition *boot0, *boot1;
+    NxStorage nx1(boot0_path);
+    NxStorage nx2(boot1_path);
     u64 boot_size = 0;
     if (type == RAWNAND)
     {
-        NxStorage nx1(boot0_path);
-        NxStorage nx2(boot1_path);
         if (nx1.type != BOOT0) return ERR_INVALID_BOOT0;
         if (nx2.type != BOOT1) return ERR_INVALID_BOOT1;
         boot0 = nx1.getNxPartition();
@@ -2235,9 +2235,16 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     WCHAR  volumeName[MAX_PATH] = L"";
     if (!mmc.nxHandle->getVolumeName(volumeName, first_part_lba_start))
         return ERR_PART_CREATE_FAILED;
+
+    dbg_wprintf(L"NxStorage::createMmcEmuNand() -mmc.nxHandle->getVolumeName() => %s\n", volumeName);
+
+    // Test
+    wstring vol(volumeName);
+    string svol(vol.begin(), vol.end());
+    dbg_printf("NxStorage::createMmcEmuNand() - Volumename (string) : %s\n", svol.c_str());
     
     TCHAR Buf[MAX_PATH];    
-    TCHAR Volume[] = TEXT("");
+    TCHAR Volume[MAX_PATH] = TEXT("");
     TCHAR AvailableDrive[] = L"";
     bool already_mounted = false;
     wchar_t I;
@@ -2245,7 +2252,15 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     wcscat(Volume, L"\\\0");
     wchar_t Drive[4] = L"d:\\";
     dbg_wprintf(L"NxStorage::createMmcEmuNand() - Volume name: %s\n", Volume);
-   
+
+    // Test
+    TCHAR Volume2[MAX_PATH] = TEXT("");
+    wcscat(Volume2, vol.c_str());
+    wcscat(Volume2, L"\\\0");
+    dbg_wprintf(L"NxStorage::createMmcEmuNand() - Volume name 2 : %s\n", Volume2);
+    char output[MAX_PATH];
+    sprintf(output, "%ls", Volume2);
+    dbg_printf("NxStorage::createMmcEmuNand() - Volume name 2 (string) : %s\n", output);
 
     // Look for existing or available mounting point
     for (I = L'd'; I < L'z'; I++)
@@ -2273,10 +2288,13 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
 
     if (!lstrlen(AvailableDrive))
         return ERR_VOL_MOUNT_FAILED;
+
+    dbg_printf("NxStorage::createMmcEmuNand() - AvailableDrive : %ls\n", AvailableDrive);
     
     // Set mount point for user partition
     if (!already_mounted)
     {
+        dbg_printf("NxStorage::createMmcEmuNand() - volume is not mounted\n");
         BOOL  fResult;
         TCHAR szDriveLetter[3];
         std::vector<diskDescriptor> disks;
@@ -2300,18 +2318,16 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
         szDriveLetterAndSlash[3] = TEXT('\0');
 
         fResult = DefineDosDevice(DDD_RAW_TARGET_PATH, szDriveLetter, volumeName);
-        if (!fResult)
-            dbg_wprintf(TEXT("NxStorage::createMmcEmuNand() - DefineDosDevice failed : %s\n"), GetLastErrorAsString().c_str());
-
+        if (!fResult) dbg_wprintf(TEXT("NxStorage::createMmcEmuNand() - DefineDosDevice failed : %s\n"), GetLastErrorAsString().c_str());
+        else dbg_printf("NxStorage::createMmcEmuNand() - DefineDosDevice(DDD_RAW_TARGET_PATH, %ls, %ls) success", szDriveLetter, volumeName);
 
         fResult = DefineDosDevice(DDD_RAW_TARGET_PATH | DDD_REMOVE_DEFINITION | DDD_EXACT_MATCH_ON_REMOVE, szDriveLetter, volumeName);
-
-        if (!fResult)
-            dbg_wprintf(TEXT("NxStorage::createMmcEmuNand() - DefineDosDevice failed\n"), GetLastError());
+        if (!fResult) dbg_wprintf(TEXT("NxStorage::createMmcEmuNand() - DefineDosDevice failed\n"), GetLastError());
+        else dbg_printf("NxStorage::createMmcEmuNand() - DefineDosDevice(DDD_RAW_TARGET_PATH | DDD_REMOVE_DEFINITION | DDD_EXACT_MATCH_ON_REMOVE, %ls, %ls) success", szDriveLetter, volumeName);
 
         std::wstring volAndSlash(volumeName);
         volAndSlash.append(L"\\");
-        //dbg_wprintf(L"SetVolumeMountPoint(%s, %s)\n", szDriveLetterAndSlash, volAndSlash.c_str());
+        dbg_wprintf(L"NxStorage::createMmcEmuNand() - SetVolumeMountPoint(%s, %s)\n", szDriveLetterAndSlash, volAndSlash.c_str());
         fResult = SetVolumeMountPoint(szDriveLetterAndSlash, volAndSlash.c_str());
 
         if (!fResult)

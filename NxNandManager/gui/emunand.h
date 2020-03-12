@@ -5,6 +5,7 @@
 #include <QFileDialog>
 #include <QStorageInfo>
 #include <QListWidgetItem>
+#include "qutils.h"
 #include "../res/utils.h"
 #include "../NxStorage.h"
 #include "worker.h"

@@ -19,7 +19,6 @@
 
 #include "res/utils.h"
 
-
 BOOL BYPASS_MD5SUM = FALSE;
 bool isdebug = FALSE;
 bool isGUI = FALSE;
@@ -27,9 +26,23 @@ bool isGUI = FALSE;
 BOOL FORCE = FALSE;
 BOOL LIST = FALSE;
 BOOL FORMAT_USER = FALSE;
+
 int startGUI(int argc, char *argv[])
 {
 #if defined(ENABLE_GUI)
+
+    if (isdebug)
+    {
+        QFile outFile("log_file.txt");
+        outFile.open(QIODevice::WriteOnly | QIODevice::Truncate);
+
+        // redirect stdout
+        _dup2(outFile.handle(), _fileno(stdout));
+
+        // redirect stderr
+        _dup2(_fileno(stdout), _fileno(stderr));
+    }
+
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication a(argc, argv);
     isGUI = true;

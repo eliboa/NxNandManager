@@ -187,7 +187,7 @@ void Emunand::updateDisksList()
 
 void Emunand::on_boo0_pushBtn_clicked()
 {
-    QString fileName = QFileDialog::getOpenFileName(this);
+    QString fileName = FileDialog(this, fdMode::open_file);
     if (!fileName.isEmpty())
     {
         NxStorage storage(fileName.toLocal8Bit().constData());
@@ -202,7 +202,7 @@ void Emunand::on_boo0_pushBtn_clicked()
 
 void Emunand::on_boo1_pushBtn_clicked()
 {
-    QString fileName = QFileDialog::getOpenFileName(this);
+    QString fileName = FileDialog(this, fdMode::open_file);
     if (!fileName.isEmpty())
     {
         NxStorage storage(fileName.toLocal8Bit().constData());
