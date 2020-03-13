@@ -28,6 +28,9 @@ signals:
 private:
     Ui::Debug *ui;
     bool m_isdebug_old_value;
+
+public:
+    bool isOpen = true;
 };
 
 static Debug* debug_instance = nullptr;

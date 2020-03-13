@@ -139,3 +139,8 @@ void OpenDrive::on_RemovableCheckBox_stateChanged(int arg1)
     removableDrivesOnly = ui->RemovableCheckBox->isChecked();
     build_DriveList();
 }
+
+void OpenDrive::on_DialogOpenDrive_finished(int result)
+{
+    isOpen = false;
+}

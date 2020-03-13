@@ -150,3 +150,8 @@ Properties::~Properties()
 {
     delete ui;
 }
+
+void Properties::on_DialogProperties_finished(int result)
+{
+    isOpen = false;
+}

@@ -43,4 +43,6 @@ void Debug::on_Debug_finished(int result)
     isdebug = m_isdebug_old_value;
     if(nullptr != debug_instance)
         debug_instance = nullptr;
+
+    isOpen = false;
 }

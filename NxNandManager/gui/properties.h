@@ -45,7 +45,10 @@ private:
 
 signals:
 
-public slots:
+public:
+    bool isOpen = true;
+private slots:
+    void on_DialogProperties_finished(int result);
 };
 
 #endif // PROPERTIES_H

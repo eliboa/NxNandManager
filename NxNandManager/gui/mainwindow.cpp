@@ -49,6 +49,12 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->partADumpBtn, SIGNAL(clicked()), this, SLOT(dumpPartitionAdvanced()));
     connect(ui->partRestoreBtn, SIGNAL(clicked()), this, SLOT(restorePartition()));
 
+    if (!isdebug)
+    {
+        ui->menuDebug->setDisabled(true);
+        ui->menuDebug->menuAction()->setVisible(false);
+
+    }
     ui->partQDumpBtn->setDisabled(true);
     ui->partADumpBtn->setDisabled(true);
     ui->partRestoreBtn->setDisabled(true);
@@ -150,6 +156,15 @@ void MainWindow::open()
 
 void MainWindow::openDrive()
 {
+    if(openDriveDialog != nullptr)
+    {
+        if (openDriveDialog->isOpen)
+        {
+            openDriveDialog->setFocus();
+            return;
+        }
+        else delete openDriveDialog;
+    }
     openDriveDialog = new OpenDrive(this);
 	openDriveDialog->show();    
 	openDriveDialog->exec();
@@ -157,6 +172,15 @@ void MainWindow::openDrive()
 
 void MainWindow::Properties()
 {
+    if(PropertiesDialog != nullptr)
+    {
+        if (PropertiesDialog->isOpen)
+        {
+            PropertiesDialog->setFocus();
+            return;
+        }
+        else delete PropertiesDialog;
+    }
     PropertiesDialog = new class Properties(this->input);
     PropertiesDialog->setWindowTitle("Properties");
     PropertiesDialog->show();
@@ -202,6 +226,15 @@ void MainWindow::openDumpDialog(int partition)
 
 void MainWindow::openDebugDialog()
 {
+    if(DebugDialog != nullptr)
+    {
+        if (DebugDialog->isOpen)
+        {
+            DebugDialog->setFocus();
+            return;
+        }
+        else delete DebugDialog;
+    }
     DebugDialog = new Debug(nullptr, isdebug);
     DebugDialog->setWindowTitle("Debug console");
     DebugDialog->show();

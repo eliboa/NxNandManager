@@ -59,13 +59,13 @@ public:
 
 private:
 	Ui::MainWindow *ui;
-    OpenDrive* openDriveDialog;
-    KeySetDialog* keysetDialog;
-    Properties* PropertiesDialog;
+    OpenDrive* openDriveDialog = nullptr;
+    KeySetDialog* keysetDialog = nullptr;
+    Properties* PropertiesDialog = nullptr;
     ResizeUser* ResizeUserDialog;
     Emunand* EmunandDialog;
     Dump* DumpDialog;
-    Debug* DebugDialog;
+    Debug* DebugDialog = nullptr;
     //Explorer* ExplorerDialog;
 
 

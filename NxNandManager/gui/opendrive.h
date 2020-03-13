@@ -39,11 +39,14 @@ public:
     explicit OpenDrive(QWidget *parent = nullptr);
     ~OpenDrive();
     Ui::DialogOpenDrive *ui;
+    bool isOpen = true;
 
 private slots:
     void on_treeWidget_itemDoubleClicked(QTreeWidgetItem *item, int column);
     void timer1000();
     void on_RemovableCheckBox_stateChanged(int arg1);
+
+    void on_DialogOpenDrive_finished(int result);
 
 private:
     std::vector<diskDescriptor> m_disks;

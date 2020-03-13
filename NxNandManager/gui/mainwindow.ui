@@ -1167,11 +1167,16 @@ QTableCornerButton::section {background-color: transparent;}</string>
     <addaction name="actionResize"/>
     <addaction name="actionDumpRawnandOnly"/>
     <addaction name="actionCreateEmunand"/>
-    <addaction name="separator"/>
+   </widget>
+   <widget class="QMenu" name="menuDebug">
+    <property name="title">
+     <string>Debug</string>
+    </property>
     <addaction name="actionDebug_console"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
+   <addaction name="menuDebug"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionOpenFile">
@@ -1438,7 +1443,7 @@ QTableCornerButton::section {background-color: transparent;}</string>
   </action>
   <action name="actionDebug_console">
    <property name="text">
-    <string>Debug console</string>
+    <string>Console</string>
    </property>
   </action>
  </widget>
