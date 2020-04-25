@@ -20,7 +20,7 @@
    <enum>Qt::NoFocus</enum>
   </property>
   <property name="windowTitle">
-   <string>NxNandManager v4.0 by eliboa</string>
+   <string>NxNandManager v4.0-beta by eliboa</string>
   </property>
   <property name="windowIcon">
    <iconset resource="application.qrc">
@@ -1139,7 +1139,7 @@ QTableCornerButton::section {background-color: transparent;}</string>
      <x>0</x>
      <y>0</y>
      <width>458</width>
-     <height>20</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

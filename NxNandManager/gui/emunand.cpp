@@ -313,7 +313,7 @@ void Emunand::on_driveList_itemSelectionChanged()
             selected = i;
     }
 
-    bool error = false;
+    m_notEnoughSpace = false;
     if(m_driveList_type == DISK)
     {
         diskDescriptor *disk = &m_disks.at(selected);
@@ -322,7 +322,7 @@ void Emunand::on_driveList_itemSelectionChanged()
         if(emuNandSize > disk->size)
         {
             ui->outBar->setFormat("NOT ENOUGH SPACE !");
-            error = true;
+            m_notEnoughSpace = true;
         }
         else
         {
@@ -355,7 +355,7 @@ void Emunand::on_driveList_itemSelectionChanged()
         if(emuNandSize > freeSpace)
         {
             ui->outBar->setFormat("NOT ENOUGH SPACE !");
-            error = true;
+            m_notEnoughSpace = true;
         }
         else
         {
@@ -370,7 +370,7 @@ void Emunand::on_driveList_itemSelectionChanged()
     }
 
     QString st;
-    if(error)
+    if(m_notEnoughSpace)
     {
         st = QString (
             "QProgressBar::chunk {"
@@ -413,6 +413,9 @@ void Emunand::on_createEmunandBtn_clicked()
         return error("Input is missing");
     else if(not_in(input->type, { RAWNAND, RAWMMC}))
         return error("Input must be RAWNAND or FULL NAND");
+
+    if (m_notEnoughSpace)
+        return error("Not enough space on target volume/disk");
 
     if (input->type == RAWNAND)
     {

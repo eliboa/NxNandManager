@@ -53,7 +53,7 @@ private:
     params_t m_par;
     EmunandType m_emu_type;
     bool stop_timer = false;
-
+    bool m_notEnoughSpace = false;
     void on_emunandType_toggled(int type);
     void error(QString err);
     void updateVolumesList();
