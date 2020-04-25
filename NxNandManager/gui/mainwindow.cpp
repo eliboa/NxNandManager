@@ -466,6 +466,7 @@ void MainWindow::beforeInputSet()
     ui->partRestoreBtn->setVisible(false);    
     ui->partCustom1Btn->setVisible(false);
     ui->partCustom1Btn->setDisabled(true);
+    ui->actionCreateEmunand->setDisabled(true);
 
     ui->properties_table->setRowCount(0);
 }

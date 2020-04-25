@@ -1418,6 +1418,9 @@ QTableCornerButton::section {background-color: transparent;}</string>
    </property>
   </action>
   <action name="actionCreateEmunand">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="application.qrc">
      <normaloff>:/images/emunand.png</normaloff>:/images/emunand.png</iconset>
