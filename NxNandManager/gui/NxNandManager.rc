@@ -1,6 +1,6 @@
 #include <windows.h>
 
-#define ADMIN_EXEC_LEVEL  0
+#define ADMIN_EXEC_LEVEL  1
 IDI_ICON1               ICON    DISCARDABLE     "images/logo.ico"
 #if ADMIN_EXEC_LEVEL == 1
 CREATEPROCESS_MANIFEST_RESOURCE_ID	RT_MANIFEST	"../NxNM.exe.manifest"
