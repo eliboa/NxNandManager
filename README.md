@@ -11,6 +11,10 @@
 - Splitted dumps are fully supported (backup & restore). However the program cannot split an existing dump nor can it split the output file in any case.
 - Option to wipe console unique ids and certificates (a.k.a Incognito) from PRODINFO
 - Enable/Disable auto RCM (BOOT0)
+- Create emuNAND (file or partition based) from any NAND image (RAWNAND or FULL NAND) => Only available with latest release [v4.0-beta](https://github.com/eliboa/NxNandManager/tree/v4.0-beta)   
+![Png](http://laumonier.org/switch/NxNandManager4.0b_03.png)
+- "Advanced copy" feature (passthrough zeroes, split output, zip output, etc.) => Only available with latest release [v4.0-beta](https://github.com/eliboa/NxNandManager/tree/v4.0-beta)   
+![Png](http://laumonier.org/switch/NxNandManager4.0b_02.png)
 
 ## Supported file format
 
