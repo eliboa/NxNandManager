@@ -478,6 +478,12 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
         return false;
     }
 
+    // Resize buffer length before calling ReadFile (otherwise hekate's mass storage tool will disconnect)
+    if (lp_CurrentPointer.QuadPart + (u64)length > m_off_end + 1)
+    {
+        length = m_off_end + 1 - lp_CurrentPointer.QuadPart;
+    }
+
     if (!ReadFile(m_h, buffer, length, &bytesRead, NULL)) {
         dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
         return false;
