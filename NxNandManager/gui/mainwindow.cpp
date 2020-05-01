@@ -270,7 +270,7 @@ void MainWindow::incognito()
 
 void MainWindow::on_rawdump_button_clicked(int crypto_mode, bool rawnand_dump)
 {
-
+    if (!crypto_mode) crypto_mode = MD5_HASH;
     QString save_filename(input->getNxTypeAsStr());
     if(rawnand_dump) save_filename = "RAWNAND";
     if(crypto_mode == ENCRYPT)
