@@ -65,6 +65,8 @@ static NxStorageType NxTypesArr[] =
 };
 
 static NxSystemTitles systemTitlesArr[] = {
+    { "10.0.4", "1e38812f86b982f3a0e69a082ad166e2.nca"},
+        { "10.0.3", "48d87e27f5ab9843fdecc7da4001c731.nca"},
     { "10.0.2", "31c13a0f8258ffb5f2975fb674198289.nca"},
     { "10.0.1", "f724715a890a67e335babb6750fd4fdb.nca"},
     { "10.0.0", "431e14d3435af013fa13654bd7f9eaf7.nca"},
@@ -100,6 +102,8 @@ static NxSystemTitles systemTitlesArr[] = {
 };
 
 static NxSystemTitles exFatTitlesArr[] = {
+    { "10.0.4", "d5bc167565842ee61f9670d23759844d.nca"},
+    { "10.0.3", "d5bc167565842ee61f9670d23759844d.nca"},
     { "10.0.2", "d5bc167565842ee61f9670d23759844d.nca"},
     { "10.0.1", "d5bc167565842ee61f9670d23759844d.nca"},
     { "10.0.0", "d5bc167565842ee61f9670d23759844d.nca"},
