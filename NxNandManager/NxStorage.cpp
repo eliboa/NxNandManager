@@ -2060,6 +2060,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     // Sub Progress
     spi.mode = COPY;
     sprintf(spi.storage_name, "NAND");
+    spi.begin_time = std::chrono::system_clock::now();
     spi.bytesCount = 0;
     spi.bytesTotal = nand_size;
     updateProgress(spi);
@@ -2124,6 +2125,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
 
     // Sub Progress
     spi.mode = CREATE;
+    spi.begin_time = std::chrono::system_clock::now();
     sprintf(spi.storage_name, "FAT32 partition");
     spi.bytesCount = 0;
     spi.bytesTotal = (bs->reserved_sector_count + bs->fat_size * bs->num_fats) * NX_BLOCKSIZE + CLUSTER_SIZE;

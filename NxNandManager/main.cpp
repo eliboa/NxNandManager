@@ -159,6 +159,7 @@ void printCopyProgress(int mode, const char *storage_name, timepoint_t begin_tim
         GetReadableSize(bytesTotal).c_str(), bytesCount * 100 / bytesTotal);
     printf(" %s          \r", buf.c_str());
 }
+
 void printProgress(ProgressInfo pi)
 {
    // printCopyProgress(pi.mode, pi.storage_name.c_str(), pi.begin_time, pi.bytesCount, pi.bytesTotal);    
@@ -205,8 +206,10 @@ int main(int argc, char *argv[])
     std::setlocale(LC_ALL, "");
     std::locale::global(std::locale(""));
     printf("[ NxNandManager v4.0-beta by eliboa ]\n\n");
-    const char *input = NULL, *output = NULL, *partitions = NULL, *keyset = NULL, *user_resize = NULL;
-    BOOL info = FALSE, gui = FALSE, setAutoRCM = FALSE, autoRCM = FALSE, decrypt = FALSE, encrypt = FALSE, incognito = FALSE, createEmuNAND = FALSE, zipOutput = false, passThroughZeroes = false;
+    const char *input = nullptr, *output = nullptr, *partitions = nullptr, *keyset = nullptr, *user_resize = nullptr, *boot0 = nullptr, *boot1 = nullptr;
+    BOOL info = false, gui = false, setAutoRCM = false, autoRCM = false, decrypt = false, encrypt = false;
+    BOOL incognito = false, createEmuNAND = false, zipOutput = false, passThroughZeroes = false;
+    EmunandType emunandType = unknown;
     u64 chunksize = 0;
     int io_num = 1;
 
@@ -243,15 +246,30 @@ int main(int argc, char *argv[])
             "  --incognito       Wipe all console unique id's and certificates from CAL0 (a.k.a incognito)\n"
             "                    Only applies to input type RAWNAND or PRODINFO\n\n"
             "  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-            "  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n\n"
-        );
+            "  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n\n");
 
         printf("=> Flags:\n\n"
             "                    \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
             "                    \"FORMAT_USER\" to format USER partition (-user_resize arg mandatory)\n"
             "                    \"ZIP\" to create a zip archive for output file(s)\n"
             "                    \"PASSTHROUGH_0\" to fill unallocated clusetes in FAT with zeroes (keyset needed)\n"
-            "                    \"FORCE\" to disable prompt for user input (no question asked)\n");
+            "                    \"FORCE\" to disable prompt for user input (no question asked)\n\n");
+
+        printf("=> Emunand creation tool:\n\n"
+               " Submit the following arguments to create an emunand on microSD card:\n"
+               "   -i               Input path to a valid RAWNAND or FULL NAND file/drive\n"
+               "   -boot0           Input path to a valid BOOT0 file/drive (not needed if input is FULL NAND)\n"
+               "   -boot1           Input path to a valid BOOT1 file/drive (not needed if input is FULL NAND)\n"
+               "   -o               Path to SD volume (i.e drive letter) or physical drive\n"
+               "                    If -o is not provided, the program will display a list a compatible outputs\n\n"
+               " Additionally, submit one of the following arguments:\n"
+               "  --create_partition_emunand        To create a partition based emunand compatible with both Atmosphere\n"
+               "                                    and SX OS. Another partition (FAT32) will be created with space left.\n"
+               "                                    -o must point to a physical drive (ex \\\\.\\PhysicalDrive3)\n"
+               "  --create_filebased_emunand_AMS    To create a file based emunand for Atmosphere (emuMMC) \n"
+               "                                    -o must point to a drive letter (ex F:)\n"
+               "  --create_filebased_emunand_SXOS   To create a file based emunand for SX OS \n"
+               "                                    -o must point to a drive letter (ex F:)\n\n");
 
         throwException(ERR_WRONG_USE);
         return -1;
@@ -296,7 +314,11 @@ int main(int argc, char *argv[])
     const char INCOGNITO_ARGUMENT[] = "--incognito";
     const char RESIZE_USER_ARGUMENT[] = "-user_resize";
     const char FORMAT_USER_FLAG[] = "FORMAT_USER";
-    const char CREATE_EMUNAND_ARGUMENT[] = "--create_SD_emuNAND";
+    const char CREATE_SD_AMS_EMUNAND_ARGUMENT[] = "--create_filebased_emunand_AMS";
+    const char CREATE_SD_SXOS_EMUNAND_ARGUMENT[] = "--create_filebased_emunand_SXOS";
+    const char CREATE_RAWBASED_EMUNAND_ARGUMENT[] = "--create_partition_emunand";
+    const char BOOT0_ARGUMENT[] = "-boot0";
+    const char BOOT1_ARGUMENT[] = "-boot1";
     const char SPLIT_OUTPUT_ARGUMENT[] = "-split";
     const char ZIP_OUTPUT_FLAG[] = "ZIP";
     const char PASSTHROUGH_0[] = "PASSTHROUGH_0";
@@ -305,19 +327,37 @@ int main(int argc, char *argv[])
     {
         char* currArg = argv[i];
         if (!strncmp(currArg, LIST_ARGUMENT, array_countof(LIST_ARGUMENT) - 1))
-            LIST = TRUE;
+            LIST = true;
 
         else if (!strncmp(currArg, GUI_ARGUMENT, array_countof(GUI_ARGUMENT) - 1))
-            gui = TRUE;
+            gui = true;
 
-        else if (!strncmp(currArg, CREATE_EMUNAND_ARGUMENT, array_countof(CREATE_EMUNAND_ARGUMENT) - 1))
-            createEmuNAND = TRUE;
-
+        else if (!strncmp(currArg, CREATE_SD_AMS_EMUNAND_ARGUMENT, array_countof(CREATE_SD_AMS_EMUNAND_ARGUMENT) - 1))
+        {
+            createEmuNAND = true;
+            emunandType = fileBasedAMS;
+        }
+        else if (!strncmp(currArg, CREATE_SD_SXOS_EMUNAND_ARGUMENT, array_countof(CREATE_SD_SXOS_EMUNAND_ARGUMENT) - 1))
+        {
+            createEmuNAND = true;
+            emunandType = fileBasedSXOS;
+        }
+        else if (!strncmp(currArg, CREATE_RAWBASED_EMUNAND_ARGUMENT, array_countof(CREATE_RAWBASED_EMUNAND_ARGUMENT) - 1))
+        {
+            createEmuNAND = true;
+            emunandType = rawBased;
+        }
         else if (!strncmp(currArg, INPUT_ARGUMENT, array_countof(INPUT_ARGUMENT) - 1) && i < argc)
             input = argv[++i];
 
         else if (!strncmp(currArg, OUTPUT_ARGUMENT, array_countof(OUTPUT_ARGUMENT) - 1) && i < argc)
             output = argv[++i];
+
+        else if (!strncmp(currArg, BOOT0_ARGUMENT, array_countof(BOOT0_ARGUMENT) - 1) && i < argc)
+            boot0 = argv[++i];
+
+        else if (!strncmp(currArg, BOOT1_ARGUMENT, array_countof(BOOT1_ARGUMENT) - 1) && i < argc)
+            boot1 = argv[++i];
 
         else if (!strncmp(currArg, PARTITION_ARGUMENT, array_countof(PARTITION_ARGUMENT) - 1))
         {
@@ -344,26 +384,26 @@ int main(int argc, char *argv[])
                 return PrintUsage();
         }
         else if (!strncmp(currArg, INFO_ARGUMENT, array_countof(INFO_ARGUMENT) - 1))
-            info = TRUE;
+            info = true;
 
         else if (!strncmp(currArg, AUTORCMON_ARGUMENT, array_countof(AUTORCMON_ARGUMENT) - 1))
         {
-            setAutoRCM = TRUE;
-            autoRCM = TRUE;
+            setAutoRCM = true;
+            autoRCM = true;
         }
         else if (!strncmp(currArg, AUTORCMOFF_ARGUMENT, array_countof(AUTORCMOFF_ARGUMENT) - 1))
         {
-            setAutoRCM = TRUE;
+            setAutoRCM = true;
             autoRCM = FALSE;
         }
         else if (!strncmp(currArg, BYPASS_MD5SUM_FLAG, array_countof(BYPASS_MD5SUM_FLAG) - 1))
-            BYPASS_MD5SUM = TRUE;
+            BYPASS_MD5SUM = true;
 
         else if (!strncmp(currArg, DEBUG_MODE_FLAG, array_countof(DEBUG_MODE_FLAG) - 1))
-            isdebug = TRUE;
+            isdebug = true;
 
         else if (!strncmp(currArg, FORCE_FLAG, array_countof(FORCE_FLAG) - 1))
-            FORCE = TRUE;
+            FORCE = true;
 
         else if (!strncmp(currArg, PASSTHROUGH_0, array_countof(PASSTHROUGH_0) - 1))
             passThroughZeroes = true;
@@ -372,19 +412,19 @@ int main(int argc, char *argv[])
             zipOutput = true;
 
         else if (!strncmp(currArg, FORMAT_USER_FLAG, array_countof(FORMAT_USER_FLAG) - 1))
-            FORMAT_USER = TRUE;
+            FORMAT_USER = true;
 
         else if (!strncmp(currArg, KEYSET_ARGUMENT, array_countof(KEYSET_ARGUMENT) - 1) && i < argc)
             keyset = argv[++i];
 
         else if (!strncmp(currArg, DECRYPT_ARGUMENT, array_countof(DECRYPT_ARGUMENT) - 1))
-            decrypt = TRUE;
+            decrypt = true;
 
         else if (!strncmp(currArg, ENCRYPT_ARGUMENT, array_countof(ENCRYPT_ARGUMENT) - 1))
-            encrypt = TRUE;
+            encrypt = true;
 
         else if (!strncmp(currArg, INCOGNITO_ARGUMENT, array_countof(INCOGNITO_ARGUMENT) - 1))
-            incognito = TRUE;
+            incognito = true;
 
         else {
             printf("Argument (%s) is not allowed.\n\n", currArg);
@@ -412,7 +452,7 @@ int main(int argc, char *argv[])
         exit(EXIT_SUCCESS);
     }
 
-    if (nullptr == input || (nullptr == output && !info && !setAutoRCM && !incognito))
+    if (nullptr == input || (nullptr == output && !info && !setAutoRCM && !incognito &&!createEmuNAND))
         PrintUsage();
 
     if ((encrypt || decrypt) && nullptr == keyset)
@@ -516,6 +556,56 @@ int main(int argc, char *argv[])
         printStorageInfo(&nx_input);
     }
 
+    if (createEmuNAND && nullptr == output)
+    {
+
+        if (not_in(nx_input.type, {RAWNAND, RAWMMC}))
+            throwException("input is not a valid \"RAWNAND\" or FULL \"NAND\"");
+
+        std::vector<diskDescriptor> disks, available_disks;
+        std::vector<volumeDescriptor> available_volumes;
+        GetDisks(&disks);
+        for (diskDescriptor disk : disks)
+        {
+            if (emunandType == rawBased && disk.removableMedia && disk.size > nx_input.size() + 0x8000000)
+                available_disks.push_back(disk);
+
+            if (emunandType == rawBased)
+                continue;
+
+            for (volumeDescriptor vol : disk.volumes)
+            {
+                if (vol.volumeFreeBytes > nx_input.size() + 0x800000)
+                    available_volumes.push_back(vol);
+            }
+
+        }
+
+        if (!available_disks.size() && !available_volumes.size())
+        {
+            printf("Unable to detect any removable drive with sufficient capacity to create emuNAND\n");
+            exit(EXIT_SUCCESS);
+        }
+
+        if (emunandType == rawBased)
+        {
+            printf("List of removable disks large enough to create a raw based emunand: \n");
+            for (diskDescriptor disk : available_disks)
+                printf("- \\\\.\\PhysicalDrive%d (%s - %s %s)\n", disk.diskNumber, GetReadableSize(disk.size).c_str(), disk.vId.c_str(), disk.pId.c_str());
+
+        }
+        else
+        {
+            printf("List of volumes with enough free space to create a file based emunand: \n");
+            for (volumeDescriptor vol : available_volumes)
+            {
+                std::transform(vol.mountPt.begin(), vol.mountPt.end(), vol.mountPt.begin(), ::toupper);
+                printf("- %s: (%s)\n",  std::string(vol.mountPt.begin(), vol.mountPt.end()).c_str(), GetReadableSize(vol.size).c_str());
+            }
+        }
+        exit(EXIT_SUCCESS);
+    }
+
     // Exit if output is not specified
     if (nullptr == output)
         exit(EXIT_SUCCESS);
@@ -544,10 +634,23 @@ int main(int argc, char *argv[])
     //
     if (createEmuNAND)
     {
-        dbg_printf("Main.cpp > createEmuNAND\n");
-        delete &nx_output;
-        int res = nx_input.createMmcEmuNand(output, printProgress, nullptr, nullptr);
-        dbg_printf("Main.cpp > createEmuNAND returned %d\n", res);
+        dbg_printf("Create emunand\n");
+        dbg_printf(" boot0 = %s\n", boot0);
+        dbg_printf(" boot1 = %s\n", boot1);
+        int rc;
+        if (emunandType == rawBased)
+        {
+            if(!AskYesNoQuestion("All existing data on target disk will be erase. Continue ?"))
+                throwException("Operation aborted");
+            rc = nx_input.createMmcEmuNand(output, printProgress, boot0, boot1);
+        }
+        else
+        {
+            rc = nx_input.createFileBasedEmuNand(emunandType, std::string("\\\\.\\").append(output).c_str(), printProgress, boot0, boot1);
+        }
+        if (rc != SUCCESS)
+            throwException(rc);
+
         exit(EXIT_SUCCESS);
     }
     //
