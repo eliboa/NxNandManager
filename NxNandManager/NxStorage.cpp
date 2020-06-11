@@ -74,9 +74,9 @@ static NxSystemTitles systemTitlesArr[] = {
     { "9.1.0", "c5fbb49f2e3648c8cfca758020c53ecb.nca"},
     { "9.0.1", "fd1ffb82dc1da76346343de22edbc97c.nca"},
     { "9.0.0", "a6af05b33f8f903aab90c8b0fcbcc6a4.nca"},
-    { "8.1.1", "e9bb0602e939270a9348bddd9b78827b.nca"}, /* 8.1.1-100 from Lite */
-    { "8.1.1", "7eedb7006ad855ec567114be601b2a9d.nca"}, /* 8.1.1-12  from chinese gamecard */
-    { "8.1.0", "724d9b432929ea43e787ad81bf09ae65.nca"},
+    { "8.1.1", "e9bb0602e939270a9348bddd9b78827b.nca"}, /* 8.1.1-12  from chinese gamecard */
+    { "8.1.1", "724d9b432929ea43e787ad81bf09ae65.nca"}, /* 8.1.1-100 from Lite */
+    { "8.1.0", "7eedb7006ad855ec567114be601b2a9d.nca"},
     { "8.0.1", "6c5426d27c40288302ad616307867eba.nca"},
     { "8.0.0", "4fe7b4abcea4a0bcc50975c1a926efcb.nca"},
     { "7.0.1", "e6b22c40bb4fa66a151f1dc8db5a7b5c.nca"},
