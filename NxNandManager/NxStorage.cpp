@@ -37,7 +37,7 @@ static MagicOffsets mgkOffArr[] =
     { 0x40AF8,"504B3131", 4, BOOT1, 7},
     { 0x40ADC,"504B3131", 4, BOOT1, 8},
     { 0x40ACC,"504B3131", 4, BOOT1, 8.1},
-    { 0x40AC0,"504B3131", 4, BOOT1, 9}
+    { 0x40AC0,"504B3131", 4, BOOT1, 9} /* 9 -> 10.0.4 */
 };
 
 
@@ -74,7 +74,9 @@ static NxSystemTitles systemTitlesArr[] = {
     { "9.1.0", "c5fbb49f2e3648c8cfca758020c53ecb.nca"},
     { "9.0.1", "fd1ffb82dc1da76346343de22edbc97c.nca"},
     { "9.0.0", "a6af05b33f8f903aab90c8b0fcbcc6a4.nca"},
-    { "8.1.0", "7eedb7006ad855ec567114be601b2a9d.nca"},
+    { "8.1.1", "e9bb0602e939270a9348bddd9b78827b.nca"}, /* 8.1.1-100 from Lite */
+    { "8.1.1", "7eedb7006ad855ec567114be601b2a9d.nca"}, /* 8.1.1-12  from chinese gamecard */
+    { "8.1.0", "724d9b432929ea43e787ad81bf09ae65.nca"},
     { "8.0.1", "6c5426d27c40288302ad616307867eba.nca"},
     { "8.0.0", "4fe7b4abcea4a0bcc50975c1a926efcb.nca"},
     { "7.0.1", "e6b22c40bb4fa66a151f1dc8db5a7b5c.nca"},
@@ -559,7 +561,7 @@ NxStorage::NxStorage(const char *p_path)
                     firmware_version_boot0.major = 7;
                     firmware_version_boot0.minor = 0;
                     break;
-                case 0x10: {        /* 8.0.0 - 9.0.0 */
+                case 0x10: {        /* 8.0.0 - 10.0.0 */
                     if (memcmp(pk1ldr.build_timestamp, "20190314", 8) == 0) {
                         firmware_version_boot0.major = 8;
                         firmware_version_boot0.minor = 0;
@@ -568,6 +570,11 @@ NxStorage::NxStorage(const char *p_path)
                         firmware_version_boot0.minor = 1;
                     } else if (memcmp(pk1ldr.build_timestamp, "20190809", 8) == 0) {
                         firmware_version_boot0.major = 9;
+                    } else if (memcmp(pk1ldr.build_timestamp, "20191021", 8) == 0) {
+                        firmware_version_boot0.major = 9;
+                        firmware_version_boot0.minor = 1;
+                    } else if (memcmp(pk1ldr.build_timestamp, "20200303", 8) == 0) {
+                        firmware_version_boot0.major = 10;
                     }
                     break;
                 }
