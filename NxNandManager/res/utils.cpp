@@ -157,9 +157,8 @@ void throwException(int rc, const char* errorStr)
                 exit(rc);
 			}
 		}
-
-        printf("ERROR %s\n", GetLastErrorAsString().c_str());
-
+        std::string lstErrStr = GetLastErrorAsString();
+        if(lstErrStr.length()) printf("ERROR : %s\n", lstErrStr.c_str());
 	}
 	SetThreadExecutionState(ES_CONTINUOUS);
 	exit(rc);

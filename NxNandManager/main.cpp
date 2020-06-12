@@ -582,10 +582,7 @@ int main(int argc, char *argv[])
         }
 
         if (!available_disks.size() && !available_volumes.size())
-        {
-            printf("Unable to detect any%s drive with sufficient capacity to create emuNAND\n", emunandType == rawBased ? " removable" : "");
-            exit(EXIT_SUCCESS);
-        }
+            throwException("Unable to detect any%s drive with sufficient capacity to create emuNAND\n", emunandType == rawBased ? (void*)" removable" : (void*)"");
 
         if (emunandType == rawBased)
         {

@@ -57,7 +57,7 @@ extern bool isGUI;
 #define ERR_MD5_COMPARE			   -1012
 #define ERR_INIT_GUI			   -1013
 #define ERR_WORK_RUNNING		   -1014
-#define ERR_WHILE_COPY			   -1015
+#define ERR_WHILE_COPY             -1015
 #define NO_MORE_BYTES_TO_COPY      -1016
 #define ERR_RESTORE_TO_SPLIT	   -1017
 #define ERR_DECRYPT_CONTENT		   -1018
