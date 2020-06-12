@@ -560,7 +560,7 @@ int main(int argc, char *argv[])
     {
 
         if (not_in(nx_input.type, {RAWNAND, RAWMMC}))
-            throwException("input is not a valid \"RAWNAND\" or FULL \"NAND\"");
+            throwException("input is not a valid \"RAWNAND\" or \"FULL NAND\"");
 
         std::vector<diskDescriptor> disks, available_disks;
         std::vector<volumeDescriptor> available_volumes;
@@ -583,7 +583,7 @@ int main(int argc, char *argv[])
 
         if (!available_disks.size() && !available_volumes.size())
         {
-            printf("Unable to detect any removable drive with sufficient capacity to create emuNAND\n");
+            printf("Unable to detect any%s drive with sufficient capacity to create emuNAND\n", emunandType == rawBased ? " removable" : "");
             exit(EXIT_SUCCESS);
         }
 
