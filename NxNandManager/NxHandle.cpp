@@ -560,28 +560,10 @@ bool NxHandle::read(u32 lba, void *buffer, DWORD* bytesRead, DWORD length)
 }
 
 bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
-{
+{    
     if (nullptr != bw) *bw = 0;
     if (!length) length = getDefaultBuffSize();
     DWORD bytesWrite;
-
-    // Switch to next out file
-    if (m_chunksize && lp_CurrentPointer.QuadPart >= m_chunksize)
-    {
-        DWORD bytesWrite_save = bytesWrite;
-
-        // Set path for new file
-        if (!getNextSplitFile(m_path))
-            return false;
-
-        // Clear current handle then create new file
-        clearHandle();
-        if(!createFile((wchar_t*)m_path.c_str(), GENERIC_WRITE))
-            return false;
-
-        // Init cur pointer
-        lp_CurrentPointer.QuadPart = 0;
-    }
 
     // TO-DO : Resize buffer if there's not enough bytes in split file
     if (b_isSplitted)
@@ -600,13 +582,6 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
         return false;
     }
 
-    /*
-    dbg_printf("NxHandle::write(buffer, bytesRead=%I64d, length=%s) at offset %s - crypto_mode = %d\n",
-        nullptr != bw ? *bw : 0, n2hexstr(length, 6).c_str(), n2hexstr(lp_CurrentPointer.QuadPart, 10).c_str(), m_crypto);
-    
-    dbg_printf("NxHandle::write - buffer is \n%s\n", hexStr((unsigned char*)buffer, length).c_str());
-    */
-
 
     // Encrypt buffer
     if (m_crypto == ENCRYPT && nxCrypto != nullptr && length == CLUSTER_SIZE)
@@ -624,6 +599,17 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
         dbg_printf("NxHandle::write - buffer resized to %I32d bytes\n", length);
     }
 
+    // Resize buffer if chunksize limit reached
+    u32 sub_bytes = 0;
+    void *sub_buffer_ptr = nullptr;
+    if (m_chunksize && lp_CurrentPointer.QuadPart + length > m_chunksize )
+    {
+        u32 new_length = m_chunksize - lp_CurrentPointer.QuadPart;
+        sub_bytes = length - new_length;
+        length = new_length;
+        sub_buffer_ptr = (char*)buffer + length;
+    }
+
     if (!WriteFile(m_h, buffer, length, &bytesWrite, nullptr))
     {
         DWORD errorMessageID = ::GetLastError();
@@ -637,6 +623,41 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
 
     lp_CurrentPointer.QuadPart += bytesWrite;
     *bw = bytesWrite;
+
+    // Switch to next out file
+    if (m_chunksize && lp_CurrentPointer.QuadPart >= m_chunksize )
+    {
+        // Set path for new file
+        if (!getNextSplitFile(m_path))
+            return false;
+
+        // Clear current handle then create new file
+        clearHandle();
+        if(!createFile((wchar_t*)m_path.c_str(), GENERIC_WRITE))
+            return false;
+
+        // Init cur pointer
+        lp_CurrentPointer.QuadPart = 0;
+    }
+
+    // Write remaining bytes from buffer
+    if (sub_bytes)
+    {
+        if (!WriteFile(m_h, sub_buffer_ptr, sub_bytes, &bytesWrite, nullptr))
+        {
+            DWORD errorMessageID = ::GetLastError();
+            dbg_printf("NxHandle::write - FAILED WriteFile - %I32d : %s", errorMessageID, GetLastErrorAsString().c_str());
+            return false;
+        }
+        if (bytesWrite == 0) {
+            dbg_printf("NxHandle::write - FAILED NO BYTE WRITE\n");
+            return false;
+        }
+
+        lp_CurrentPointer.QuadPart += bytesWrite;
+        *bw += bytesWrite;
+    }
+
     return true;
 }
 
