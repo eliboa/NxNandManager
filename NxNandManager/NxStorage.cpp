@@ -1782,30 +1782,42 @@ bool NxStorage::setAutoRcm(bool enable)
     DWORD bytesRead = 0;
     BYTE buff[0x200];
 
-    if (nxHandle->read((u64)0x200, buff, &bytesRead, NX_BLOCKSIZE))
+    if (isDrive() && !nxHandle->lockVolume())
+        dbg_printf("failed to lock volume\n");
+
+    bool error = false;
+    for (int i = 0; i < 4; i++)
     {
-        u8 randomXor = 0;
-        if (enable) {
-            do randomXor = (unsigned)time(NULL) & 0xFF; // Bricmii style of bricking.
-            while (!randomXor); // Avoid the lottery.
-            buff[0x10] ^= randomXor;
-        }
-        else buff[0x10] = 0xF7;  
-
-        if (isDrive() && !nxHandle->lockVolume())
-            dbg_printf("failed to lock volume\n");
-
-        if (nxHandle->write((u64)0x200, buff, &bytesRead, 0x200))
+        if (nxHandle->read((u64)0x200 + (0x4000 * i), buff, &bytesRead, NX_BLOCKSIZE))
         {
-            autoRcm = enable;
-            if (isDrive() && !nxHandle->unlockVolume())
-                dbg_printf("failed to unlock volume\n");
-            return true;
+            u8 randomXor = 0;
+            if (enable) {
+                do randomXor = (unsigned)time(NULL) & 0xFF; // Bricmii style of bricking.
+                while (!randomXor); // Avoid the lottery.
+                buff[0x10] ^= randomXor;
+            }
+            else buff[0x10] = 0xF7;
+
+            if (!nxHandle->write((u64)0x200 + (0x4000 * i), buff, &bytesRead, 0x200))
+            {
+                error = true;
+                break;
+            }
         }
-        if (isDrive() && !nxHandle->unlockVolume())
-            dbg_printf("failed to unlock volume\n");
+        else
+        {
+            error = true;
+            break;
+        }
     }
-    return false;
+
+    if (isDrive() && !nxHandle->unlockVolume())
+        dbg_printf("failed to unlock volume\n");
+
+    if (!error)
+        this->autoRcm = enable;
+
+    return !error;
 }
 
 int NxStorage::applyIncognito()
