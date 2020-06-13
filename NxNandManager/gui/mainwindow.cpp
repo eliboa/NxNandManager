@@ -610,11 +610,7 @@ void MainWindow::inputSet(NxStorage *storage)
     // Display storage information
     if(input->firmware_version.major > 0)
     {
-        QString version = QString::number(input->firmware_version.major) + "." + QString::number(input->firmware_version.minor);
-        if (input->firmware_version.micro > 0)
-            version.append("." + QString::number(input->firmware_version.micro));
-
-        ui->fwversion_value->setText(version);
+        ui->fwversion_value->setText(QString::fromStdString(input->getFirmwareVersion()));
     }
     else
     {

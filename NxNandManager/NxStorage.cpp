@@ -2619,7 +2619,7 @@ std::string NxStorage::getFirmwareVersion(firmware_version_t* fmv)
             s.append(buff);
         }
     }
-    else s.append("x");
+    else s.append("X");
     
     return s;
 }
