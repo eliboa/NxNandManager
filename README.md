@@ -1,6 +1,6 @@
 # NxNandManager
 
-![Png](http://laumonier.org/switch/NxNandManager_3.0.0.png)
+![Png](http://laumonier.org/switch/NxNandManager4.0b_00.png)
 
 ## What can this program do ?
 
@@ -11,9 +11,9 @@
 - Splitted dumps are fully supported (backup & restore). However the program cannot split an existing dump nor can it split the output file in any case.
 - Option to wipe console unique ids and certificates (a.k.a Incognito) from PRODINFO
 - Enable/Disable auto RCM (BOOT0)
-- Create emuNAND (file or partition based) from any NAND image (RAWNAND or FULL NAND) => Only available with latest release [v4.0-beta](https://github.com/eliboa/NxNandManager/tree/v4.0-beta)   
+- Create emuNAND (file or partition based) from any NAND image (RAWNAND or FULL NAND)   
 ![Png](http://laumonier.org/switch/NxNandManager4.0b_03.png)
-- "Advanced copy" feature (passthrough zeroes, split output, zip output, etc.) => Only available with latest release [v4.0-beta](https://github.com/eliboa/NxNandManager/tree/v4.0-beta)   
+- "Advanced copy" feature (passthrough zeroes, split output, zip output, etc.)   
 ![Png](http://laumonier.org/switch/NxNandManager4.0b_02.png)
 
 ## Supported file format
@@ -26,13 +26,12 @@ NxNandManager can detect physical drives that contains a valid NAND (or partitio
 
 ## How to mount and open your Nintendo Switch's NAND (GUI) ?
 
-### sysNAND
- 1) Use [memloader](https://github.com/rajkosto/memloader) v3 to mount eMMC on your computer ([TegraRcmGUI](https://github.com/eliboa/TegraRcmGUI) provides an easy means to do it).   
- 2) Open NxNandManager then open new drive (CTRL + D).   
+### sysNAND or emuNAND (via Hekate)
+ 1) Launch Hekate/Nyx (v5.2+) on your Nintendo Switch. Navigate to Tools > USB Tools    
+ 2) Either select "eMMC RAW GPP" (sysNand) or "emu RAW GPP" (emuNAND) to mount your NAND on your computer (you can mount BOOT0/BOOT1 separately). Set "Read-Only" to OFF if you want to perform restore operations.   
+ 3) Open NxNandManager then open new drive (CTRL + D).   
  3) Select the mounted drive. You can now perform backup/restore operations.   
-
-![Png](http://laumonier.org/switch/NxNandManager_v1.1_howto_open_drive.png)   
-
+   
 ### emuNAND (partition)
  1) Mount the SD card containing emuNAND on your computer
  2) Open NxNandManager then open new drive (CTRL + D).
