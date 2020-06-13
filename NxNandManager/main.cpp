@@ -140,29 +140,8 @@ void printStorageInfo(NxStorage *storage)
 
 int elapsed_seconds = 0;
 
-void printCopyProgress(int mode, const char *storage_name, timepoint_t begin_time, u64 bytesCount, u64 bytesTotal)
-{
-    auto time = std::chrono::system_clock::now();
-    std::chrono::duration<double> tmp_elapsed_seconds = time - begin_time;
-
-    if (!((int)tmp_elapsed_seconds.count() > elapsed_seconds))
-        return;
-
-    elapsed_seconds = tmp_elapsed_seconds.count();
-    std::chrono::duration<double> remaining_seconds = (tmp_elapsed_seconds / bytesCount) * (bytesTotal - bytesCount);
-    std::string buf = GetReadableElapsedTime(remaining_seconds).c_str();
-    char label[0x40];
-    if(mode == MD5_HASH) sprintf(label, "Computing MD5 hash for");
-    else if (mode == RESTORE) sprintf(label, "Restoring to");
-    else sprintf(label, "Copying");
-    printf("%s %s... %s /%s (%d%%) - Remaining time:", label, storage_name, GetReadableSize(bytesCount).c_str(), 
-        GetReadableSize(bytesTotal).c_str(), bytesCount * 100 / bytesTotal);
-    printf(" %s          \r", buf.c_str());
-}
-
 void printProgress(ProgressInfo pi)
 {
-   // printCopyProgress(pi.mode, pi.storage_name.c_str(), pi.begin_time, pi.bytesCount, pi.bytesTotal);    
     auto time = std::chrono::system_clock::now();
     std::chrono::duration<double> tmp_elapsed_seconds = time - pi.begin_time;
 
@@ -193,9 +172,10 @@ void printProgress(ProgressInfo pi)
         else if (pi.mode == CREATE) sprintf(label, "Creating");
         else if (pi.mode == ZIP) sprintf(label, "Archiving");
         else sprintf(label, "Copying");
-        printf("%s%s %s... %s /%s (%d%%) - Remaining time:", pi.isSubProgressInfo ? "  " : "", label, pi.storage_name,
+        printf("%s%s %s... %s /%s (%d%%)", pi.isSubProgressInfo ? "  " : "", label, pi.storage_name,
             GetReadableSize(pi.bytesCount).c_str(), GetReadableSize(pi.bytesTotal).c_str(), pi.bytesCount * 100 / pi.bytesTotal);
-        printf(" %s          \r", buf.c_str());
+        if (elapsed_seconds) printf(" - Remaining time: %s             \r", buf.c_str());
+        else printf("                                          \r");
     }    
 }
 

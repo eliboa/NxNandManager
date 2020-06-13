@@ -1596,6 +1596,7 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
         in_part->nxHandle->initHandle(NO_CRYPTO, in_part);
         ProgressInfo subPi;
         subPi.bytesCount = 0;
+        subPi.begin_time = std::chrono::system_clock::now();
         subPi.bytesTotal = in_part->size();
         subPi.isSubProgressInfo = true;
         if (sendProgress)
