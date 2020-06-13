@@ -637,7 +637,7 @@ int main(int argc, char *argv[])
         int rc;
         if (emunandType == rawBased)
         {
-            if(!AskYesNoQuestion("All existing data on target disk will be erase. Continue ?"))
+            if (!FORCE && !AskYesNoQuestion("All existing data on target disk will be erase. Continue ?"))
                 throwException("Operation aborted");
             rc = nx_input.createMmcEmuNand(output, printProgress, boot0, boot1);
         }
