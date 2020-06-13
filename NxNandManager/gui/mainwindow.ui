@@ -20,7 +20,7 @@
    <enum>Qt::NoFocus</enum>
   </property>
   <property name="windowTitle">
-   <string>NxNandManager v4.0-beta by eliboa</string>
+   <string>NxNandManager v4.0 by eliboa</string>
   </property>
   <property name="windowIcon">
    <iconset resource="application.qrc">
