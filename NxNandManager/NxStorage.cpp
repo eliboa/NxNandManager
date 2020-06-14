@@ -156,6 +156,12 @@ static u8 tx_sector[112] = {
 
 NxStorage::NxStorage(const char *p_path)
 {
+    // Init var.
+    type = UNKNOWN;
+
+    if (p_path == nullptr)
+        return;
+
     dbg_printf("NxStorage::NxStorage() begins for %s\n", std::string(p_path).c_str());
     type = INVALID;
     memset(fw_version, 0, 48);
@@ -181,8 +187,6 @@ NxStorage::NxStorage(const char *p_path)
     m_freeSpace = nxHandle->getDiskFreeSpace();
     dbg_printf("NxStorage::NxStorage() size is %I64d (diskFreeBytes = %I64d)\n", m_size, m_freeSpace);
 
-    // Init var.
-    type = UNKNOWN;
     DWORD bytesRead;
     BYTE buff[NX_BLOCKSIZE];
 
@@ -1935,7 +1939,8 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
 
         dbg_printf("NxStorage::createMmcEmuNand() - boot0 path : %s\n", boot0_path);
         dbg_printf("NxStorage::createMmcEmuNand() - boot1 path : %s\n", boot0_path);
-    }
+    }   
+
     NxPartition *boot0, *boot1;
     NxStorage nx1(boot0_path);
     NxStorage nx2(boot1_path);
