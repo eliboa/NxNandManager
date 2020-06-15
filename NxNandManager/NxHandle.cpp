@@ -101,7 +101,7 @@ void NxHandle::createHandle(int io_mode)
 
 NxHandle::~NxHandle()
 {
-    clearHandle();
+    //clearHandle();
     NxSplitFile *current = m_lastSplitFile, *next;
     while (nullptr != current)
     {

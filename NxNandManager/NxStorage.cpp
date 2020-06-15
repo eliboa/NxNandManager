@@ -1955,6 +1955,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     }
     u64 nand_size = size() + boot_size;
 
+
     dbg_printf("NxStorage::createMmcEmuNand() - nand_size : %I64d\n", nand_size);
 
     NxStorage mmc(mmc_path);
@@ -2108,6 +2109,8 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
         if (spi.bytesCount != boot0->size() + boot1->size())
             return ERR_WHILE_COPY;
     }
+    nx1.~NxStorage();
+    nx2.~NxStorage();
 
     // Copy NxStorage
     while(this->nxHandle->read(cpy_buffer, &bytesRead, buff_size) && spi.bytesCount < pi.bytesTotal)
@@ -2277,11 +2280,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
 
     dbg_wprintf(L"NxStorage::createMmcEmuNand() -mmc.nxHandle->getVolumeName() => %s\n", volumeName);
 
-    // Test
-    wstring vol(volumeName);
-    string svol(vol.begin(), vol.end());
-    dbg_printf("NxStorage::createMmcEmuNand() - Volumename (string) : %s\n", svol.c_str());
-    
+
     TCHAR Buf[MAX_PATH];    
     TCHAR Volume[MAX_PATH] = TEXT("");
     TCHAR AvailableDrive[] = L"";
@@ -2291,15 +2290,6 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     wcscat(Volume, L"\\\0");
     wchar_t Drive[4] = L"d:\\";
     dbg_wprintf(L"NxStorage::createMmcEmuNand() - Volume name: %s\n", Volume);
-
-    // Test
-    TCHAR Volume2[MAX_PATH] = TEXT("");
-    wcscat(Volume2, vol.c_str());
-    wcscat(Volume2, L"\\\0");
-    dbg_wprintf(L"NxStorage::createMmcEmuNand() - Volume name 2 : %s\n", Volume2);
-    char output[MAX_PATH];
-    sprintf(output, "%ls", Volume2);
-    dbg_printf("NxStorage::createMmcEmuNand() - Volume name 2 (string) : %s\n", output);
 
     // Look for existing or available mounting point
     for (I = L'd'; I < L'z'; I++)
@@ -2375,6 +2365,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
             return ERR_VOL_MOUNT_FAILED;
         }
     }
+    else dbg_printf("NxStorage::createMmcEmuNand() - volume is already mounted\n");
 
     AvailableDrive[1] = TEXT('\0');
     std::wstring drive(AvailableDrive);
@@ -2415,7 +2406,7 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     if(!CreateDirectoryW(path.c_str(), nullptr))
         dbg_wprintf(L"NxStorage::createMmcEmuNand() - Failed to mkdir %s (%s)\n", path.c_str(), GetLastErrorAsString().c_str());
 
-
+    dbg_printf("NxStorage::createMmcEmuNand() - SUCCESS\n");
     return SUCCESS;
 }
 

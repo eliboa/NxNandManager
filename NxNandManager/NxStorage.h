@@ -167,7 +167,7 @@ class NxStorage
         u32 mmc_b0_lba_start = 0;
         bool b_MayBeNxStorage = false;
         
-        NxHandle *nxHandle;
+        NxHandle *nxHandle = nullptr;
         std::vector<NxPartition *> partitions;
         NxCrypto *nxCrypto;
         bool stopWork = false;
