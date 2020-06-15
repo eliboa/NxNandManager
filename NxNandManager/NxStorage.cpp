@@ -156,9 +156,7 @@ static u8 tx_sector[112] = {
 
 NxStorage::NxStorage(const char *p_path)
 {
-    // Init var.
-    type = UNKNOWN;
-
+    type = INVALID;
     if (p_path == nullptr)
         return;
 
@@ -187,6 +185,7 @@ NxStorage::NxStorage(const char *p_path)
     m_freeSpace = nxHandle->getDiskFreeSpace();
     dbg_printf("NxStorage::NxStorage() size is %I64d (diskFreeBytes = %I64d)\n", m_size, m_freeSpace);
 
+    type = UNKNOWN;
     DWORD bytesRead;
     BYTE buff[NX_BLOCKSIZE];
 
@@ -2109,8 +2108,6 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
         if (spi.bytesCount != boot0->size() + boot1->size())
             return ERR_WHILE_COPY;
     }
-    nx1.~NxStorage();
-    nx2.~NxStorage();
 
     // Copy NxStorage
     while(this->nxHandle->read(cpy_buffer, &bytesRead, buff_size) && spi.bytesCount < pi.bytesTotal)
