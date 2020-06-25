@@ -731,23 +731,23 @@ int NxStorage::setKeys(const char* keyset)
 
     // Set and validate crypto + retrieve information from encrypted partitions
     NxPartition *cal0 = getNxPartition(PRODINFO);
-    if (nullptr != cal0 && !cal0->setCrypto(keys.crypt0, keys.tweak0))
+    if (nullptr != cal0 && strlen(keys.crypt0) && strlen(keys.tweak0) && !cal0->setCrypto(keys.crypt0, keys.tweak0))
         cal0->setBadCrypto(true);
 
     NxPartition *system = getNxPartition(SYSTEM);
-    if (nullptr != system && !system->setCrypto(keys.crypt2, keys.tweak2))
+    if (nullptr != system && strlen(keys.crypt2) && strlen(keys.tweak2) && !system->setCrypto(keys.crypt2, keys.tweak2))
         system->setBadCrypto(true);
             
     NxPartition *prodinfof = getNxPartition(PRODINFOF);
-    if (nullptr != prodinfof && !prodinfof->setCrypto(keys.crypt0, keys.tweak0))
+    if (nullptr != prodinfof && strlen(keys.crypt0) && strlen(keys.tweak0) && !prodinfof->setCrypto(keys.crypt0, keys.tweak0))
         prodinfof->setBadCrypto(true);
 
     NxPartition *safe = getNxPartition(SAFE);
-    if (nullptr != safe && !safe->setCrypto(keys.crypt1, keys.tweak1))
+    if (nullptr != safe && strlen(keys.crypt1) && strlen(keys.tweak1) && !safe->setCrypto(keys.crypt1, keys.tweak1))
        safe->setBadCrypto();
     
     NxPartition *user = getNxPartition(USER);
-    if (nullptr != user && !user->setCrypto(keys.crypt2, keys.tweak2))
+    if (nullptr != user && strlen(keys.crypt2) && strlen(keys.tweak2) && !user->setCrypto(keys.crypt2, keys.tweak2))
         user->setBadCrypto(true);
 
     // Retrieve information from encrypted partitions
