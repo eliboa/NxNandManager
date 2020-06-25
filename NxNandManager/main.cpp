@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
     printf("[ NxNandManager v4.0 by eliboa ]\n\n");
     const char *input = nullptr, *output = nullptr, *partitions = nullptr, *keyset = nullptr, *user_resize = nullptr, *boot0 = nullptr, *boot1 = nullptr;
     BOOL info = false, gui = false, setAutoRCM = false, autoRCM = false, decrypt = false, encrypt = false;
-    BOOL incognito = false, createEmuNAND = false, zipOutput = false, passThroughZeroes = false;
+    BOOL incognito = false, createEmuNAND = false, zipOutput = false, passThroughZeroes = false, cryptoCheck = false;
     EmunandType emunandType = unknown;
     u64 chunksize = 0;
     int io_num = 1;
@@ -226,7 +226,8 @@ int main(int argc, char *argv[])
             "  --incognito       Wipe all console unique id's and certificates from CAL0 (a.k.a incognito)\n"
             "                    Only applies to input type RAWNAND or PRODINFO\n\n"
             "  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-            "  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n\n");
+            "  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
+            "  --crypto_check    Validate crypto for a given keyset file (-keyset) and input (-i)\n\n");
 
         printf("=> Flags:\n\n"
             "                    \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
@@ -302,6 +303,7 @@ int main(int argc, char *argv[])
     const char SPLIT_OUTPUT_ARGUMENT[] = "-split";
     const char ZIP_OUTPUT_FLAG[] = "ZIP";
     const char PASSTHROUGH_0[] = "PASSTHROUGH_0";
+    const char CRYPTOCHECK[] = "--crypto_check";
 
     for (int i = 1; i < argc; i++)
     {
@@ -311,6 +313,9 @@ int main(int argc, char *argv[])
 
         else if (!strncmp(currArg, GUI_ARGUMENT, array_countof(GUI_ARGUMENT) - 1))
             gui = true;
+
+        else if (!strncmp(currArg, CRYPTOCHECK, array_countof(CRYPTOCHECK) - 1))
+            cryptoCheck = true;
 
         else if (!strncmp(currArg, CREATE_SD_AMS_EMUNAND_ARGUMENT, array_countof(CREATE_SD_AMS_EMUNAND_ARGUMENT) - 1))
         {
@@ -432,10 +437,10 @@ int main(int argc, char *argv[])
         exit(EXIT_SUCCESS);
     }
 
-    if (nullptr == input || (nullptr == output && !info && !setAutoRCM && !incognito &&!createEmuNAND))
+    if (nullptr == input || (nullptr == output && !info && !setAutoRCM && !incognito && !createEmuNAND && !cryptoCheck))
         PrintUsage();
 
-    if ((encrypt || decrypt) && nullptr == keyset)
+    if ((encrypt || decrypt || cryptoCheck) && nullptr == keyset)
     {
         printf("-keyset missing\n\n");
         PrintUsage();
@@ -481,6 +486,19 @@ int main(int argc, char *argv[])
 
     // Input specific actions
     // 
+    if (cryptoCheck)
+    {
+        if (!nx_input.isEncrypted())
+            throwException(ERR_CRYPTO_NOT_ENCRYPTED);
+
+        if (nx_input.badCrypto())
+            throwException(ERROR_DECRYPT_FAILED);
+
+        printf("CRYPTO OK\n");
+
+        exit(EXIT_SUCCESS);
+    }
+
     if (setAutoRCM)
     {
         if(nullptr == nx_input.getNxPartition(BOOT0))
