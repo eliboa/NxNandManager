@@ -483,6 +483,22 @@ int main(int argc, char *argv[])
         printf("-i automatically replaced by %s\n", c_path);
     }
 
+    // Create new list for partitions and put -part arg in it
+    char l_partitions[MAX_PATH] = { 0 };
+    if (nullptr != partitions) {
+        strcpy(l_partitions, ",");
+        strcat(l_partitions, partitions);
+    }
+
+    // Explode partitions string
+    std::vector<const char*> v_partitions;
+    if (strlen(l_partitions))
+    {
+        std::string pattern;
+        pattern.append(l_partitions);
+        char *partition, *ch_parts = strdup(pattern.c_str());
+        while ((partition = strtok(!v_partitions.size() ? ch_parts : nullptr, ",")) != nullptr) v_partitions.push_back(partition);
+    }
 
     // Input specific actions
     // 
@@ -491,7 +507,37 @@ int main(int argc, char *argv[])
         if (!nx_input.isEncrypted())
             throwException(ERR_CRYPTO_NOT_ENCRYPTED);
 
-        if (nx_input.badCrypto())
+        if (v_partitions.size())
+        {
+            for (const char* part_name : v_partitions)
+            {
+
+                // Partition must exist in input
+                NxPartition *in_part = nx_input.getNxPartition(part_name);
+                if (nullptr == in_part)
+                    throwException("Partition %s not found in input (-i)", (void*)part_name);
+
+                // Validate crypto mode
+                if (!in_part->nxPart_info.isEncrypted)
+                {
+                    printf("Partition %s is not encrypted\n", (void*)in_part->partitionName().c_str());
+                    throwException(ERR_CRYPTO_NOT_ENCRYPTED);
+                }
+
+                if (in_part->crypto() == nullptr)
+                {
+                    printf("Crypto is not set for partition %s (missing keys ?)\n", (void*)in_part->partitionName().c_str());
+                    throwException(ERR_CRYPTO_KEY_MISSING);
+                }
+
+                if (in_part->badCrypto())
+                {
+                    printf("Crypto validation failed for partition %s (wrong keys)\n", (void*)in_part->partitionName().c_str());
+                    throwException(ERROR_DECRYPT_FAILED);
+                }
+            }
+        }
+        else if (nx_input.badCrypto())
             throwException(ERROR_DECRYPT_FAILED);
 
         printf("CRYPTO OK\n");
@@ -729,7 +775,6 @@ int main(int argc, char *argv[])
     ///  I/O Controls
     ///
 
-    std::vector<const char*> v_partitions;
     bool dump_rawnand = false;
     int crypto_mode = BYPASS_MD5SUM ? NO_CRYPTO : MD5_HASH;
 
@@ -737,13 +782,6 @@ int main(int argc, char *argv[])
     if (nx_output.type == INVALID && nx_output.isDrive())
         throwException("Output is an unknown drive/disk!");
     
-    // Create new list for partitions and put -part arg in it
-    char l_partitions[MAX_PATH] = { 0 };
-    if (nullptr != partitions) {
-        strcpy(l_partitions, ",");
-        strcat(l_partitions, partitions);
-    }
-
     // No partition provided
     if (!strlen(l_partitions))
     {
@@ -800,16 +838,9 @@ int main(int argc, char *argv[])
     // A list of partitions is provided
     if (strlen(l_partitions))
     {
-        // Explode partitions string        
-        std::string pattern;
-        pattern.append(l_partitions);
-        char *partition, *ch_parts = strdup(pattern.c_str());
-        while ((partition = strtok(!v_partitions.size() ? ch_parts : nullptr, ",")) != nullptr) v_partitions.push_back(partition);
-
         // For each partition in param string
         for (const char* part_name : v_partitions)
         {
-
             if (!strcmp(part_name, "RAWNAND") && nx_input.type == RAWMMC && !nx_output.isNxStorage())
             {
                 v_partitions.clear();
