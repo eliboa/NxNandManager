@@ -940,6 +940,12 @@ int main(int argc, char *argv[])
             if (dump_rawnand)
                 printf("BOOT0 & BOOT1 skipped (RAWNAND only)\n");
 
+            // Set crypto mode
+            if ((encrypt && !nx_input.isEncrypted()) || (decrypt && nx_input.isEncrypted()))
+                crypto_mode = encrypt ? ENCRYPT : DECRYPT;
+            else
+                crypto_mode = BYPASS_MD5SUM ? NO_CRYPTO : MD5_HASH;
+
             params_t par;
             par.chunksize = chunksize;
             par.rawnand_only = dump_rawnand;
