@@ -67,32 +67,20 @@ HEADERS += \
     ../NxStorage.h \
     ../NxCrypto.h \
     ../res/win_ioctl.h \
-    emunand.h \
     gui.h \
     keyset.h \
     mainwindow.h \
     properties.h \
     ../NxPartition.h \
     ../NxHandle.h \
-    mainwindow.h \
     qutils.h \
     resizeuser.h \
     worker.h \
     opendrive.h \
     dump.h \
     progress.h \
-    dump.h \
     emunand.h \
     explorer.h \
-    gui.h \
-    keyset.h \
-    mainwindow.h \
-    opendrive.h \
-    progress.h \
-    properties.h \
-    qutils.h \
-    resizeuser.h \
-    worker.h \
     ../lib/ZipLib/*.h \
     ../lib/ZipLib/utils/*.h \
     ../lib/ZipLib/detail/*.h \
