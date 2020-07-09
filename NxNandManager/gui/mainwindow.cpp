@@ -32,6 +32,7 @@ MainWindow::MainWindow(QWidget *parent) :
     // Connect slots
     connect(ui->actionOpenFile, &QAction::triggered, this, &MainWindow::open);
     connect(ui->actionOpenDrive, &QAction::triggered, this, &MainWindow::openDrive);
+    connect(ui->actionCloseFileDrive, &QAction::triggered, this, &MainWindow::closeInput);
     connect(ui->actionSaveAs, &QAction::triggered, this, &MainWindow::on_rawdump_button);
     connect(ui->actionDecryptSaveAs, &QAction::triggered, this, &MainWindow::on_rawdumpDec_button_clicked);
     connect(ui->actionEncryptSaveAs, &QAction::triggered, this, &MainWindow::on_rawdumpEnc_button_clicked);
@@ -147,12 +148,23 @@ void MainWindow::open()
     if (fileName.isEmpty())
         return;
 
-    if(input != nullptr) delete input;
+    if(input != nullptr)
+        delete input;
     beforeInputSet();
     Worker *workThread = new Worker(this, WorkerMode::new_storage, fileName);
     workThread->start();
 
 }
+
+void MainWindow::closeInput()
+{
+    beforeInputSet();
+    ui->analysingLbl->setVisible(false);
+    ui->loadingBar->setVisible(false);
+    ui->partitionsGrp->setVisible(true);
+    if (input != nullptr)
+        input->clearHandles();
+};
 
 void MainWindow::openDrive()
 {
@@ -458,6 +470,8 @@ void MainWindow::beforeInputSet()
     ui->partitionsGrp->setVisible(false);
     ui->loadingBar->setVisible(true);
 
+    ui->moreinfo_button->setDisabled(true);
+
     ui->partQDumpBtn->setDisabled(true);
     ui->partADumpBtn->setDisabled(true);
     ui->partRestoreBtn->setDisabled(true);
@@ -466,9 +480,34 @@ void MainWindow::beforeInputSet()
     ui->partRestoreBtn->setVisible(false);    
     ui->partCustom1Btn->setVisible(false);
     ui->partCustom1Btn->setDisabled(true);
+
+    ui->actionCloseFileDrive->setDisabled(true);
+    ui->actionSaveAs->setDisabled(true);
+    ui->actionSaveAsAdvanced->setDisabled(true);
+    ui->actionDecryptSaveAs->setDisabled(true);
+    ui->actionEncryptSaveAs->setDisabled(true);
+    ui->actionRestore->setDisabled(true);
+    ui->actionProperties->setDisabled(true);
+    ui->actionIncognito->setDisabled(true);
+    ui->actionautoRCM->setDisabled(true);
+    ui->actionResize->setDisabled(true);
+    ui->actionDumpRawnandOnly->setDisabled(true);
     ui->actionCreateEmunand->setDisabled(true);
 
+    ui->rawdump_button->setEnabled(false);
+    ui->fullrestore_button->setEnabled(false);
+
     ui->properties_table->setRowCount(0);
+    ui->partition_table->setRowCount(0);
+    ui->partition_table->setStatusTip(tr(""));
+
+    ui->filedisk_value->setText("");
+    ui->nxtype_value->setText("");
+    ui->size_value->setText("");
+    ui->fwversion_value->setStatusTip("");
+    ui->fwversion_value->setText("");
+    ui->deviceid_value->setStatusTip("");
+    ui->deviceid_value->setText("");
 }
 
 void MainWindow::inputSet(NxStorage *storage)
@@ -482,6 +521,7 @@ void MainWindow::inputSet(NxStorage *storage)
     ui->partition_table->setRowCount(0);
     ui->partition_table->setStatusTip(tr(""));
 
+    ui->actionCloseFileDrive->setDisabled(false);
     ui->actionSaveAs->setDisabled(true);
     ui->actionSaveAsAdvanced->setDisabled(true);
     ui->actionDecryptSaveAs->setDisabled(true);
@@ -646,6 +686,8 @@ void MainWindow::inputSet(NxStorage *storage)
         }
     }
     else ui->deviceid_value->setText("N/A");
+
+    ui->moreinfo_button->setEnabled(true);
 }
 
 

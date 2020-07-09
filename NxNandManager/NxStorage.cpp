@@ -600,7 +600,8 @@ NxStorage::~NxStorage()
     //printf("NxStorage::~NxStorage() DESTRUCTOR \n");
     if(partitions.size())
         partitions.clear();
-    if (nullptr != nxHandle) delete nxHandle;
+    if (nullptr != nxHandle)
+        delete nxHandle;
 }
 
 int NxStorage::setKeys(const char* keyset)
@@ -2584,7 +2585,7 @@ int NxStorage::createFileBasedEmuNand(EmunandType emu_type, const char* volume_p
 
 void NxStorage::clearHandles()
 {
-    p_ofstream->close();
+    nxHandle->clearHandle();
 }
 
 std::string NxStorage::getFirmwareVersion(firmware_version_t* fmv)

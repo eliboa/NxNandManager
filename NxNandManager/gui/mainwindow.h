@@ -93,6 +93,7 @@ protected:
 private slots:
 	void open();
 	void openDrive();
+    void closeInput();
     void Properties();
     void openKeySet();
     void openResizeDialog();

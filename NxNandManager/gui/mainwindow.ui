@@ -1072,7 +1072,6 @@ QTableCornerButton::section {background-color: transparent;}</string>
     </item>
    </layout>
    <zorder>groupBox</zorder>
-   <zorder>horizontalLayoutWidget</zorder>
    <zorder>partitionsGrp</zorder>
    <zorder>analysingLbl</zorder>
    <zorder>loadingBar</zorder>
@@ -1093,6 +1092,7 @@ QTableCornerButton::section {background-color: transparent;}</string>
     </property>
     <addaction name="actionOpenFile"/>
     <addaction name="actionOpenDrive"/>
+    <addaction name="actionCloseFileDrive"/>
     <addaction name="separator"/>
     <addaction name="actionSaveAs"/>
     <addaction name="actionSaveAsAdvanced"/>
@@ -1392,6 +1392,20 @@ QTableCornerButton::section {background-color: transparent;}</string>
   <action name="actionDebug_console">
    <property name="text">
     <string>Console</string>
+   </property>
+  </action>
+  <action name="actionCloseFileDrive">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Close file/drive</string>
+   </property>
+   <property name="statusTip">
+    <string>Close current file/drive</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+C</string>
    </property>
   </action>
  </widget>
