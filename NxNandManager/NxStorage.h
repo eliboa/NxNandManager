@@ -160,6 +160,7 @@ class NxStorage
         std::string macAddress;
         //unsigned char bootloader_ver = 0;
         int bootloader_ver = 0;
+        bool isEristaBoot0 = false;
         bool autoRcm = false;
         bool exFat_driver = false;
         NxKeys keys;

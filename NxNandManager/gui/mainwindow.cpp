@@ -621,7 +621,7 @@ void MainWindow::inputSet(NxStorage *storage)
         ui->actionIncognito->setEnabled(true);
 
     // AutoRcm menu
-    if(nullptr != input->getNxPartition(BOOT0))
+    if(nullptr != input->getNxPartition(BOOT0) && input->isEristaBoot0)
         ui->actionautoRCM->setEnabled(true);
 
     // Resize NAND menu
@@ -767,13 +767,23 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     {
         index = ui->properties_table->rowCount();
         ui->properties_table->insertRow(index);
-        ui->properties_table->setItem(index, 0, new QTableWidgetItem("AutoRCM:"));
-        ui->properties_table->setItem(index, 1, new QTableWidgetItem(input->autoRcm ? "Enabled" : "Disabled"));
+        ui->properties_table->setItem(index, 0, new QTableWidgetItem("Soc revision:"));
+        ui->properties_table->setItem(index, 1, new QTableWidgetItem(input->isEristaBoot0 ? "Erista" : "Unknown (Mariko ?)"));
 
-        index = ui->properties_table->rowCount();
-        ui->properties_table->insertRow(index);
-        ui->properties_table->setItem(index, 0, new QTableWidgetItem("Bootloader ver.:"));
-        ui->properties_table->setItem(index, 1, new QTableWidgetItem(QString::number(input->bootloader_ver)));
+
+        if (input->isEristaBoot0)
+        {
+            index = ui->properties_table->rowCount();
+            ui->properties_table->insertRow(index);
+            ui->properties_table->setItem(index, 0, new QTableWidgetItem("AutoRCM:"));
+            ui->properties_table->setItem(index, 1, new QTableWidgetItem(input->autoRcm ? "Enabled" : "Disabled"));
+            index = ui->properties_table->rowCount();
+            ui->properties_table->insertRow(index);
+            ui->properties_table->setItem(index, 0, new QTableWidgetItem("Bootloader ver.:"));
+            ui->properties_table->setItem(index, 1, new QTableWidgetItem(QString::number(input->bootloader_ver)));
+        }
+
+
     }
 
     ui->properties_table->resizeColumnsToContents();
@@ -834,7 +844,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     }
 
     // AutoRCM action
-    if (selected_part->type() == BOOT0)
+    if (selected_part->type() == BOOT0 && input->isEristaBoot0)
     {
         const QIcon rcmIcon = QIcon::fromTheme("document-open", QIcon(":/images/autorcm.png"));
         ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);

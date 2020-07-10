@@ -70,18 +70,27 @@ Properties::Properties(NxStorage *in) :
     ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(GetReadableSize(input->size()).c_str()));
     i++;
 
-    if(input->type == BOOT0 || input->type == RAWMMC)
+    NxPartition *boot0 = input->getNxPartition(BOOT0);
+    if (nullptr != boot0)
     {
         ui->PropertiesTable->setRowCount(i+1);
-        ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Auto RCM"));
-        ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->autoRcm ? "ENABLED" : "DISABLED"));
+        ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("SoC revision"));
+        ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->isEristaBoot0 ? "Erista" : "Unknown (Mariko ?)"));
         i++;
 
-        ui->PropertiesTable->setRowCount(i+1);
-        ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Bootloader ver."));
-        sprintf(buffer, "%d", static_cast<int>(input->bootloader_ver));
-        ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(QString(buffer).trimmed()));
-        i++;
+        if (input->isEristaBoot0)
+        {
+            ui->PropertiesTable->setRowCount(i+1);
+            ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Auto RCM"));
+            ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(input->autoRcm ? "Enabled" : "Disabled"));
+            i++;
+
+            ui->PropertiesTable->setRowCount(i+1);
+            ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Bootloader ver."));
+            sprintf(buffer, "%d", static_cast<int>(input->bootloader_ver));
+            ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem(QString(buffer).trimmed()));
+            i++;
+        }
     }
 
     if(strlen(input->fw_version))

@@ -199,6 +199,7 @@ NxStorage::NxStorage(const char *p_path)
         if (nxHandle->read(mgk.offset - remain, buff, &bytesRead, NX_BLOCKSIZE) && hexStr(&buff[remain], mgk.size) == mgk.magic)
         {            
             type = mgk.type;
+            if (type == BOOT0) isEristaBoot0 = true;
             dbg_printf("NxStorage::NxStorage() - MAGIC found at offset %s, type is %s\n", 
                 n2hexstr(mgk.offset, 10).c_str(), getNxTypeAsStr());
             break;
@@ -260,6 +261,11 @@ NxStorage::NxStorage(const char *p_path)
                     type = getNxTypeAsInt(part.name);
                     // Add new Nxpartition
                     NxPartition *part = new NxPartition(this, basename.c_str(), (u32)0, (u32)m_size / NX_BLOCKSIZE - 1);
+
+                    if (type == BOOT0)
+                    {
+
+                    }
                     break;
                 }
             }
@@ -513,78 +519,96 @@ NxStorage::NxStorage(const char *p_path)
         }
     }
 
-    // Detect autoRCM & bootloader version
-    if (is_in(type, { BOOT0, RAWMMC }))
-    {
-        nxHandle->initHandle();
-        
-        // Get auto RCM status
-        if (nxHandle->read((u64)0x200, buff, &bytesRead, NX_BLOCKSIZE))
-            autoRcm = buff[0x10] != 0xF7 ? true : false;
-        
-        // Get bootloader version
-        //if (nxHandle->read((u64)0x2200, buff, &bytesRead, NX_BLOCKSIZE))
-        //    memcpy(&bootloader_ver, &buff[0x130], sizeof(unsigned char));
+    NxPartition *boot0 = getNxPartition(BOOT0);
 
-        // Read package1loader header (copied from Atmosphere/fusee/fusee-secondary/src/nxboot.c)
-        if (nxHandle->read((u64)0x100000, buff, &bytesRead, NX_BLOCKSIZE))
+    // Detect autoRCM & bootloader version
+    if (boot0 != nullptr)
+    {
+        if (!isEristaBoot0)
         {
-            package1ldr_header_t pk1ldr;            
-            memcpy(&pk1ldr, &buff[0], 0x20);            
-            bootloader_ver = pk1ldr.version;
-            switch (pk1ldr.version) {
-                case 0x01:          /* 1.0.0 */
-                    firmware_version_boot0.major = 1;
-                    firmware_version_boot0.minor = 0;
-                    firmware_version_boot0.micro = 0;
-                    break;
-                case 0x02:          /* 2.0.0 - 2.3.0 */
-                    firmware_version_boot0.major = 2;
-                    break;
-                case 0x04:          /* 3.0.0 and 3.0.1 - 3.0.2 */
-                    firmware_version_boot0.major = 3;
-                    firmware_version_boot0.minor = 0;
-                    if (memcmp(pk1ldr.build_timestamp, "20170519", 8) == 0)
-                        firmware_version_boot0.micro = 0;
-                    break;
-                case 0x07:          /* 4.0.0 - 4.1.0 */
-                    firmware_version_boot0.major = 4;
-                    break;
-                case 0x0B:          /* 5.0.0 - 5.1.0 */
-                    firmware_version_boot0.major = 5;
-                    break;
-                case 0x0E:         /* 6.0.0 - 6.2.0 */
-                    firmware_version_boot0.major = 6;
-                    if (memcmp(pk1ldr.build_timestamp, "20181107", 8) == 0) {
-                        firmware_version_boot0.minor = 2;
-                        firmware_version_boot0.micro = 0;
-                    }
-                    break;      
-                case 0x0F:          /* 7.0.0 - 7.0.1 */
-                    firmware_version_boot0.major = 7;
-                    firmware_version_boot0.minor = 0;
-                    break;
-                case 0x10: {        /* 8.0.0 - 10.0.0 */
-                    if (memcmp(pk1ldr.build_timestamp, "20190314", 8) == 0) {
-                        firmware_version_boot0.major = 8;
-                        firmware_version_boot0.minor = 0;
-                    } else if (memcmp(pk1ldr.build_timestamp, "20190531", 8) == 0) {
-                        firmware_version_boot0.major = 8;
-                        firmware_version_boot0.minor = 1;
-                    } else if (memcmp(pk1ldr.build_timestamp, "20190809", 8) == 0) {
-                        firmware_version_boot0.major = 9;
-                    } else if (memcmp(pk1ldr.build_timestamp, "20191021", 8) == 0) {
-                        firmware_version_boot0.major = 9;
-                        firmware_version_boot0.minor = 1;
-                    } else if (memcmp(pk1ldr.build_timestamp, "20200303", 8) == 0) {
-                        firmware_version_boot0.major = 10;
-                    }
+            nxHandle->initHandle();
+            for (MagicOffsets mgk : mgkOffArr)
+            {
+                if (mgk.type != BOOT0)
+                    continue;
+
+                int remain = mgk.offset % NX_BLOCKSIZE; // Block align
+                if (nxHandle->read(mgk.offset - remain, buff, &bytesRead, NX_BLOCKSIZE) && hexStr(&buff[remain], mgk.size) == mgk.magic)
+                {
+                    isEristaBoot0 = true;
                     break;
                 }
             }
-            if(firmware_version_boot0.major > 0)
-                firmware_version = firmware_version_boot0;
-            dbg_printf("NxStorage::NxStorage() - firmware version = %s\n", getFirmwareVersion(&firmware_version_boot0).c_str());
+        }
+
+        if (isEristaBoot0)
+        {
+            nxHandle->initHandle();
+
+            // Get auto RCM status
+            if (nxHandle->read((u64)0x200, buff, &bytesRead, NX_BLOCKSIZE))
+                autoRcm = buff[0x10] != 0xF7 ? true : false;
+
+            // Read package1loader header (copied from Atmosphere/fusee/fusee-secondary/src/nxboot.c)
+            if (nxHandle->read((u64)0x100000, buff, &bytesRead, NX_BLOCKSIZE))
+            {
+                package1ldr_header_t pk1ldr;
+                memcpy(&pk1ldr, &buff[0], 0x20);
+                bootloader_ver = pk1ldr.version;
+                switch (pk1ldr.version) {
+                    case 0x01:          /* 1.0.0 */
+                        firmware_version_boot0.major = 1;
+                        firmware_version_boot0.minor = 0;
+                        firmware_version_boot0.micro = 0;
+                        break;
+                    case 0x02:          /* 2.0.0 - 2.3.0 */
+                        firmware_version_boot0.major = 2;
+                        break;
+                    case 0x04:          /* 3.0.0 and 3.0.1 - 3.0.2 */
+                        firmware_version_boot0.major = 3;
+                        firmware_version_boot0.minor = 0;
+                        if (memcmp(pk1ldr.build_timestamp, "20170519", 8) == 0)
+                            firmware_version_boot0.micro = 0;
+                        break;
+                    case 0x07:          /* 4.0.0 - 4.1.0 */
+                        firmware_version_boot0.major = 4;
+                        break;
+                    case 0x0B:          /* 5.0.0 - 5.1.0 */
+                        firmware_version_boot0.major = 5;
+                        break;
+                    case 0x0E:         /* 6.0.0 - 6.2.0 */
+                        firmware_version_boot0.major = 6;
+                        if (memcmp(pk1ldr.build_timestamp, "20181107", 8) == 0) {
+                            firmware_version_boot0.minor = 2;
+                            firmware_version_boot0.micro = 0;
+                        }
+                        break;
+                    case 0x0F:          /* 7.0.0 - 7.0.1 */
+                        firmware_version_boot0.major = 7;
+                        firmware_version_boot0.minor = 0;
+                        break;
+                    case 0x10: {        /* 8.0.0 - 10.0.0 */
+                        if (memcmp(pk1ldr.build_timestamp, "20190314", 8) == 0) {
+                            firmware_version_boot0.major = 8;
+                            firmware_version_boot0.minor = 0;
+                        } else if (memcmp(pk1ldr.build_timestamp, "20190531", 8) == 0) {
+                            firmware_version_boot0.major = 8;
+                            firmware_version_boot0.minor = 1;
+                        } else if (memcmp(pk1ldr.build_timestamp, "20190809", 8) == 0) {
+                            firmware_version_boot0.major = 9;
+                        } else if (memcmp(pk1ldr.build_timestamp, "20191021", 8) == 0) {
+                            firmware_version_boot0.major = 9;
+                            firmware_version_boot0.minor = 1;
+                        } else if (memcmp(pk1ldr.build_timestamp, "20200303", 8) == 0) {
+                            firmware_version_boot0.major = 10;
+                        }
+                        break;
+                    }
+                }
+                if(firmware_version_boot0.major > 0)
+                    firmware_version = firmware_version_boot0;
+                dbg_printf("NxStorage::NxStorage() - firmware version = %s\n", getFirmwareVersion(&firmware_version_boot0).c_str());
+            }
         }
     }
     
@@ -1780,7 +1804,7 @@ bool NxStorage::partitionExists(const char* partition_name)
 bool NxStorage::setAutoRcm(bool enable)
 {
     NxPartition *boot0 = getNxPartition(BOOT0);
-    if (nullptr == boot0)
+    if (nullptr == boot0 || !isEristaBoot0) // Ignore mariko's boot
         return false;
 
     nxHandle->initHandle(NO_CRYPTO, boot0);
