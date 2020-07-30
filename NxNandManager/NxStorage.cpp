@@ -64,7 +64,10 @@ static NxStorageType NxTypesArr[] =
     { UNKNOWN  , "UNKNOWN" }
 };
 
+// Title ID 0100000000000809 (SystemVersion)
 static NxSystemTitles systemTitlesArr[] = {
+    { "10.1.1", "5077973537f6735b564dd7475b779f87.nca"},
+    { "10.1.0", "fd1faed0ca750700d254c0915b93d506.nca"},
     { "10.0.4", "34728c771299443420820d8ae490ea41.nca"},
     { "10.0.3", "5b1df84f88c3334335bbb45d8522cbb4.nca"},
     { "10.0.2", "e951bc9dedcd54f65ffd83d4d050f9e0.nca"},
@@ -103,7 +106,10 @@ static NxSystemTitles systemTitlesArr[] = {
     { "1.0.0", "a1b287e07f8455e8192f13d0e45a2aaf.nca"}
 };
 
+// Title ID 010000000000081B (BootImagePackageExFat)
 static NxSystemTitles exFatTitlesArr[] = {
+    { "10.1.1", "3df13daa7f553c8fa85bbff79a189d6c.nca"},
+    { "10.1.0", "3df13daa7f553c8fa85bbff79a189d6c.nca"},
     { "10.0.4", "d5bc167565842ee61f9670d23759844d.nca"},
     { "10.0.3", "d5bc167565842ee61f9670d23759844d.nca"},
     { "10.0.2", "d5bc167565842ee61f9670d23759844d.nca"},
@@ -261,11 +267,6 @@ NxStorage::NxStorage(const char *p_path)
                     type = getNxTypeAsInt(part.name);
                     // Add new Nxpartition
                     NxPartition *part = new NxPartition(this, basename.c_str(), (u32)0, (u32)m_size / NX_BLOCKSIZE - 1);
-
-                    if (type == BOOT0)
-                    {
-
-                    }
                     break;
                 }
             }
