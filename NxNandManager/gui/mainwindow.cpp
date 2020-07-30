@@ -647,6 +647,9 @@ void MainWindow::inputSet(NxStorage *storage)
     ui->partition_table->resizeRowsToContents();
     ui->partition_table->setStatusTip(tr("Right-click on partition to dump/restore to/from file."));
 
+    if (ui->partition_table->rowCount())
+        ui->partition_table->setCurrentIndex(ui->partition_table->model()->index(0, 0));
+
     // Display storage information
     if(input->firmware_version.major > 0)
     {
