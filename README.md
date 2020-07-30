@@ -1,3 +1,11 @@
+![Png](https://img.shields.io/badge/platform-windows-lightgrey)
+![Png](https://img.shields.io/badge/latest%20stable%20release-4.0-yellow)
+![GitHub](https://img.shields.io/github/license/eliboa/NxNandManager)
+![GitHub All Releases](https://img.shields.io/github/downloads/eliboa/NxNandManager/total)
+![GitHub repo size](https://img.shields.io/github/repo-size/eliboa/NxNandManager)
+![GitHub issues](https://img.shields.io/github/issues/eliboa/NxNandManager)
+![GitHub contributors](https://img.shields.io/github/contributors/eliboa/NxNandManager)
+
 # NxNandManager
 
 ![Png](http://laumonier.org/switch/NxNandManager4.0b_00.png)
