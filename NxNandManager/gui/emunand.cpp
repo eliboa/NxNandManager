@@ -26,8 +26,6 @@ Emunand::Emunand(QWidget *parent, NxStorage *input) :
     ui->outBar->setFormat("");
     on_emunandType_toggled(rawBased);
 
-    connect(this, SIGNAL(finished(WorkParam_t)), parent, SLOT(startWorkThread(WorkParam_t)));
-
     timer1000();
     QTimer *timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(timer1000()));
