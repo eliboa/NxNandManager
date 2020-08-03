@@ -1059,6 +1059,8 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         if (isDrive())
             nxHandle->unlockVolume();
 
+        outHandle->clearHandle();
+
         return rc;
     }
 
@@ -1093,6 +1095,7 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         delete [] buffer;        
         if (isDrive())
             nxHandle->unlockVolume();
+        outHandle->clearHandle();
         return rc;
     };
 
@@ -1478,6 +1481,7 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         } while(file_exists(fwpath.c_str()));
     }
 
+    outHandle->clearHandle();
     delete [] buffer;
     return SUCCESS;
 }
