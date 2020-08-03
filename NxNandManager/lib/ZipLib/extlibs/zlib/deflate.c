@@ -479,7 +479,7 @@ int ZEXPORT deflatePrime (strm, bits, value)
             put = bits;
         s->bi_buf |= (ush)((value & ((1 << put) - 1)) << s->bi_valid);
         s->bi_valid += put;
-        _tr_flush_bits(s);
+        ext_tr_flush_bits(s);
         value >>= put;
         bits -= put;
     } while (bits);
@@ -643,7 +643,7 @@ local void flush_pending(strm)
     unsigned len;
     deflate_state *s = strm->state;
 
-    _tr_flush_bits(s);
+    ext_tr_flush_bits(s);
     len = s->pending;
     if (len > strm->avail_out) len = strm->avail_out;
     if (len == 0) return;
