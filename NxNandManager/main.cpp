@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
     //std::setlocale(LC_ALL, "en_US.utf8");
     std::setlocale(LC_ALL, "");
     std::locale::global(std::locale(""));
-    printf("[ NxNandManager v4.0 by eliboa ]\n\n");
+    printf("[ NxNandManager v4.1 by eliboa ]\n\n");
     const char *input = nullptr, *output = nullptr, *partitions = nullptr, *keyset = nullptr, *user_resize = nullptr, *boot0 = nullptr, *boot1 = nullptr;
     BOOL info = false, gui = false, setAutoRCM = false, autoRCM = false, decrypt = false, encrypt = false;
     BOOL incognito = false, createEmuNAND = false, zipOutput = false, passThroughZeroes = false, cryptoCheck = false;
