@@ -606,6 +606,8 @@ NxStorage::NxStorage(const char *p_path)
                             firmware_version_boot0.minor = 1;
                         } else if (memcmp(pk1ldr.build_timestamp, "20200303", 8) == 0) {
                             firmware_version_boot0.major = 10;
+                        } else if (memcmp(pk1ldr.build_timestamp, "20201030", 8) == 0) {
+                            firmware_version_boot0.major = 11;
                         }
                         break;
                     }
