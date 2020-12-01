@@ -1,13 +1,13 @@
 #ifndef EXPLORER_H
 #define EXPLORER_H
 
-#include <QMainWindow>
+#include <QDialog>
 
 namespace Ui {
 class Explorer;
 }
 
-class Explorer : public QMainWindow
+class Explorer : public QDialog
 {
     Q_OBJECT
 
