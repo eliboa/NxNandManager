@@ -62,10 +62,10 @@ void printStorageInfo(NxStorage *storage)
     char c_path[MAX_PATH] = { 0 };
     std::wcstombs(c_path, storage->m_path, wcslen(storage->m_path));
 
-    printf("NAND type      : %s%s\n", storage->getNxTypeAsStr(), storage->isSplitted() ? " (splitted dump)" : "");
+    printf("NAND type      : %s%s\n", storage->getNxTypeAsStr(), storage->isSplitted() ? " - splitted dump" : "");
     printf("Path           : %s", c_path);
     if (storage->isSplitted())
-        printf(" (+%d)", storage->nxHandle->getSplitCount() - 1);
+        printf(" - +%d", storage->nxHandle->getSplitCount() - 1);
     printf("\n");
 
     if (storage->type == INVALID && is_dir(c_path))
@@ -73,13 +73,13 @@ void printStorageInfo(NxStorage *storage)
     else 
         printf("File/Disk      : %s", storage->isDrive() ? "Disk" : "File");
     if (storage->type == RAWMMC)
-        printf(" (0x%s - 0x%s)\n", n2hexstr((u64)storage->mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str(), n2hexstr((u64)storage->mmc_b0_lba_start * NX_BLOCKSIZE + storage->size() - 1, 10).c_str());
+        printf(" [0x%s - 0x%s]\n", n2hexstr((u64)storage->mmc_b0_lba_start * NX_BLOCKSIZE, 10).c_str(), n2hexstr((u64)storage->mmc_b0_lba_start * NX_BLOCKSIZE + storage->size() - 1, 10).c_str());
     else printf("\n");
     if(storage->type != INVALID) 
     {
         printf("Size           : %s", GetReadableSize(storage->size()).c_str());
         if(storage->isSinglePartType() && storage->getNxPartition()->freeSpace)
-            printf(" (free space %s)", GetReadableSize(storage->getNxPartition()->freeSpace).c_str());
+            printf(" - free space %s", GetReadableSize(storage->getNxPartition()->freeSpace).c_str());
         printf("\n");
     }
     if (!storage->isNxStorage())
@@ -124,10 +124,10 @@ void printStorageInfo(NxStorage *storage)
     for (NxPartition *part : storage->partitions)
     {
         printf("%s %s", !i ? "\nPartitions : \n -" : " -", part->partitionName().c_str());
-        printf(" (%s", GetReadableSize(part->size()).c_str());
+        printf(" - %s", GetReadableSize(part->size()).c_str());
         if (part->freeSpace)
             printf(", free space %s", GetReadableSize(part->freeSpace).c_str());
-        printf("%s)%s", part->isEncryptedPartition() ? " encrypted" : "", part->badCrypto() ? "  !!! DECRYPTION FAILED !!!" : "");
+        printf("%s - %s", part->isEncryptedPartition() ? " encrypted" : "", part->badCrypto() ? "  !!! DECRYPTION FAILED !!!" : "");
 
         dbg_printf(" [0x%s - 0x%s]", n2hexstr((u64)part->lbaStart() * NX_BLOCKSIZE, 10).c_str(), n2hexstr((u64)part->lbaStart() * NX_BLOCKSIZE + part->size()-1, 10).c_str());
 
@@ -138,9 +138,9 @@ void printStorageInfo(NxStorage *storage)
     if (storage->type == RAWMMC || storage->type == RAWNAND)
     {
         if(storage->backupGPT())
-            printf("Backup GPT     : FOUND (offset 0x%s)\n", n2hexstr(storage->backupGPT(), 10).c_str());
+            printf("Backup GPT     : FOUND - offset 0x%s\n", n2hexstr(storage->backupGPT(), 10).c_str());
         else
-            printf("Backup GPT     : /!\\ Missing or invalid !!!\n");
+            printf("Backup GPT     : !!! Missing or invalid !!!\n");
 
     }
 }

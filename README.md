@@ -8,7 +8,7 @@
 
 # NxNandManager
 
-![Png](http://laumonier.org/switch/NxNandManager4.0b_00.png)
+![Png](https://www.eliboa.com/NxNandManager4.0b_00.png)
 
 ## What can this program do ?
 
@@ -20,9 +20,9 @@
 - Option to wipe console unique ids and certificates (a.k.a Incognito) from PRODINFO
 - Enable/Disable auto RCM (BOOT0)
 - Create emuNAND (file or partition based) from any NAND image (RAWNAND or FULL NAND)   
-![Png](http://laumonier.org/switch/NxNandManager4.0b_03.png)
+![Png](https://www.eliboa.com/NxNandManager4.0b_03.png)
 - "Advanced copy" feature (passthrough zeroes, split output, zip output, etc.)   
-![Png](http://laumonier.org/switch/NxNandManager4.0b_02.png)
+![Png](https://www.eliboa.com/NxNandManager4.0b_02.png)
 
 ## Supported file format
 
