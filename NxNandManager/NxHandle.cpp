@@ -51,7 +51,7 @@ void NxHandle::createHandle(int io_mode)
     if (m_h != INVALID_HANDLE_VALUE)
     {
         // Get drive geometry        
-        DWORD junk = 0;
+        DWORD junk = 0, junk2;
         if (DeviceIoControl(m_h, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED)NULL))
         {
             b_isDrive = true;
@@ -59,6 +59,7 @@ void NxHandle::createHandle(int io_mode)
             m_size = m_totalSize;
             exists = true;
         }
+        m_isReadOnly = b_isDrive && !DeviceIoControl(m_h, IOCTL_DISK_IS_WRITABLE, NULL, 0, &junk, 0, &junk2, (LPOVERLAPPED)NULL);
     }
     CloseHandle(m_h);
 
@@ -102,6 +103,7 @@ void NxHandle::createHandle(int io_mode)
 NxHandle::~NxHandle()
 {
     //clearHandle();
+    if (nullptr != m_cluster_cache) delete m_cluster_cache;
     NxSplitFile *current = m_lastSplitFile, *next;
     while (nullptr != current)
     {
@@ -111,6 +113,13 @@ NxHandle::~NxHandle()
     }
 }
 
+void NxHandle::invalidate_cache()
+{
+    if (!m_cluster_cache)
+        return;
+
+    memset(m_cluster_cache, 0, sizeof(cluster_cache_t));
+}
 void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
 {
     if(nullptr == parent)
@@ -156,10 +165,12 @@ void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
     m_readAmount = 0;
     m_cur_block = 0;
     lp_CurrentPointer.QuadPart = 0;
+    invalidate_cache();
     m_crypto = crypto_mode;
 
     if (nullptr != partition)
     {
+         auto lbas = partition->lbaStart();
          m_off_start = ((u64)parent->mmc_b0_lba_start + (u64)partition->lbaStart()) * NX_BLOCKSIZE;
          m_off_end = m_off_start + (((u64)partition->lbaEnd() - (u64)partition->lbaStart() + 1) * NX_BLOCKSIZE) - 1;
 
@@ -484,7 +495,60 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
         length = m_off_end + 1 - lp_CurrentPointer.QuadPart;
     }
 
-    if (!ReadFile(m_h, buffer, length, &bytesRead, NULL)) {
+    bool do_crypto = is_in(m_crypto, { ENCRYPT, DECRYPT }) && nxCrypto != nullptr ? true : false;
+    if (do_crypto)
+    {
+        u64 rel_offset = lp_CurrentPointer.QuadPart - m_off_start; // Relative offset
+        m_cur_block = rel_offset / CLUSTER_SIZE; // Current cluster number
+        u64 clus_off = m_cur_block * CLUSTER_SIZE; // Current cluster offset
+
+        // Read cluster from cache or disk
+        if (!m_cluster_cache || !m_cluster_cache->valid || m_cluster_cache->clu_number != m_cur_block)
+        {
+            if (m_cluster_cache)
+                invalidate_cache();
+            else
+                m_cluster_cache = new cluster_cache_t;
+
+            setPointer(clus_off); // Switch to cluster start offset
+
+            DWORD br;
+            if (!ReadFile(m_h, m_cluster_cache->data, CLUSTER_SIZE, &br, nullptr)) {
+                dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
+                return false;
+            }
+
+            //printf("Encrypted buffer :\n");
+            //hexStrPrint(&m_cluster_cache->data[rel_offset-clus_off], length > 0x200 ? 0x200 : length);
+
+            if (m_crypto == DECRYPT)
+                nxCrypto->decrypt(m_cluster_cache->data, m_cur_block);
+
+            m_cluster_cache->clu_number = m_cur_block;
+            m_cluster_cache->valid = true;
+
+            setPointer(rel_offset + length); // Switch back to initial offset + initial buff length
+
+            //printf("Decrypted buffer :\n");
+            //hexStrPrint(&m_cluster_cache->data[rel_offset-clus_off], length > 0x200 ? 0x200 : length);
+
+
+        }
+        if (m_crypto == ENCRYPT)
+        {
+            u8 tmp_buffer[CLUSTER_SIZE];
+            memcpy(tmp_buffer, m_cluster_cache->data, CLUSTER_SIZE);
+            nxCrypto->encrypt((unsigned char*)tmp_buffer, m_cur_block);
+            memcpy(buffer, &tmp_buffer[rel_offset-clus_off], length);
+        }
+        else
+        {
+            memcpy(buffer, &m_cluster_cache->data[rel_offset-clus_off], length);
+        }
+        bytesRead = length;
+    }
+    else if (!ReadFile(m_h, buffer, length, &bytesRead, NULL))
+    {
         dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
         return false;
     }
@@ -494,25 +558,6 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
         dbg_printf("NxHandle::read 0 BYTE read\n");
         return false;
     }
-
-    // Encrypt/Decrypt buffer
-    //printf("READ CRYPTO %d, LENGTH %s\n", m_crypto, n2hexstr(length, 10).c_str());        
-
-    if (is_in(m_crypto, { ENCRYPT, DECRYPT }) && nxCrypto != nullptr && length == CLUSTER_SIZE)
-    {
-        m_cur_block = (lp_CurrentPointer.QuadPart - m_off_start) / CLUSTER_SIZE;
-        if (m_crypto == ENCRYPT) {            
-            nxCrypto->encrypt((unsigned char*)buffer, m_cur_block);
-        }
-        else
-        {
-            //dbg_printf("ENCRYPTED BUFFER :\n%s\n", hexStr((unsigned char*)buffer, length).c_str());
-            nxCrypto->decrypt((unsigned char*)buffer, m_cur_block);
-//            /dbg_printf("DECRYPTED BUFFER :\n%s\n", hexStr((unsigned char*)buffer, length).c_str());
-        }
-    }
-
-    //dbg_printf("NxHandle::read done, %I32d bytes\n", bytesRead);
 
     lp_CurrentPointer.QuadPart += bytesRead;
 
@@ -582,15 +627,6 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
         return false;
     }
 
-
-    // Encrypt buffer
-    if (m_crypto == ENCRYPT && nxCrypto != nullptr && length == CLUSTER_SIZE)
-    {
-        m_cur_block = (lp_CurrentPointer.QuadPart - m_off_start) / CLUSTER_SIZE;
-        nxCrypto->encrypt((unsigned char*)buffer, m_cur_block);
-
-    }
-
     // Resize buffer if eof
     if (m_off_end && lp_CurrentPointer.QuadPart + length > m_off_end)
     {
@@ -610,7 +646,59 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
         sub_buffer_ptr = (char*)buffer + length;
     }
 
-    if (!WriteFile(m_h, buffer, length, &bytesWrite, nullptr))
+    if (m_crypto == ENCRYPT && nxCrypto != nullptr )
+    {
+        u64 rel_offset = lp_CurrentPointer.QuadPart - m_off_start; // Relative offset
+        m_cur_block = rel_offset / CLUSTER_SIZE; // Current cluster number
+        u64 clus_off = m_cur_block * CLUSTER_SIZE; // Current cluster offset
+
+        // Read cluster from cache or disk
+        if (!m_cluster_cache || !m_cluster_cache->valid || m_cluster_cache->clu_number != m_cur_block)
+        {
+            if (m_cluster_cache)
+                invalidate_cache();
+            else
+                m_cluster_cache = new cluster_cache_t;
+
+            setPointer(clus_off); // Switch to cluster start offset
+
+            if (!ReadFile(m_h, m_cluster_cache->data, CLUSTER_SIZE, nullptr, nullptr)) {
+                dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
+                return false;
+            }
+
+            nxCrypto->decrypt(m_cluster_cache->data, m_cur_block);
+            m_cluster_cache->clu_number = m_cur_block;
+            m_cluster_cache->valid = true;
+        }
+
+        // Fetch cache
+        memcpy(&m_cluster_cache->data[rel_offset-clus_off], buffer, length);
+        /*
+        printf("WRITE : Decrypted buffer :\n");
+        hexStrPrint(&m_cluster_cache->data[rel_offset-clus_off], length > 0x200 ? 0x200 : length);
+        */
+        // Encrypt
+        u8 t_buff[CLUSTER_SIZE];
+        memcpy(t_buff, m_cluster_cache->data, CLUSTER_SIZE);
+        nxCrypto->encrypt(t_buff, m_cur_block);
+        /*
+        printf("WRITE : Encrypted buffer :\n");
+        hexStrPrint(&t_buff[rel_offset-clus_off], length > 0x200 ? 0x200 : length);
+        */
+        // Write cluster
+        setPointer(clus_off);
+        if (!WriteFile(m_h, t_buff, CLUSTER_SIZE, &bytesWrite, nullptr))
+        {
+            DWORD errorMessageID = ::GetLastError();
+            dbg_printf("NxHandle::write - FAILED WriteFile - %I32d : %s", errorMessageID, GetLastErrorAsString().c_str());
+            return false;
+        }
+
+        setPointer(rel_offset + length); // Switch back to initial offset + initial buff length
+        bytesWrite = length;
+    }
+    else if (!WriteFile(m_h, buffer, length, &bytesWrite, nullptr))
     {
         DWORD errorMessageID = ::GetLastError();
         dbg_printf("NxHandle::write - FAILED WriteFile - %I32d : %s", errorMessageID, GetLastErrorAsString().c_str());
@@ -884,3 +972,5 @@ void NxHandle::lockHash()
     CryptCreateHash(h_WinCryptProv, CALG_MD5, 0, 0, &m_md5_hash);
     m_isHashLocked = true;
 }
+
+

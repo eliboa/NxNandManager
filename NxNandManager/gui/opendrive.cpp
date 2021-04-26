@@ -32,7 +32,7 @@ OpenDrive::OpenDrive(QWidget *parent) :
     ui->RemovableCheckBox->hide();
 
     keyEnterReceiver* key = new keyEnterReceiver();
-        this->installEventFilter(key);
+    this->installEventFilter(key);
 
     timer1000();
     QTimer *timer = new QTimer(this);

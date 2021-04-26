@@ -70,6 +70,7 @@ typedef unsigned long long int u64;
 typedef char s8;
 typedef unsigned char BYTE;
 
+
 #include <chrono>
 typedef std::chrono::duration< double > double_prec_seconds;
 typedef std::chrono::time_point< std::chrono::system_clock, double_prec_seconds > timepoint_t;

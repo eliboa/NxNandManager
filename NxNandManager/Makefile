@@ -1,20 +1,22 @@
 CC       = gcc
 CXX      = g++
-CXXFLAGS=-std=c++11 -fexceptions -DUNICODE -D_UNICODE -DWIN32_LEAN_AND_MEAN -fPIC
+CXXFLAGS=-std=c++11 -fexceptions -DUNICODE -D_UNICODE -DWIN32_LEAN_AND_MEAN -fPIC -fpermissive
 CFLAGS= -fPIC -Wno-enum-conversion -O3
 EXEC_NAME=NxNandManager.exe
 INCLUDES=
-LIBS=-static -lcrypto -lwsock32 -lws2_32
+LIBS=-static -lcrypto -lwsock32 -lws2_32 -ldokan1
 
 # Sources of external libraries
 SRC_ZLIB  = $(wildcard lib/ZipLib/extlibs/zlib/*.c)
 SRC_LZMA  = $(wildcard lib/ZipLib/extlibs/lzma/*.c)
 SRC_BZIP2 = $(wildcard lib/ZipLib/extlibs/bzip2/*.c)
+SRC_FATFS = $(wildcard lib/fatfs/*.cpp)
 
-# ZipLib sources
+# sources
 SRC = \
 		$(wildcard *.cpp)        \
 		$(wildcard res/*.cpp)        \
+		$(wildcard virtual_fs/*.cpp)        \
 		$(wildcard lib/ZipLib/*.cpp)        \
 		$(wildcard lib/ZipLib/detail/*.cpp)
 
@@ -24,7 +26,8 @@ OBJS = \
 		$(SRC:.cpp=.o)	   \
 		$(SRC_ZLIB:.c=.o)  \
 		$(SRC_LZMA:.c=.o)  \
-		$(SRC_BZIP2:.c=.o)
+		$(SRC_BZIP2:.c=.o) \
+		$(SRC_FATFS:.cpp=.o)
 
 INSTALL_DIR="/build"
 
@@ -38,6 +41,7 @@ clean :
 	-@rm -rf lib/ZipLib/extlibs/zlib/*.o
 	-@rm -rf lib/ZipLib/extlibs/lzma/*.o
 	-@rm -rf lib/ZipLib/extlibs/bzip2/*.o
+	-@rm -rf lib/fatfs/*.o
 
 $(EXEC_NAME): $(OBJS)
 	$(CXX) -o $@ $^ $(LIBS)

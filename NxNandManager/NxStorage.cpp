@@ -635,6 +635,15 @@ NxStorage::NxStorage(const char *p_path)
 NxStorage::~NxStorage()
 {
     //printf("NxStorage::~NxStorage() DESTRUCTOR \n");
+    for (auto part : partitions)
+    {
+        if (part->is_vfs_mounted())
+            part->unmount_vfs();
+
+        if (part->is_mounted())
+            part->unmount_fs();
+    }
+
     if(partitions.size())
         partitions.clear();
     if (nullptr != nxHandle)
@@ -843,7 +852,6 @@ void NxStorage::setStorageInfo(int partition)
         NxPartition *system = getNxPartition(SYSTEM);
         if (nullptr != system && !system->badCrypto() && (!system->isEncryptedPartition() || nullptr != system->crypto()))
         {
-
             //dbg_printf("Get Storage information for SYSTEM\n");
             std::vector<fat32::dir_entry> dir_entries;
             unsigned char buff[CLUSTER_SIZE];
@@ -1757,7 +1765,8 @@ bool NxStorage::isSinglePartType(int part_type)
 
 bool NxStorage::isNxStorage()
 {
-    if (type == UNKNOWN || type == INVALID)
+    if (!is_in(type, { RAWNAND, RAWMMC, BOOT0 , BOOT1 , PRODINFO, PRODINFOF, BCPKG21, BCPKG22, BCPKG23, BCPKG24, BCPKG25, BCPKG26, SAFE, SYSTEM, USER }))
+    //if (type == UNKNOWN || type == INVALID)
         return false;
 
     return true;

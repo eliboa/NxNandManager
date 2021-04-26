@@ -176,6 +176,7 @@ int digit_to_int(char d);
 int hex_to_int(char c);
 int hex_to_ascii(char c, char d);
 std::string hexStr_to_ascii(const char* hexStr);
+void hexStrPrint(unsigned char *data, int len);
 
 static DWORD crc32table[256];
 static bool crc32Intalized = false;
@@ -263,5 +264,8 @@ template<typename M> inline void* GetMethodPointer(M ptr)
 {
     return *reinterpret_cast<void**>(&ptr);
 }
+
+unsigned random(unsigned n);
+DWORD randomDWORD();
 
 #endif

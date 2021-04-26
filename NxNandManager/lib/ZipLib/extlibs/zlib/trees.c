@@ -879,7 +879,7 @@ void ZLIB_INTERNAL _tr_stored_block(s, buf, stored_len, last)
 /* ===========================================================================
  * Flush the bits in the bit buffer to pending output (leaves at most 7 bits)
  */
-void ZLIB_INTERNAL ext_tr_flush_bits(s)
+void ZLIB_INTERNAL _tr_flush_bits(s)
     deflate_state *s;
 {
     bi_flush(s);

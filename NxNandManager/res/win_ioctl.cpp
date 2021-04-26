@@ -239,3 +239,34 @@ bool DisMountAllVolumes(diskDescriptor dd)
     }
     return result;
 }
+
+bool GetAvailableMountPoint(TCHAR *DriveLetter)
+{
+    TCHAR Buf[MAX_PATH];
+    wchar_t Drive[4] = L"d:\\";
+    // Look for existing or available mounting point
+    for (wchar_t I = L'd'; I < L'z'; I++)
+    {
+        // Stamp the drive for the appropriate letter.
+        Drive[0] = I;
+        bool bFlag = GetVolumeNameForVolumeMountPoint(
+            Drive,     // input volume mount point or directory
+            Buf,       // output volume name buffer
+            MAX_PATH); // size of volume name buffer
+        if (!bFlag)
+        {
+            DriveLetter[0] = I;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool isAvailableMountPoint(TCHAR *DriveLetter)
+{
+    TCHAR Buf[MAX_PATH];
+    wchar_t Drive[4] = L" :\\";
+    Drive[0] = DriveLetter[0];
+    return !GetVolumeNameForVolumeMountPoint(Drive, Buf, MAX_PATH);
+
+}

@@ -113,11 +113,14 @@ typedef struct {
     int micro = -1;
 } firmware_version_t;
 
+
+
 enum EmunandType { unknown, fileBasedAMS, fileBasedSXOS, rawBased };
 
 class NxHandle;
 class NxCrypto;
 class NxPartition;
+
 
 class NxStorage 
 {

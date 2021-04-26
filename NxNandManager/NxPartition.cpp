@@ -15,6 +15,7 @@
  */
 
 #include "NxPartition.h"
+#include <dokan/dokan.h>
 
 // Constructor
 NxPartition::NxPartition(NxStorage *p, const char* p_name, u32 lba_start, u32 lba_end, u64 attrs)
@@ -22,7 +23,9 @@ NxPartition::NxPartition(NxStorage *p, const char* p_name, u32 lba_start, u32 lb
     dbg_printf("NxPartition::NxPartition(parent, %s, lba_start=%I32d, lba_end=%I32d)\n", p_name, lba_start, lba_end);
     parent = p;
     nxHandle = parent->nxHandle;
-    
+    m_fatfs.fs_type = 0;
+    m_fatfs.pdrv = 0;
+
     // Get partition name length
     int name_len = strlen(p_name) + 1;
 
@@ -714,4 +717,71 @@ bool NxPartition::fat32_isFreeCluster(u32 cluster_num, u32 *clus_count)
 void NxPartition::clearHandles()
 {
     //p_ofstream.close();
+}
+
+bool NxPartition::mount_fs()
+{
+    if (is_mounted())
+        return true;
+
+    if (!is_in(type(), {SAFE, USER, SYSTEM}))
+        return false;
+
+    if (isEncryptedPartition() && nxCrypto == nullptr || badCrypto())
+        return false;
+
+    //nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
+
+    if (nxfs_initialize(this, &m_fatfs) != RES_OK)
+        return false;
+
+    if(f_mount(&m_fatfs, fs_prefix().c_str(), 1))
+        return false;
+
+    return true;
+}
+bool NxPartition::unmount_fs()
+{
+    if (!is_mounted())
+        return true;
+
+    if (nxfs_uninit(&m_fatfs) != RES_OK)
+        return false;
+
+    memset(&m_fatfs, 0, sizeof(FATFS));
+
+    return true;
+}
+
+wstring NxPartition::fs_prefix(const wchar_t* path) {
+    int ix = get_ix_by_nx_partition(this);
+    wstring r_value = ix ? std::to_wstring(ix).append(L":").append(path) : std::wstring(path);
+    return r_value;
+}
+
+void NxPartition::setVolumeMountPoint(WCHAR *mountPoint)
+{
+    m_is_vfs_mounted = mountPoint;
+    if (!m_is_vfs_mounted)
+        return;
+
+    m_mount_point[0] = mountPoint[0];
+}
+
+void NxPartition::getVolumeMountPoint(WCHAR *mountPoint)
+{
+    if (!mountPoint || !m_is_vfs_mounted)
+        return;
+
+    mountPoint[0] = m_mount_point[0];
+}
+
+bool NxPartition::unmount_vfs()
+{
+    if (!is_vfs_mounted())
+        return true;
+
+    WCHAR mount_point[4] = L" :\\";
+    getVolumeMountPoint(mount_point);
+    return DokanRemoveMountPoint(mount_point);
 }

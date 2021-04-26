@@ -26,6 +26,7 @@
 #include "NxHandle.h"
 #include "NxCrypto.h"
 #include "res/progress_info.h"
+#include "lib/fatfs/diskio.h"
 
 typedef struct NxPart NxPart;
 struct NxPart {
@@ -66,10 +67,11 @@ class NxPartition
     public:
         NxPartition(NxStorage *parent, const char* p_name, u32 lba_start, u32 lba_end, u64 attrs = 0);
         ~NxPartition();
+        NxStorage *parent;
     
     // Member variables
     private:
-        NxStorage *parent;        
+
         u32 m_lba_start = 0;
         u32 m_lba_end = 0;
         u64 m_attrs = 0;
@@ -85,6 +87,13 @@ class NxPartition
         u64 bytes_count;
         fat32::fs_attr m_fs;
         bool m_fsSet = false;
+
+        // Filesystem
+        FATFS m_fatfs;
+
+        // Virtual drive
+        WCHAR m_mount_point[4] = L" :\\";
+        bool m_is_vfs_mounted = false;
 
     public:
         u64 freeSpace = 0;
@@ -105,9 +114,13 @@ class NxPartition
         bool badCrypto() { return m_bad_crypto; }
         int type() { return m_type; }
         NxCrypto* crypto() { return nxCrypto; }
+        FATFS *fs() { return &m_fatfs; }
+        NxStorage* nxStorage() { return parent; }
         
         // Setters
         void setBadCrypto(bool bad = true) { m_bad_crypto = bad; }
+        void setVolumeMountPoint(WCHAR *mountPoint);
+        void getVolumeMountPoint(WCHAR *mountPoint);
 
         // Boolean    
         bool isValidPartition();
@@ -127,6 +140,14 @@ class NxPartition
 
         void clearHandles();
         int userAbort(){stopWork = false; return ERR_USER_ABORT;}
+
+        // Filesystem
+        wstring fs_prefix(const wchar_t* path = L"");
+        bool mount_fs();
+        bool unmount_fs();
+        bool is_mounted() { return m_fatfs.fs_type > 0; }
+        bool is_vfs_mounted() { return m_is_vfs_mounted; }
+        bool unmount_vfs();
 };
 
 #endif

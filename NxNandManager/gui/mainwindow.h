@@ -26,6 +26,7 @@
 #include <QTableWidgetItem>
 #include "../res/progress_info.h"
 #include "../NxStorage.h"
+#include "../virtual_fs/virtual_fs.h"
 #include "qutils.h"
 #include "worker.h"
 #include "opendrive.h"
@@ -35,7 +36,7 @@
 #include "emunand.h"
 #include "dump.h"
 #include "debug.h"
-//#include "explorer.h"
+#include "explorer.h"
 
 QT_BEGIN_NAMESPACE
 class QAction;
@@ -66,7 +67,7 @@ private:
     Emunand* EmunandDialog;
     Dump* DumpDialog;
     Debug* DebugDialog = nullptr;
-    //Explorer* ExplorerDialog;
+    Explorer* ExplorerDialog;
 
 
 	NxStorage* input;
@@ -117,13 +118,16 @@ private slots:
 	void on_partition_table_itemSelectionChanged();
     void on_moreinfo_button_clicked();    
     void on_rawdump_button_clicked();
+    void on_mountParition(int nx_type);
+    void launch_vfs(std::shared_ptr<virtual_fs::virtual_fs> fs);
+    void dokanDriveTimer();
 
 public slots:
     //void startWorkThread(WorkParam_t param);
 	void inputSet(NxStorage *storage = nullptr);
 	void driveSet(QString);
     void resizeUser(QString file, int new_size, bool format);
-    //void openExplorer();
+    void openExplorer();
     void keySetSet();
 	void error(int err, QString label = nullptr);
 

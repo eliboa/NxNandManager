@@ -16,8 +16,9 @@
 #include "NxNandManager.h"
 #include "NxStorage.h"
 #include "NxPartition.h"
-
 #include "res/utils.h"
+#include "virtual_fs/virtual_fs.h"
+
 
 BOOL BYPASS_MD5SUM = FALSE;
 bool isdebug = FALSE;
@@ -192,10 +193,11 @@ int main(int argc, char *argv[])
     //std::setlocale(LC_ALL, "en_US.utf8");
     std::setlocale(LC_ALL, "");
     std::locale::global(std::locale(""));
-    printf("[ NxNandManager v4.1.2 by eliboa ]\n\n");
+    printf("[ NxNandManager v5.a by eliboa ]\n\n");
     const char *input = nullptr, *output = nullptr, *partitions = nullptr, *keyset = nullptr, *user_resize = nullptr, *boot0 = nullptr, *boot1 = nullptr;
+    wchar_t driveLetter = L'\0';
     BOOL info = false, gui = false, setAutoRCM = false, autoRCM = false, decrypt = false, encrypt = false;
-    BOOL incognito = false, createEmuNAND = false, zipOutput = false, passThroughZeroes = false, cryptoCheck = false;
+    BOOL incognito = false, createEmuNAND = false, zipOutput = false, passThroughZeroes = false, cryptoCheck = false, mount = false;
     EmunandType emunandType = unknown;
     u64 chunksize = 0;
     int io_num = 1;
@@ -229,7 +231,12 @@ int main(int argc, char *argv[])
             "  --list            Detect and list compatible NX physical drives (memloader/mmc emunand partition)\n"
             "  --info            Display information about input/output (depends on NAND type):\n"
             "                    NAND type, partitions, encryption, autoRCM status... \n"
-            "                    ...more info when -keyset provided: firmware ver., S/N, device ID...\n\n"
+            "                    ...more info when -keyset provided: firmware ver., S/N, device ID...\n"
+            "  --mount           Mount the specified partition as a virtual disk (dokan driver needed)\n"
+            "                    Only applies to input (-i) containing a FAT partition (SYSTEM, USER, SAFE & PRODINFOF)\n"
+            "                    If input contains more than one partition, use argument -part to specifiy\n"
+            "                    the partition to mount. -keyset is mandatory.\n"
+            "  -driveLetter=     drive letter to mount virtual disk. --mount is mandatory"
             "  --incognito       Wipe all console unique id's and certificates from CAL0 (a.k.a incognito)\n"
             "                    Only applies to input type RAWNAND or PRODINFO\n\n"
             "  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
@@ -311,6 +318,8 @@ int main(int argc, char *argv[])
     const char ZIP_OUTPUT_FLAG[] = "ZIP";
     const char PASSTHROUGH_0[] = "PASSTHROUGH_0";
     const char CRYPTOCHECK[] = "--crypto_check";
+    const char MOUNT_ARGUMENT[] = "--mount";
+    const char DRIVE_LETTER_ARGUMENT[] = "-driveLetter";
 
     for (int i = 1; i < argc; i++)
     {
@@ -375,6 +384,14 @@ int main(int argc, char *argv[])
             else if (currArg[len] == 0 && i == argc - 1)
                 return PrintUsage();
         }
+        else if (!strncmp(currArg, DRIVE_LETTER_ARGUMENT, array_countof(DRIVE_LETTER_ARGUMENT) - 1))
+        {
+            u32 len = array_countof(DRIVE_LETTER_ARGUMENT) - 1;
+            if (currArg[len] == '=')
+                mbtowc(&driveLetter, &currArg[len + 1], 1);
+            else if (currArg[len] == 0 && i == argc - 1)
+                return PrintUsage();
+        }
         else if (!strncmp(currArg, INFO_ARGUMENT, array_countof(INFO_ARGUMENT) - 1))
             info = true;
 
@@ -418,6 +435,9 @@ int main(int argc, char *argv[])
         else if (!strncmp(currArg, INCOGNITO_ARGUMENT, array_countof(INCOGNITO_ARGUMENT) - 1))
             incognito = true;
 
+        else if (!strncmp(currArg, MOUNT_ARGUMENT, array_countof(MOUNT_ARGUMENT) - 1))
+            mount = true;
+
         else {
             printf("Argument (%s) is not allowed.\n\n", currArg);
             PrintUsage();
@@ -444,10 +464,10 @@ int main(int argc, char *argv[])
         exit(EXIT_SUCCESS);
     }
 
-    if (nullptr == input || (nullptr == output && !info && !setAutoRCM && !incognito && !createEmuNAND && !cryptoCheck))
+    if (nullptr == input || (nullptr == output && !info && !setAutoRCM && !incognito && !createEmuNAND && !cryptoCheck && !mount))
         PrintUsage();
 
-    if ((encrypt || decrypt || cryptoCheck) && nullptr == keyset)
+    if ((encrypt || decrypt || cryptoCheck || mount) && nullptr == keyset)
     {
         printf("-keyset missing\n\n");
         PrintUsage();
@@ -607,12 +627,61 @@ int main(int argc, char *argv[])
     if (info)
     {
         printf("\n -- INPUT -- \n");
-        printStorageInfo(&nx_input);
+        printStorageInfo(&nx_input); 
     }
+
+    if (mount)
+    {
+        if (not_in(nx_input.type, {RAWNAND, RAWMMC, PRODINFOF, SAFE, USER, SYSTEM}))
+            throwException("invalid input (RAWNAND, RAWMMC, PRODINFOF, SAFE, USER, SYSTEM)");
+
+        if (v_partitions.size() > 1)
+            throwException("Only one partition allowed (-part).");
+
+        if (is_in(nx_input.type, {RAWNAND, RAWMMC}) && v_partitions.size() != 1)
+            throwException("Partition's name is missing (-part).");
+
+        NxPartition *in_part;
+        if (is_in(nx_input.type, {RAWNAND, RAWMMC}))
+            in_part = nx_input.getNxPartition(v_partitions.at(0));
+        else
+            in_part = nx_input.getNxPartition(nx_input.type);
+
+        if (!in_part)
+            throwException("Partition not found on input");
+
+        if (in_part->badCrypto())
+            throwException(ERROR_DECRYPT_FAILED);
+
+        if (driveLetter && !isAvailableMountPoint(&driveLetter))
+            throwException("An existing mount point already uses this drive letter");
+
+        if(!in_part->mount_fs())
+            throwException("Failed to mount filesystem.");
+
+        printf("FAT filesystem mounted.\n");
+
+        auto v_fs = std::make_shared<virtual_fs::virtual_fs>(in_part);
+        printf("Virtual fs initialized.\n");
+
+        if (driveLetter)
+            v_fs->setDriveLetter(driveLetter);
+
+        printf("Populating virtual fs...             \r");
+        int ent = v_fs->populate();
+        if(!ent)
+            throwException("Failed to populate fs (0 entry found)");
+        printf("Virtual fs populated (%d entries found).\n", ent);                
+
+        printf("Mounting virtual disk... (CTRL+C to unmount & quit)\n");
+        v_fs->run();
+
+        exit(EXIT_SUCCESS);
+    }
+
 
     if (createEmuNAND && nullptr == output)
     {
-
         if (not_in(nx_input.type, {RAWNAND, RAWMMC}))
             throwException("input is not a valid \"RAWNAND\" or \"FULL NAND\"");
 

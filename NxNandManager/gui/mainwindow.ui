@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>453</width>
-    <height>563</height>
+    <width>528</width>
+    <height>562</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -26,7 +26,7 @@
    <enum>Qt::NoFocus</enum>
   </property>
   <property name="windowTitle">
-   <string>NxNandManager v4.1.2 by eliboa</string>
+   <string>NxNandManager v5.a by eliboa</string>
   </property>
   <property name="windowIcon">
    <iconset resource="application.qrc">
@@ -786,6 +786,9 @@
          <layout class="QVBoxLayout" name="verticalLayout_2">
           <item>
            <layout class="QHBoxLayout" name="horizontalLayout_2">
+            <property name="sizeConstraint">
+             <enum>QLayout::SetMinimumSize</enum>
+            </property>
             <item>
              <widget class="QPushButton" name="partQDumpBtn">
               <property name="sizePolicy">
@@ -1094,8 +1097,8 @@ QTableCornerButton::section {background-color: transparent;}</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>453</width>
-     <height>20</height>
+     <width>528</width>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

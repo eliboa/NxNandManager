@@ -70,6 +70,16 @@ std::string hexStr(unsigned char *data, int len)
 	return s;
 }
 
+void hexStrPrint(unsigned char *data, int len)
+{
+    len = (len / 32)*32;
+    std::string s;
+    for (int i=0; i<len ; i+=32)
+        s.append(hexStr(&data[i], 32)).append("\n");
+
+    printf("%s\n", s.c_str());
+}
+
 BOOL AskYesNoQuestion(const char* question, void* p_arg1, void* p_arg2)
 {
 	BOOL bContinue = TRUE;
@@ -572,4 +582,18 @@ std::string hexStr_to_ascii(const char* hexStr)
         else buf = hexStr[i];
     }
     return destStr;
+}
+
+unsigned random(unsigned n) {
+/* n must be < RAND_MAX
+ * returns a random number in range [0, n) */
+  const int min_reject=RAND_MAX-RAND_MAX%n;
+  int r;
+  unsigned i=0;
+  while ((r=rand()) >= min_reject && i<128) ++i;
+  return r%n;
+}
+DWORD randomDWORD() {
+  return DWORD(random(256))     | DWORD(random(256)<<8)
+        |DWORD(random(256)<<16) | DWORD(random(256)<<24);
 }

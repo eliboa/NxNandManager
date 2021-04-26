@@ -46,6 +46,12 @@ struct splitFileName_t {
     int f_type = 0;
 };
 
+typedef struct _cluster_cache_t {
+    bool valid;
+    u32 clu_number;
+    u8 data[CLUSTER_SIZE];
+} cluster_cache_t;
+
 class NxStorage;
 class NxPartition;
 class NxCrypto;
@@ -83,6 +89,7 @@ class NxHandle {
         u64 m_totalSize = 0;
         u64 m_fileDiskTotalBytes;
         u64 m_fileDiskFreeBytes;
+        bool m_isReadOnly = false;
 
         // Splitted storage
         NxSplitFile *m_lastSplitFile;
@@ -97,6 +104,10 @@ class NxHandle {
         BYTE m_md5_buffer[DEFAULT_BUFF_SIZE];
         NxCrypto *nxCrypto;
         int m_crypto = NO_CRYPTO;
+
+        // Cache
+        cluster_cache_t *m_cluster_cache = nullptr;
+        void invalidate_cache();
     
         // Boolean
         bool b_isDrive = false;
@@ -126,7 +137,7 @@ class NxHandle {
         u64 getDiskFreeSpace() { return m_fileDiskFreeBytes; }
         u64 getCurrentPointer() { return lp_CurrentPointer.QuadPart - m_off_start; }
         NxCrypto* crypto() { return nxCrypto; }
-
+        bool isReadOnly() { return m_isReadOnly; }
 
         // Setters
         void setSplitted(bool b) { b_isSplitted = b; }
@@ -163,6 +174,8 @@ class NxHandle {
         bool lockFile();
         bool ejectVolume();
         bool getVolumeName(WCHAR *pVolumeName, u32 start_sector);
+
+
 
 };
 

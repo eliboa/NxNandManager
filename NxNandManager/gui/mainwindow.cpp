@@ -16,6 +16,7 @@
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -103,7 +104,12 @@ MainWindow::MainWindow(QWidget *parent) :
         qApp->processEvents();
         Worker *workThread = new Worker(this, WorkerMode::new_storage, input_path);
         workThread->start();
-   }       
+    }
+
+    // Dokan timer
+    QTimer *timer = new QTimer(this);
+    connect(timer, SIGNAL(timeout()), this, SLOT(dokanDriveTimer()));
+    timer->start(1000);
 }
 
 MainWindow::~MainWindow()
@@ -508,6 +514,9 @@ void MainWindow::beforeInputSet()
     ui->fwversion_value->setText("");
     ui->deviceid_value->setStatusTip("");
     ui->deviceid_value->setText("");
+    // Delete mount_button(s)
+    for (auto b : ui->selPartGrp->findChildren<QPushButton*>("mount_button"))
+        b->deleteLater();
 }
 
 void MainWindow::inputSet(NxStorage *storage)
@@ -717,7 +726,6 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 
     selected_part = t_selected_part;
 
-
     ui->properties_table->setRowCount(0);
 
     int index = ui->properties_table->rowCount();
@@ -899,16 +907,56 @@ void MainWindow::on_partition_table_itemSelectionChanged()
         ui->partCustom1Btn->setToolTip(statusTip);
         ui->partCustom1Btn->connect(ui->partCustom1Btn, SIGNAL(clicked()), this, SLOT(formatPartition()));
         ui->partCustom1Btn->setVisible(true);
-        ui->partCustom1Btn->setEnabled(true);
+        ui->partCustom1Btn->setEnabled(true);        
+    }
+
+
+    // Delete mount_button(s)
+    for (auto b : ui->selPartGrp->findChildren<QPushButton*>("mount_button"))
+        b->deleteLater();
+
+    if (is_in(selected_part->type(), {USER, SYSTEM, SAFE, PRODINFOF}))
+    {
+        auto *button = new QPushButton(this);
+        button->setObjectName("mount_button");
+        QString label = selected_part->is_vfs_mounted() ? "Unmount" : "Mount";
+        if(selected_part->is_vfs_mounted())
+        {
+            WCHAR mountPoint[3] = L" \0";
+            selected_part->getVolumeMountPoint(mountPoint);
+            label.append(" (" + QString::fromStdWString(mountPoint).toUpper() + ":)");
+        }
+        button->setText(label);
+        button->setFixedSize(80, 30);
+        connect(button, &QPushButton::clicked, [=]() {
+            on_mountParition(selected_part->type());
+        });
+
+        QString statusTip(selected_part->is_vfs_mounted() ? "Unmount virtual disk" : "Mount partition as virtual disk");
+        if (selected_part->isEncryptedPartition() && (selected_part->badCrypto() || !selected_part->crypto()))
+        {
+            button->setDisabled(true);
+            statusTip = "CRYPTO FAILED. KEYSET MISSING OR WRONG KEYS!";
+        }
+        button->setStatusTip(statusTip);
+        button->setToolTip(statusTip);
+
+        ui->horizontalLayout_2->addWidget(button);
     }
 
     // Explorer action
     /*
     if(is_in(selected_part->type(), {USER, SYSTEM}))
     {
-        QAction* explAction = new QAction("Explore partition");
-        ui->partition_table->connect(explAction, SIGNAL(triggered()), this, SLOT(openExplorer()));
-        ui->partition_table->addAction(explAction);
+        QAction* explAction = new QAction("Explore partition");       
+        const QIcon icon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
+        QString statusTip(tr("Explore partition (directory & files"));
+        explAction->setStatusTip(statusTip);
+        ui->partCustom1Btn->setIcon(icon);
+        ui->partCustom1Btn->setStatusTip(statusTip);
+        ui->partCustom1Btn->connect(ui->partCustom1Btn, SIGNAL(clicked()), this, SLOT(openExplorer()));
+        ui->partCustom1Btn->setVisible(true);
+        ui->partCustom1Btn->setEnabled(true);
     }
     */
 }
@@ -930,17 +978,22 @@ void MainWindow::resizeUser(QString file, int new_size, bool format)
     //workThread = new Worker(this, input, file, new_size, format);
     //startWorkThread();
 }
-/*
+
 void MainWindow::openExplorer()
 {
+    QString cur_partition(ui->partition_table->selectedItems().at(0)->text());
+    NxPartition *curPartition = input->getNxPartition(cur_partition.toLocal8Bit().constData());
 
-    ExplorerDialog = new Explorer(this, selected_part);
+    if (nullptr == curPartition)
+        return;
+
+    ExplorerDialog = new Explorer(this, curPartition);
     ExplorerDialog->setWindowTitle("Explorer");
     ExplorerDialog->show();
     ExplorerDialog->exec();
 
 }
-*/
+
 void MainWindow::error(int err, QString label)
 {
 	if(err != ERR_WORK_RUNNING)
@@ -1113,4 +1166,80 @@ void MainWindow::on_moreinfo_button_clicked()
 void MainWindow::on_rawdump_button_clicked()
 {
     on_rawdump_button_clicked(NO_CRYPTO, false);
+}
+
+void MainWindow::on_mountParition(int nx_type)
+{
+    if(!input)
+        return;
+
+    auto mount_button = ui->selPartGrp->findChild<QPushButton*>("mount_button");
+    auto exit = [&](int e, const QString l = nullptr ){
+        if (e)
+            error(e, l);
+        on_partition_table_itemSelectionChanged();
+        return;
+    };
+
+    NxPartition *nxp = input->getNxPartition(nx_type);
+    if (!nxp)
+        return exit(ERR_IN_PART_NOT_FOUND);
+
+    if (mount_button)
+        mount_button->setText(nxp->is_vfs_mounted() ? "Unmounting..." : "Mounting...");
+
+    if (nxp->is_vfs_mounted())
+    {
+        return exit(nxp->unmount_vfs() ? 0 : 1, "Failed to unmount filesystem.");
+    }
+    if (nxp->badCrypto())
+        return exit(ERROR_DECRYPT_FAILED);
+
+    if(!nxp->mount_fs())
+        return exit(1, "Failed to mount filesystem.");
+
+    auto v_fs = std::make_shared<virtual_fs::virtual_fs>(nxp);
+
+    if(!v_fs->populate())
+        return exit(1, "Failed to populate fs (0 entry found)");
+
+    QtConcurrent::run(this, &MainWindow::launch_vfs, v_fs);
+}
+
+void MainWindow::launch_vfs(std::shared_ptr<virtual_fs::virtual_fs> fs)
+{
+    fs->run();
+}
+
+static vector<NxPartition*> mounted_part;
+void MainWindow::dokanDriveTimer()
+{
+    if (!input || !input->isNxStorage() || !input->partitions.size())
+        return;
+
+    bool update = false;
+    // Add new mount point
+    for (NxPartition* part : input->partitions) if (part->is_vfs_mounted())
+    {
+        bool found = false;
+        for (auto m_part : mounted_part) if (m_part == part) {
+            found = true;
+            break;
+        }
+
+        if (!found) {
+            mounted_part.push_back(part);
+            update = true;
+        }
+    }
+
+    // Delete mount point
+    for (int i(0); i < (int)mounted_part.size(); i++) if (!mounted_part.at(i)->is_vfs_mounted())
+    {
+        mounted_part.erase(mounted_part.begin() + i);
+        update = true;
+    }
+
+    if (update)
+        on_partition_table_itemSelectionChanged();
 }

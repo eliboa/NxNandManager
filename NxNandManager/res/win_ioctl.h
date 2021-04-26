@@ -66,5 +66,6 @@ void GetDisks(std::vector<diskDescriptor> *disks);
 bool GetVolumeName(DWORD diskNumber, u64 startOffset, WCHAR *pVolumeName, size_t size = MAX_PATH);
 bool DisMountVolume(volumeDescriptor vd);
 bool DisMountAllVolumes(diskDescriptor dd);
-
+bool GetAvailableMountPoint(TCHAR *DriveLetter);
+bool isAvailableMountPoint(TCHAR *DriveLetter);
 #endif
