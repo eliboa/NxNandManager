@@ -130,9 +130,17 @@ public slots:
     void openExplorer();
     void keySetSet();
 	void error(int err, QString label = nullptr);
+    void updateParitionInfo() {on_partition_table_itemSelectionChanged();}
+    void vfs_callback(NTSTATUS status);
 
 public:
     KeySet biskeys;
+
+signals:
+    void error_signal(int, QString s = nullptr);
+    void vfs_callback_signal(NTSTATUS);
 };
+
+void virtual_fs_callback(NTSTATUS status);
 
 #endif // MAINWINDOW_H

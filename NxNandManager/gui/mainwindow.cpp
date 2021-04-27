@@ -19,16 +19,20 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
 
+MainWindow *mainWindowInstance = nullptr;
+
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow)
 {
+    mainWindowInstance = this;
 	bTaskBarSet = FALSE;
 	ui->setupUi(this);
 
     //setFixedWidth(380);
     //setFixedHeight(490);
     //adjustSize();
+    qRegisterMetaType<NTSTATUS>("NTSTATUS");
 
     // Connect slots
     connect(ui->actionOpenFile, &QAction::triggered, this, &MainWindow::open);
@@ -50,6 +54,8 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->partQDumpBtn, SIGNAL(clicked()), this, SLOT(dumpPartition()));
     connect(ui->partADumpBtn, SIGNAL(clicked()), this, SLOT(dumpPartitionAdvanced()));
     connect(ui->partRestoreBtn, SIGNAL(clicked()), this, SLOT(restorePartition()));
+    connect(this, SIGNAL(error_signal(int, QString)), this, SLOT(error(int, QString)));
+    connect(this, SIGNAL(vfs_callback_signal(NTSTATUS)), this, SLOT(vfs_callback(NTSTATUS)));
 
     if (!isdebug)
     {
@@ -1168,6 +1174,27 @@ void MainWindow::on_rawdump_button_clicked()
     on_rawdump_button_clicked(NO_CRYPTO, false);
 }
 
+void virtual_fs_callback(NTSTATUS status) { mainWindowInstance->emit vfs_callback_signal(status); } //Static func
+void MainWindow::vfs_callback(NTSTATUS status)
+{
+    if (status == DOKAN_SUCCESS || !mainWindowInstance)
+        return;
+
+    if (status == DOKAN_DRIVER_INSTALL_ERROR)
+    {
+        QMessageBox msgBox;
+        msgBox.setIcon(QMessageBox::Icon::Warning);
+        msgBox.setText("Dokan driver not found");
+        msgBox.setInformativeText("Click \"Yes\" to proceed with installation.\nClick \"No\" to cancel.");
+        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        msgBox.setDefaultButton(QMessageBox::Yes);
+        if(msgBox.exec() == QMessageBox::Yes)
+            installDokanDriver();
+    }
+    else error(1, QString::fromStdString(dokanNtStatusToStr(status)));
+    updateParitionInfo();
+}
+
 void MainWindow::on_mountParition(int nx_type)
 {
     if(!input)
@@ -1192,6 +1219,7 @@ void MainWindow::on_mountParition(int nx_type)
     {
         return exit(nxp->unmount_vfs() ? 0 : 1, "Failed to unmount filesystem.");
     }
+
     if (nxp->badCrypto())
         return exit(ERROR_DECRYPT_FAILED);
 
@@ -1200,8 +1228,10 @@ void MainWindow::on_mountParition(int nx_type)
 
     auto v_fs = std::make_shared<virtual_fs::virtual_fs>(nxp);
 
-    if(!v_fs->populate())
-        return exit(1, "Failed to populate fs (0 entry found)");
+    if(v_fs->populate() < 0)
+        return exit(1, "Failed to populate fs");
+
+    v_fs->setCallBackFunction(&virtual_fs_callback);
 
     QtConcurrent::run(this, &MainWindow::launch_vfs, v_fs);
 }

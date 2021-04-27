@@ -170,6 +170,7 @@ void throwException(int rc, const char* errorStr=NULL);
 void throwException(const char* errorStr=NULL, void* p_arg1 = NULL, void* p_arg2 = NULL);
 char * flipAndCodeBytes(const char * str, int pos, int flip, char * buf);
 std::string ExePath();
+std::wstring ExePathW();
 HMODULE GetCurrentModule();
 bool file_exists(const wchar_t *fileName);
 int digit_to_int(char d);
@@ -267,5 +268,5 @@ template<typename M> inline void* GetMethodPointer(M ptr)
 
 unsigned random(unsigned n);
 DWORD randomDWORD();
-
+int IsWow64();
 #endif

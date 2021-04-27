@@ -724,13 +724,11 @@ bool NxPartition::mount_fs()
     if (is_mounted())
         return true;
 
-    if (!is_in(type(), {SAFE, USER, SYSTEM}))
+    if (!is_in(type(), {PRODINFOF, SAFE, USER, SYSTEM}))
         return false;
 
     if (isEncryptedPartition() && nxCrypto == nullptr || badCrypto())
         return false;
-
-    //nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
 
     if (nxfs_initialize(this, &m_fatfs) != RES_OK)
         return false;

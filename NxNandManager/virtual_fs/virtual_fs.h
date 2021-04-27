@@ -49,10 +49,11 @@ class virtual_fs {
     // Unmount the device when destructor is called
     virtual ~virtual_fs();
 
+
     // FileSystem mount options
     WCHAR mount_point[4] = L"\0:\\";
     WCHAR unc_name[MAX_PATH] = L"";
-    USHORT thread_number = 5;
+    USHORT thread_number = 1; // Do not change
     bool network_drive = false;
     bool removable_drive = false;
     bool current_session = false;
@@ -62,6 +63,9 @@ class virtual_fs {
     NxPartition *partition;
 
     void setDriveLetter(const wchar_t letter) { mount_point[0] = letter; }
+
+    void(*callback_func)(NTSTATUS) = nullptr;
+    void setCallBackFunction(void(*func_ptr)(NTSTATUS)) { callback_func = func_ptr; }
 
     // FileSystem context runtime
     std::unique_ptr<fs_filenodes> fs_filenodes;

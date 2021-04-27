@@ -720,15 +720,15 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_getdiskfreespace(
   dbg_wprintf(L"GetDiskFreeSpace\n");
   auto nxp = GET_FS_INSTANCE->nx_part;
   auto fs = nxp->fs();
-  u64 tb = (u64)fs->n_fatent * (u64)CLUSTER_SIZE;
+  u64 tb = (u64)fs->n_fatent * (u64)fs->csize * (u64)512;
   u64 fb = 0;
   if (!fs->free_clst || fs->free_clst == 0xFFFFFFFF)
   {
       DWORD free_clst;
       f_getfree(nxp->fs_prefix().c_str(), &free_clst, &fs);
-      tb = (u64)free_clst * (u64)CLUSTER_SIZE;
+      tb = (u64)free_clst * (u64)fs->csize * (u64)512;
   }
-  else fb = (u64)fs->free_clst * (u64)CLUSTER_SIZE;
+  else fb = (u64)fs->free_clst * (u64)fs->csize * (u64)512;
 
   *free_bytes_available = (ULONGLONG)fb;
   *total_number_of_bytes = (ULONGLONG)tb;

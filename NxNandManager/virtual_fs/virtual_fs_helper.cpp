@@ -1,4 +1,8 @@
 #include "virtual_fs_helper.h"
+#include <dokan/dokan.h>
+#include "../res/utils.h"
+#include <shellapi.h>
+
 std::wstring parent_path(const std::wstring & path)
 {
     auto str = path.substr(0, path.find_last_of(L"/\\"));
@@ -44,5 +48,60 @@ wstring nx_path_to_virtual_path(const wchar_t* path, NxPartition* part)
 
     return p;
 }
+std::string dokanNtStatusToStr(NTSTATUS status)
+{
+    std::string str;
+    switch (status) {
+    case DOKAN_SUCCESS:
+        break;
+    case DOKAN_ERROR:
+        str = "Error while launching dokan driver";
+        break;
+    case DOKAN_DRIVE_LETTER_ERROR:
+        str = "Bad Drive letter";
+        break;
+    case DOKAN_DRIVER_INSTALL_ERROR:
+        str = "Can't load/install dokan driver";
+        break;
+    case DOKAN_START_ERROR:
+        str = "Driver something wrong";
+        break;
+    case DOKAN_MOUNT_ERROR:
+        str = "Can't assign a drive letter";
+        break;
+    case DOKAN_MOUNT_POINT_ERROR:
+        str = "Mount point error";
+        break;
+    case DOKAN_VERSION_ERROR:
+        str = "Version error";
+        break;
+    default:
+      str = "DokanMain failed with status" + std::to_string(status);
+    }
+    return str;
+}
+void installDokanDriver()
+{
 
+    SHELLEXECUTEINFO shExInfo = { 0 };
+    shExInfo.cbSize = sizeof(shExInfo);
+    shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+    shExInfo.hwnd = nullptr;
+    shExInfo.lpVerb = L"runas";
+    wstring args_w = L"/i " + parent_path(ExePathW());
+#ifdef ARCH64
+    bool x64 = true;
+#else
+    bool x64 = IsWow64();
+#endif
+    LPCWSTR args = (const wchar_t*) args_w.append(x64 ? L"\\dokan_x64.msi" : L"\\dokan_x86.msi").c_str();
+    shExInfo.lpFile = L"msiexec.exe";
+    shExInfo.lpParameters = args;
+    shExInfo.lpDirectory = nullptr;
+    shExInfo.nShow = SW_SHOW;
+    shExInfo.hInstApp = nullptr;
+
+    if (ShellExecuteEx(&shExInfo))
+        CloseHandle(shExInfo.hProcess);
+}
 

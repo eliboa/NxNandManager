@@ -41,12 +41,13 @@ virtual_fs::virtual_fs(NxPartition* part)
     partition = part;
     fs_filenodes = unique_ptr<::virtual_fs::fs_filenodes>(new ::virtual_fs::fs_filenodes());
     fs_filenodes->nx_part = partition;
+
 }
 
 int virtual_fs::populate() {
     // Ensure FS is mounted for NxPartition
     if (!partition->mount_fs())
-        return 0;
+        return -1;
 
     vector<wstring> queue;
     DIR dp;
@@ -64,8 +65,8 @@ int virtual_fs::populate() {
         auto open = f_opendir(&dp, virtual_path_to_nx_path(dir.c_str(), partition).c_str()) == FR_OK;
         while(open && f_readdir(&dp, &fno) == FR_OK)
         {
-            if (fno.fname[0] == '.')
-                continue;
+            /*if (fno.fname[0] == '.')
+                continue;*/
             if (fno.fname[0] == '\0')
                 break;
 
@@ -126,7 +127,7 @@ void virtual_fs::run() {
         dokan_options.Options |= DOKAN_OPTION_CURRENT_SESSION;
     }
 
-    dokan_options.ThreadCount = 1;
+    dokan_options.ThreadCount = thread_number;
     dokan_options.Timeout = timeout;
 
     TCHAR driveLetter;
@@ -138,28 +139,10 @@ void virtual_fs::run() {
     dokan_options.GlobalContext = reinterpret_cast<ULONG64>(fs_filenodes.get());
 
     NTSTATUS status = DokanMain(&dokan_options, &virtual_fs_operations);
-    switch (status) {
-    case DOKAN_SUCCESS:
-      break;
-    case DOKAN_ERROR:
-      throw std::runtime_error("Error");
-    case DOKAN_DRIVE_LETTER_ERROR:
-      throw std::runtime_error("Bad Drive letter");
-    case DOKAN_DRIVER_INSTALL_ERROR:
-      throw std::runtime_error("Can't install driver");
-    case DOKAN_START_ERROR:
-      throw std::runtime_error("Driver something wrong");
-    case DOKAN_MOUNT_ERROR:
-      throw std::runtime_error("Can't assign a drive letter");
-    case DOKAN_MOUNT_POINT_ERROR:
-      throw std::runtime_error("Mount point error");
-    case DOKAN_VERSION_ERROR:
-      throw std::runtime_error("Version error");
-    default:
-      dbg_wprintf(L"DokanMain failed with %d\n", status);
-      throw std::runtime_error("Unknown error"); // add error status
-    }
+    if (callback_func)
+        callback_func(status);
 }
 
 virtual_fs::~virtual_fs() { DokanRemoveMountPoint(mount_point); }
+
 }  // namespace virtual_fs

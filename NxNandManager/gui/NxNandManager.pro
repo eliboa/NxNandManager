@@ -139,6 +139,7 @@ QT += winextras
 RC_FILE = NxNandManager.rc
 
 CONFIG(ARCH32) {
+    DEFINES += ARCH32
     win32: LIBS += -L$$PWD/../../../../../mingw32/lib/ -lcrypto
     INCLUDEPATH += $$PWD/../../../../../mingw32/include
     DEPENDPATH += $$PWD/../../../../../mingw32/include
@@ -151,6 +152,7 @@ CONFIG(ARCH32) {
     else:win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw32/lib/libcrypto.a
 }
 CONFIG(ARCH64) {
+    DEFINES += ARCH64
     win32: LIBS += -L$$PWD/../../../../../mingw64/lib/ -lcrypto
     INCLUDEPATH += $$PWD/../../../../../mingw64/include
     DEPENDPATH += $$PWD/../../../../../mingw64/include

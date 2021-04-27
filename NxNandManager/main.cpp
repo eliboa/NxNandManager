@@ -669,9 +669,24 @@ int main(int argc, char *argv[])
 
         printf("Populating virtual fs...             \r");
         int ent = v_fs->populate();
-        if(!ent)
-            throwException("Failed to populate fs (0 entry found)");
+        if(ent < 0)
+            throwException("Failed to populate fs");
         printf("Virtual fs populated (%d entries found).\n", ent);                
+
+        auto callback = [](NTSTATUS status) {
+            if (status == DOKAN_SUCCESS)
+                return;
+
+            if (status != DOKAN_DRIVER_INSTALL_ERROR)
+                throwException(dokanNtStatusToStr(status).c_str());
+            else if(AskYesNoQuestion("Dokan driver not found. Do you want to proceed with installation (MSI)?"))
+            {
+                installDokanDriver();
+                printf("Re-run NxNandManager after installation.\n");
+            }
+            else throwException("Operation cancelled");
+        };
+        v_fs->setCallBackFunction(callback);
 
         printf("Mounting virtual disk... (CTRL+C to unmount & quit)\n");
         v_fs->run();

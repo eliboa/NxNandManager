@@ -310,6 +310,14 @@ std::string ExePath()
 	return string(ws.begin(), ws.end());
 }
 
+std::wstring ExePathW()
+{
+    wchar_t buffer[MAX_PATH];
+    GetModuleFileName(NULL, buffer, MAX_PATH);
+    wstring ws(buffer);
+    return ws;
+}
+
 HMODULE GetCurrentModule()
 {
 	HMODULE hModule = NULL;
@@ -596,4 +604,17 @@ unsigned random(unsigned n) {
 DWORD randomDWORD() {
   return DWORD(random(256))     | DWORD(random(256)<<8)
         |DWORD(random(256)<<16) | DWORD(random(256)<<24);
+}
+
+typedef BOOL (WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
+LPFN_ISWOW64PROCESS fnIsWow64Process;
+BOOL IsWow64()
+{
+    BOOL bIsWow64 = FALSE;
+    fnIsWow64Process = (LPFN_ISWOW64PROCESS) GetProcAddress(
+        GetModuleHandle(TEXT("kernel32")),"IsWow64Process");
+
+    if(nullptr != fnIsWow64Process)
+        fnIsWow64Process(GetCurrentProcess(),&bIsWow64);
+    return bIsWow64;
 }
