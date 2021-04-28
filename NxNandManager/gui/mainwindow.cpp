@@ -227,6 +227,9 @@ void MainWindow::openKeySet()
 
 void MainWindow::openResizeDialog()
 {
+    if (input->is_vfs_mounted())
+        return error(ERR_MOUNTED_VIRTUAL_FS);
+
     if (input->isEncrypted() && (!input->isCryptoSet() || input->badCrypto()))
     {
         QMessageBox::critical(nullptr,"Error", "Keys missing or invalid (use CTRL+K to set keys)");
@@ -241,6 +244,9 @@ void MainWindow::openResizeDialog()
 
 void MainWindow::openEmunandDialog()
 {
+    if (input->is_vfs_mounted())
+        return error(ERR_MOUNTED_VIRTUAL_FS);
+
     EmunandDialog = new Emunand(this, input);
     EmunandDialog->show();
     EmunandDialog->exec();
