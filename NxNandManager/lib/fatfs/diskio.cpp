@@ -48,6 +48,8 @@ int nxfs_initialize(NxPartition* nx_partition, FATFS* fatfs)
     nxfs_arr[ix-1].index = ix;
     // Create new handle
     nxfs_arr[ix-1].nx_handle = new NxHandle(nx_partition->nxStorage());
+    if (nx_partition->nxHandle->isSplitted())
+        nxfs_arr[ix-1].nx_handle->detectSplittedStorage();
     nxfs_arr[ix-1].nx_handle->initHandle(nx_partition->isEncryptedPartition() ? DECRYPT : NO_CRYPTO, nx_partition);
     return 0;
 }

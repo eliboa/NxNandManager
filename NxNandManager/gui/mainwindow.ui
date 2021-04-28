@@ -1127,6 +1127,7 @@ QTableCornerButton::section {background-color: transparent;}</string>
     <addaction name="actionResize"/>
     <addaction name="actionDumpRawnandOnly"/>
     <addaction name="actionCreateEmunand"/>
+    <addaction name="actionRestartDebug"/>
    </widget>
    <widget class="QMenu" name="menuDebug">
     <property name="title">
@@ -1421,6 +1422,11 @@ QTableCornerButton::section {background-color: transparent;}</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+C</string>
+   </property>
+  </action>
+  <action name="actionRestartDebug">
+   <property name="text">
+    <string>Restart program in debug mode</string>
    </property>
   </action>
  </widget>

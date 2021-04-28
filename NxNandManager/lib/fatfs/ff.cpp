@@ -3508,8 +3508,9 @@ static FRESULT mount_volume (	/* FR_OK(0): successful, !=0: an error occurred */
 		}
 
         //if (fs->fsize < (szbfat + (SS(fs) - 1)) / SS(fs)) return FR_NO_FILESYSTEM;	/* (BPB_FATSz must not be less than the size needed) */
-        unsigned long t = (szbfat + (SS(fs) - 1)) / SS(fs) - fs->fsize;
-        if (t > 1) return FR_NO_FILESYSTEM;	/* (BPB_FATSz must not be less than the size needed) */
+        unsigned long  needed = (szbfat + (SS(fs) - 1)) / SS(fs);
+        if (fs->fsize < needed && needed - fs->fsize > 1)
+            return FR_NO_FILESYSTEM;	/* (BPB_FATSz must not be less than the size needed) */
 
 
 #if !FF_FS_READONLY

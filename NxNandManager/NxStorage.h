@@ -186,6 +186,7 @@ class NxStorage
         bool badCrypto();
         bool isNxStorage();
         bool partitionExists(const char* partition_name);
+        bool is_vfs_mounted();
 
         // Public methods                
         int setKeys(const char* keyset_path);

@@ -121,6 +121,7 @@ private slots:
     void on_mountParition(int nx_type);
     void launch_vfs(std::shared_ptr<virtual_fs::virtual_fs> fs);
     void dokanDriveTimer();
+    void restartDebug();
 
 public slots:
     //void startWorkThread(WorkParam_t param);

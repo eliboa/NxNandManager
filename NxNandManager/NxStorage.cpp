@@ -527,7 +527,7 @@ NxStorage::NxStorage(const char *p_path)
                 dbg_printf("NxStorage::NxStorage() - Error backup GPT not found for Splitted at offset %s\n", n2hexstr(off, 10).c_str());
                 nxHandle->setSplitted(false);
             }
-        }
+        } else dbg_printf("NxStorage::NxStorage() - NxType after detectSplittedStorage() = %s\n", getNxTypeAsStr());
     }
 
     NxPartition *boot0 = getNxPartition(BOOT0);
@@ -646,12 +646,14 @@ NxStorage::~NxStorage()
 
     if(partitions.size())
         partitions.clear();
+
     if (nullptr != nxHandle)
         delete nxHandle;
 }
 
 int NxStorage::setKeys(const char* keyset)
 {
+
     if (!isNxStorage())
     {
         dbg_printf("NxStorage::setKeys() => Not a valid NxStorage\n");
@@ -1084,6 +1086,9 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         return rc;
     }
 
+    if (is_vfs_mounted())
+        return ERR_MOUNTED_VIRTUAL_FS;
+
     // NAND dump
     ProgressInfo pi;
     DWORD bytesCount = 0, bytesWrite = 0;
@@ -1512,6 +1517,9 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
     if (input->type == INVALID || input->type == UNKNOWN)
         return ERR_INVALID_INPUT;
 
+    if (nxHandle->isReadOnly())
+        return ERR_OUTPUT_READY_ONLY;
+
     // Switch to single partition if output is NAND, input is single partition and partition not provided
     if (!isSinglePartType() && input->isSinglePartType() && par.partition == UNKNOWN)
         par.partition = input->getNxTypeAsInt();
@@ -1536,6 +1544,9 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
         int rc = in_part->restore(input, params, updateProgress);
         return rc;
     }
+
+    if (is_vfs_mounted())
+        return ERR_MOUNTED_VIRTUAL_FS;
 
     // NAND restore
     bool partial_restore = false;
@@ -1742,6 +1753,14 @@ bool NxStorage::badCrypto()
 
     return false;
 }
+bool NxStorage::is_vfs_mounted()
+{
+    for (NxPartition *p : partitions)
+        if (p->is_vfs_mounted())
+            return true;
+
+    return false;
+}
 
 bool NxStorage::isEncrypted()
 {
@@ -1882,10 +1901,15 @@ int NxStorage::applyIncognito()
     if (nullptr == cal0)
         return ERR_IN_PART_NOT_FOUND;
 
+
     if(cal0->isEncryptedPartition() && (cal0->badCrypto() || nullptr == cal0->crypto()))
         return ERROR_DECRYPT_FAILED;
 
     nxHandle->initHandle(!cal0->isEncryptedPartition() ? NO_CRYPTO : DECRYPT, cal0);
+
+    if (nxHandle->isReadOnly())
+        return ERR_OUTPUT_READY_ONLY;
+
     BYTE cl_buffer[CLUSTER_SIZE];
     DWORD bytesRead = 0;
 
@@ -1990,6 +2014,9 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
         dbg_printf("NxStorage::createMmcEmuNand() - boot0 path : %s\n", boot0_path);
         dbg_printf("NxStorage::createMmcEmuNand() - boot1 path : %s\n", boot0_path);
     }   
+
+    if (is_vfs_mounted())
+        return ERR_MOUNTED_VIRTUAL_FS;
 
     NxPartition *boot0, *boot1;
     NxStorage nx1(boot0_path);
@@ -2472,6 +2499,9 @@ int NxStorage::createFileBasedEmuNand(EmunandType emu_type, const char* volume_p
         if (nullptr == boot1_path)
             return ERR_INVALID_BOOT1;
     }
+
+    if (is_vfs_mounted())
+        return ERR_MOUNTED_VIRTUAL_FS;
 
     NxPartition *boot0, *boot1;
     NxHandle *curNxHandle = nullptr;

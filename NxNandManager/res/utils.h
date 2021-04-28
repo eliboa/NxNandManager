@@ -92,6 +92,9 @@ extern bool isGUI;
 #define ERR_CREATE_ZIP             -1047
 #define ERR_CREATE_FILE_FAILED     -1048
 #define ERR_FORMAT_BAD_PART        -1049
+#define ERR_INPUT_READ_ONLY        -1050
+#define ERR_OUTPUT_READY_ONLY      -1051
+#define ERR_MOUNTED_VIRTUAL_FS     -1052
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -101,6 +104,9 @@ struct ErrorLabel {
 
 static ErrorLabel ErrorLabelArr[] =
 {
+    { ERR_INPUT_READ_ONLY, "Input is read-only" },
+    { ERR_OUTPUT_READY_ONLY, "Output is read-only" },
+    { ERR_MOUNTED_VIRTUAL_FS, "NxStorage is mounted as virtual disk. Unmount first" },
 	{ ERR_WORK_RUNNING, "Work already in process"},
 	{ ERR_INPUT_HANDLE, "Failed to get handle to input file/disk"},
 	{ ERR_OUTPUT_HANDLE, "Failed to get handle to output file/disk"},
@@ -108,7 +114,7 @@ static ErrorLabel ErrorLabelArr[] =
 	{ ERR_CRYPTO_MD5, "Crypto provider error"},
 	{ ERR_MD5_COMPARE, "Data integrity error : checksums are differents.\nAn error must have occurred during the copy"},
 	{ ERR_RESTORE_TO_SPLIT, "Restore to splitted dump is not supported"},
-	{ ERR_WHILE_COPY, "An error occured during copy"},
+    { ERR_WHILE_COPY, "An error occurred during copy"},
 	{ ERR_IO_MISMATCH, "Input type/size doesn't match output size/type"},
     { ERR_NX_TYPE_MISSMATCH, "Input type doesn't match output type"},
 	{ ERR_INVALID_INPUT, "Input is not a valid NX storage"},
@@ -138,7 +144,7 @@ static ErrorLabel ErrorLabelArr[] =
     { ERR_OUTPUT_NOT_DRIVE, "Output is not a volume/drive"},
     { ERR_CREATE_DIR_FAILED, "Failed to create directory in ouput drive/volume"},
     { ERR_CREATE_FILE_FAILED, "Failed to create file in ouput drive/volume"},
-    { ERR_CREATE_ZIP, "An error occured while creating archive (zip)"},
+    { ERR_CREATE_ZIP, "An error occurred while creating archive (zip)"},
     { ERR_FORMAT_BAD_PART, "Partition formating is only possible for USER et SYSTEM"}
 };
 

@@ -163,8 +163,8 @@ class NxHandle {
         bool write(void *buffer, DWORD* bytesWrite, DWORD length = 0);
         bool write(u64 offset, void *buffer, DWORD* bytesWrite, DWORD length = 0);
         bool write(u32 sector, void *buffer, DWORD* bw, DWORD length);
-        bool createFile(wchar_t *path, int io_mode = GENERIC_READ);
-        void createHandle(int io_mode = GENERIC_READ);
+        bool createFile(wchar_t *path, unsigned long io_mode = GENERIC_READ);
+        void createHandle(unsigned long io_mode = GENERIC_READ);
         bool hash(u64* bytesCount);
         bool setPointer(u64 offset);
         bool dismountVolume();

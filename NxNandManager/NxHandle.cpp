@@ -44,7 +44,7 @@ NxHandle::NxHandle(const char *path, u64 chunksize)
     createHandle(GENERIC_WRITE);
 }
 
-void NxHandle::createHandle(int io_mode)
+void NxHandle::createHandle(unsigned long io_mode)
 {
     m_h = CreateFileW(m_path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
 
@@ -62,6 +62,9 @@ void NxHandle::createHandle(int io_mode)
         m_isReadOnly = b_isDrive && !DeviceIoControl(m_h, IOCTL_DISK_IS_WRITABLE, NULL, 0, &junk, 0, &junk2, (LPOVERLAPPED)NULL);
     }
     CloseHandle(m_h);
+
+    if (!b_isDrive && GetFileAttributesW(m_path.c_str()) & FILE_ATTRIBUTE_READONLY)
+        m_isReadOnly = true;
 
     // Open file/disk
     if (!createFile((wchar_t*)m_path.c_str(), io_mode))
@@ -102,7 +105,6 @@ void NxHandle::createHandle(int io_mode)
 
 NxHandle::~NxHandle()
 {
-    //clearHandle();
     if (nullptr != m_cluster_cache) delete m_cluster_cache;
     NxSplitFile *current = m_lastSplitFile, *next;
     while (nullptr != current)
@@ -110,6 +112,12 @@ NxHandle::~NxHandle()
         next = current->next;
         delete current;
         current = next;
+    }
+    // Fix #36 (i'm sooooo dumb!)
+    DWORD lpdwFlags[100];
+    if (GetHandleInformation(m_h, lpdwFlags))
+    {
+        CloseHandle(m_h);
     }
 }
 
@@ -120,6 +128,7 @@ void NxHandle::invalidate_cache()
 
     memset(m_cluster_cache, 0, sizeof(cluster_cache_t));
 }
+
 void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
 {
     if(nullptr == parent)
@@ -377,7 +386,7 @@ bool NxHandle::detectSplittedStorage()
     else return false;
 }
 
-bool NxHandle::createFile(wchar_t *path, int io_mode)
+bool NxHandle::createFile(wchar_t *path, unsigned long io_mode)
 {
     if (io_mode != GENERIC_READ && io_mode != GENERIC_WRITE)
         return false;
@@ -388,10 +397,12 @@ bool NxHandle::createFile(wchar_t *path, int io_mode)
         CloseHandle(m_h);
     }
 
+    auto access = !b_isDrive && m_isReadOnly && io_mode != GENERIC_WRITE ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE;
+    auto share = !b_isDrive && m_isReadOnly && io_mode != GENERIC_WRITE ? FILE_SHARE_READ : FILE_SHARE_READ | FILE_SHARE_WRITE;
     if (io_mode == GENERIC_READ)
-        m_h = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+        m_h = CreateFileW(path, access, share, nullptr, OPEN_EXISTING, 0, nullptr);
     else
-        m_h = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+        m_h = CreateFileW(path, access, share, nullptr, CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
     
     if (m_h == INVALID_HANDLE_VALUE)
     {
@@ -500,7 +511,7 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
     {
         u64 rel_offset = lp_CurrentPointer.QuadPart - m_off_start; // Relative offset
         m_cur_block = rel_offset / CLUSTER_SIZE; // Current cluster number
-        u64 clus_off = m_cur_block * CLUSTER_SIZE; // Current cluster offset
+        u64 clus_off = (u64)m_cur_block * (u64)CLUSTER_SIZE; // Current cluster offset
 
         // Read cluster from cache or disk
         if (!m_cluster_cache || !m_cluster_cache->valid || m_cluster_cache->clu_number != m_cur_block)
@@ -650,7 +661,7 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     {
         u64 rel_offset = lp_CurrentPointer.QuadPart - m_off_start; // Relative offset
         m_cur_block = rel_offset / CLUSTER_SIZE; // Current cluster number
-        u64 clus_off = m_cur_block * CLUSTER_SIZE; // Current cluster offset
+        u64 clus_off = (u64)m_cur_block * (u64)CLUSTER_SIZE; // Current cluster offset
 
         // Read cluster from cache or disk
         if (!m_cluster_cache || !m_cluster_cache->valid || m_cluster_cache->clu_number != m_cur_block)

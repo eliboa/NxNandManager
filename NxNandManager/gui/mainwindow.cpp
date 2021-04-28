@@ -56,12 +56,18 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->partRestoreBtn, SIGNAL(clicked()), this, SLOT(restorePartition()));
     connect(this, SIGNAL(error_signal(int, QString)), this, SLOT(error(int, QString)));
     connect(this, SIGNAL(vfs_callback_signal(NTSTATUS)), this, SLOT(vfs_callback(NTSTATUS)));
+    connect(ui->actionRestartDebug, &QAction::triggered, this, &MainWindow::restartDebug);
+
 
     if (!isdebug)
     {
         ui->menuDebug->setDisabled(true);
         ui->menuDebug->menuAction()->setVisible(false);
 
+    }
+    else
+    {
+        ui->actionRestartDebug->setDisabled(true);
     }
     ui->partQDumpBtn->setDisabled(true);
     ui->partADumpBtn->setDisabled(true);
@@ -1272,4 +1278,20 @@ void MainWindow::dokanDriveTimer()
 
     if (update)
         on_partition_table_itemSelectionChanged();
+}
+void MainWindow::restartDebug()
+{
+    PROCESS_INFORMATION pi;
+    STARTUPINFO si;
+    BOOL ret = FALSE;
+    DWORD flags = CREATE_NO_WINDOW;
+    ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+    ZeroMemory(&si, sizeof(STARTUPINFO));
+    si.cb = sizeof(STARTUPINFO);
+    wchar_t buffer[_MAX_PATH];
+    GetModuleFileName(GetCurrentModule(), buffer, _MAX_PATH);
+    wstring module_path(buffer);
+    module_path.append(L" --gui DEBUG_MODE");
+    ret = CreateProcess(nullptr, &module_path[0], nullptr, nullptr, NULL, flags, nullptr, nullptr, &si, &pi);
+    exit(EXIT_SUCCESS);
 }

@@ -186,6 +186,9 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
     if (outHandle->exists)
         return ERR_FILE_ALREADY_EXISTS;
 
+    if (is_vfs_mounted())
+        return ERR_MOUNTED_VIRTUAL_FS;
+
     ProgressInfo pi;
     bool sendProgress = nullptr != updateProgress ? true : false;
     std::wstring fwpath = outHandle->getPath();
@@ -377,6 +380,12 @@ int NxPartition::restore(NxStorage* input, part_params_t par, void(*updateProgre
     }
     if (input_part->size() > size())
         return ERR_IO_MISMATCH;
+
+    if (is_vfs_mounted())
+        return ERR_MOUNTED_VIRTUAL_FS;
+
+    if (nxHandle->isReadOnly())
+        return ERR_OUTPUT_READY_ONLY;
 
     ProgressInfo pi;
     bool sendProgress = nullptr != updateProgress ? true : false;

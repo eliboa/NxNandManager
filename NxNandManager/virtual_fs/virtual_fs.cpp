@@ -65,14 +65,12 @@ int virtual_fs::populate() {
         auto open = f_opendir(&dp, virtual_path_to_nx_path(dir.c_str(), partition).c_str()) == FR_OK;
         while(open && f_readdir(&dp, &fno) == FR_OK)
         {
-            /*if (fno.fname[0] == '.')
-                continue;*/
             if (fno.fname[0] == '\0')
                 break;
 
             bool isDir = fno.fattrib == FILE_ATTRIBUTE_DIRECTORY;
-            if (fno.fattrib == 0x30) // Fix nx archive attribute
-                fno.fattrib = FILE_ATTRIBUTE_ARCHIVE;
+            if (fno.fattrib == 0x30) // nx archive attribute
+                isDir = true;
 
             // File or direcory, create a node
             auto filename = wstring(dir).append(dir.back() != L'\\' ? L"\\" : L"").append(fno.fname);
