@@ -306,8 +306,11 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
                 f->attributes = file_attributes_and_flags;
 
                 FIL fp;
-                if (!f_open(&fp, virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str(), FA_READ))
+                if (!f_open(&fp, virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str(), FA_WRITE))
+                {
                     f_truncate(&fp);
+                    f_close(&fp);
+                }
 
               } break;
               default:
