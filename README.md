@@ -195,7 +195,7 @@ Decrypt & restore single partition file to physical drive
 Encrypt & restore full rawnand   
 ```NxNandManager.exe -i rawnand.dec -o \\.\PhysicalDrive3 -e -keyset keys.dat```
 
-## Build (Windows 10, 9, 7, Vista)
+## Build (Windows 10, 8, 7, Vista)
 
 ### CLI : MinGW
 
