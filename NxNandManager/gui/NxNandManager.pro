@@ -140,31 +140,25 @@ RC_FILE = NxNandManager.rc
 
 CONFIG(ARCH32) {
     DEFINES += ARCH32
-    win32: LIBS += -L$$PWD/../../../../../mingw32/lib/ -lcrypto
-    INCLUDEPATH += $$PWD/../../../../../mingw32/include
-    DEPENDPATH += $$PWD/../../../../../mingw32/include
+    #OPENSSL PATH
+    OPENSSL_LIB_PATH = $$PWD/../../../../../mingw32
+    LIBS += -L$$PWD/../virtual_fs/dokan/x86/lib/ -ldokan1
 
-    win32: LIBS += -L$$PWD/../virtual_fs/dokan/x86/lib/ -ldokan1
-    INCLUDEPATH += $$PWD/../virtual_fs/dokan/include
-    DEPENDPATH += $$PWD/../virtual_fs/dokan/include
-
-    win32:!win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw32/lib/crypto.lib
-    else:win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw32/lib/libcrypto.a
 }
 CONFIG(ARCH64) {
     DEFINES += ARCH64
-    win32: LIBS += -L$$PWD/../../../../../mingw64/lib/ -lcrypto
-    INCLUDEPATH += $$PWD/../../../../../mingw64/include
-    DEPENDPATH += $$PWD/../../../../../mingw64/include
-
-    win32: LIBS += -L$$PWD/../virtual_fs/dokan/x64/lib/ -ldokan1
-    INCLUDEPATH += $$PWD/../virtual_fs/dokan/include
-    DEPENDPATH += $$PWD/../virtual_fs/dokan/include
-
-    win32:!win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw64/lib/crypto.lib
-    else:win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../mingw64/lib/libcrypto.a
+    #OPENSSL PATH
+    OPENSSL_LIB_PATH = $$PWD/../../../../../mingw64
+    LIBS += -L$$PWD/../virtual_fs/dokan/x64/lib/ -ldokan1
 }
+
+INCLUDEPATH += $$PWD/../virtual_fs/dokan/include
+DEPENDPATH += $$PWD/../virtual_fs/dokan/include
+
+win32: LIBS += -L$${OPENSSL_LIB_PATH}/lib/ -lcrypto
+INCLUDEPATH += $${OPENSSL_LIB_PATH}/include
+DEPENDPATH += $${OPENSSL_LIB_PATH}/include
+
+win32:!win32-g++: PRE_TARGETDEPS += $${OPENSSL_LIB_PATH}/lib/crypto.lib
+else:win32-g++: PRE_TARGETDEPS += $${OPENSSL_LIB_PATH}/lib/libcrypto.a
 LIBS += -lpthread
-#win32: LIBS += -L$$PWD/../lib/ZipLib/bin/ -lzip
-#INCLUDEPATH += $$PWD/../lib/ZipLib
-#DEPENDPATH += $$PWD/../lib/ZipLib

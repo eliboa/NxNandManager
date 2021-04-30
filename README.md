@@ -195,11 +195,11 @@ Decrypt & restore single partition file to physical drive
 Encrypt & restore full rawnand   
 ```NxNandManager.exe -i rawnand.dec -o \\.\PhysicalDrive3 -e -keyset keys.dat```
 
-## Build
+## Build (Windows 10, 9, 7, Vista)
 
 ### CLI : MinGW
 
-**Dependency :** [OpenSSL](https://www.openssl.org/source/). You can grab my own pre-compiled binaries for mingw32/64 [here](https://drive.google.com/open?id=1lG_h82EfO-EGe0co7eip2WGkmOTv5zdQ).
+**Dependency :** [OpenSSL](https://www.openssl.org/source/) (You can grab my own pre-compiled binaries for mingw32/64 [here](https://www.eliboa.com/OpenSSL_mingw_build.rar)).
 
 ```
 git clone https://github.com/eliboa/NxNandManager   
@@ -207,19 +207,36 @@ cd NxNandManager/NxNandManager
 make
 ```
 
-**Note :** Line ```#define ENABLE_GUI``` of "NxNandManager.h" file has to be commented
+**Note :** Line ```#define ENABLE_GUI``` in file "gui/gui.h" has to be commented
 
 ### CLI + GUI (Qt) : MinGW
 
-**Dependency :** [Qt](https://www.qt.io/download), [OpenSSL](https://www.openssl.org/source/)
+**Dependencies :** [Qt](https://www.qt.io/download), [OpenSSL](https://www.openssl.org/source/) (You can grab my own pre-compiled binaries for mingw32/64 [here](https://www.eliboa.com/OpenSSL_mingw_build.rar))
 
-QtCreator : Use ```NxNandManager/NxNandManager.pro``` project file
+Download and install Qt (mingw) and Qt Creator (IDE).   
+In Qt Creator open  project file ```NxNandManager/NxNandManager.pro```   
+In .pro file, search for ```OPENSSL_LIB_PATH``` and configure path to OpenSSL library for both x86 and x64 arch.   
+   
+Add qmake arguments (Projects tab > %kit name% > build)  :   
+- ```CONFIG+=DYNAMIC```
+- ```CONFIG+=ARCH64``` (or ```CONFIG+=ARCH32``` if using mingw32) 
+   
+If you want to make a static build use ```CONFIG+=STATIC```. You'll have to make a static build of Qt first (not an easy challenge).   
+
+## Licencing
+
+This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.   
+
+[Qt](https://www.qt.io/) "Open Source" is available under LGPLv3.
+[Dokan](https://github.com/dokan-dev/dokany) is available under LGPL and MIT licences.
 
 ## Credits
-
 - Special thanks to [shadow256](https://github.com/shadow2560) without whom this work would not have been possible
-- rajkosto for his amazing work on [memloader](https://github.com/rajkosto/memloader).
 - CTCaer's [hekate](https://github.com/CTCaer/hekate), which I borrowed a few pieces of code
 - MCMrARM for [switch_decrypt](https://github.com/MCMrARM/switch_decrypt)
 - blawar for [incognito](https://github.com/blawar/incognito)   
-- shchmue for [Firmware Version Inspector](https://github.com/shchmue/FVI)
+- shchmue for [Firmware Version Inspector](https://github.com/shchmue/FVI)   
+- Chan for [FatFs](http://elm-chan.org/fsw/ff/00index_e.html)
+- Qt team and contributors
+- Dokan team and contributors
+
