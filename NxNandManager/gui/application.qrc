@@ -20,5 +20,6 @@
         <file>images/save_advanced.png</file>
         <file>images/emunand.png</file>
         <file>images/format.png</file>
+        <file>images/unmount.png</file>
     </qresource>
 </RCC>

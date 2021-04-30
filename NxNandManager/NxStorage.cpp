@@ -832,7 +832,7 @@ void NxStorage::setStorageInfo(int partition)
                 // Copy serial number and device id
                 memcpy(&serial_number, &buff[0x250], 18);
                 memset(&deviceId, 0x00, 21);
-                memcpy(&deviceId, &buff[0x544], 20);
+                memcpy(&deviceId, &buff[0x544], 18);
 
                 // Copy wlan mac address
                 s8 t_wlanMacAddress[7] = { 0 };

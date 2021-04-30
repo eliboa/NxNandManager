@@ -122,6 +122,10 @@ MainWindow::MainWindow(QWidget *parent) :
     QTimer *timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(dokanDriveTimer()));
     timer->start(1000);
+
+    ui->properties_table->setColumnCount(2);
+    ui->properties_table->setColumnWidth(0, 80);
+    ui->properties_table->setColumnWidth(1, 155);
 }
 
 MainWindow::~MainWindow()
@@ -680,7 +684,7 @@ void MainWindow::inputSet(NxStorage *storage)
     // Display storage information
     if(input->firmware_version.major > 0)
     {
-        ui->fwversion_value->setText(QString::fromStdString(input->getFirmwareVersion()));
+        ui->fwversion_value->setText(QString::fromStdString(input->getFirmwareVersion()).append(input->exFat_driver ? " (exFAT)" : ""));
     }
     else
     {
@@ -744,11 +748,29 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 
     selected_part = t_selected_part;
 
+    // Clear properties table
     ui->properties_table->setRowCount(0);
 
-    int index = ui->properties_table->rowCount();
-    ui->properties_table->insertRow(index);
-    ui->properties_table->setItem(index, 0, new QTableWidgetItem("Filesystem:"));
+    // Add new property lambda
+    auto addItem = [&](QString key, QString value = "") {
+        auto ix = ui->properties_table->rowCount();
+        ui->properties_table->insertRow(ix);
+
+        auto wdg_1 = new QTableWidgetItem(key);
+        wdg_1->setTextAlignment(Qt::AlignmentFlag::AlignTop | Qt::AlignmentFlag::AlignLeft);
+        ui->properties_table->setItem(ix, 0, wdg_1);
+
+        if (!value.length())
+        {
+            ui->properties_table->setSpan(ix, 0, 1, 2);
+            return;
+        }
+        auto wdg_2 = new QTableWidgetItem(value);
+        wdg_2->setTextAlignment(Qt::AlignmentFlag::AlignTop | Qt::AlignmentFlag::AlignLeft);
+        ui->properties_table->setItem(ix, 1, wdg_2);
+
+    };
+    // Fill properties table
     QString fs;
     switch (selected_part->nxPart_info.fs) {
         case FAT12 : fs = "FAT12";
@@ -757,74 +779,83 @@ void MainWindow::on_partition_table_itemSelectionChanged()
             break;
         default : fs = "None (RAW)";
     }
-    ui->properties_table->setItem(index, 1, new QTableWidgetItem(fs));
-
-    index = ui->properties_table->rowCount();
-    ui->properties_table->insertRow(index);
-    ui->properties_table->setItem(index, 0, new QTableWidgetItem(selected_part->availableTotSpace ? "RAW size:" : "Size:"));
-    ui->properties_table->setItem(index, 1, new QTableWidgetItem(QString::fromStdString(GetReadableSize(selected_part->size()))));
-
+    addItem("Filesystem:", fs);
+    addItem(selected_part->availableTotSpace ? "RAW size:" : "Size:",
+            QString::fromStdString(GetReadableSize(selected_part->size())));
     if (selected_part->availableTotSpace)
     {
-        index = ui->properties_table->rowCount();
-        ui->properties_table->insertRow(index);
-        ui->properties_table->setItem(index, 0, new QTableWidgetItem("Avail. space:"));
-        ui->properties_table->setItem(index, 1, new QTableWidgetItem(QString::fromStdString(GetReadableSize(selected_part->availableTotSpace))));
-
-        index = ui->properties_table->rowCount();
-        ui->properties_table->insertRow(index);
-        ui->properties_table->setItem(index, 0, new QTableWidgetItem("Free space:"));
-        ui->properties_table->setItem(index, 1, new QTableWidgetItem(QString::fromStdString(GetReadableSize(selected_part->freeSpace))));
+        addItem("Avail. space:", QString::fromStdString(GetReadableSize(selected_part->availableTotSpace)));
+        addItem("Free. space:", QString::fromStdString(GetReadableSize(selected_part->freeSpace)));
     }
-
-    index = ui->properties_table->rowCount();
-    ui->properties_table->insertRow(index);
-    ui->properties_table->setItem(index, 0, new QTableWidgetItem("First sector:"));
-    ui->properties_table->setItem(index, 1, new QTableWidgetItem(QString::number(selected_part->lbaStart()) + " (" + QString::fromStdString(int_to_hex(selected_part->lbaStart()) + ")")));
-
-    index = ui->properties_table->rowCount();
-    ui->properties_table->insertRow(index);
-    ui->properties_table->setItem(index, 0, new QTableWidgetItem("Last sector:"));
-    ui->properties_table->setItem(index, 1, new QTableWidgetItem(QString::number(selected_part->lbaEnd()) + " (" + QString::fromStdString(int_to_hex(selected_part->lbaEnd()) + ")")));
-
-    index = ui->properties_table->rowCount();
-    ui->properties_table->insertRow(index);
-    ui->properties_table->setItem(index, 0, new QTableWidgetItem("Encrypted:"));
-    ui->properties_table->setItem(index, 1, new QTableWidgetItem(selected_part->isEncryptedPartition() ? "Yes" : "No"));
+    addItem("First sector:", QString::number(selected_part->lbaStart())
+                             + " (" + QString::fromStdString(int_to_hex(selected_part->lbaStart()) + ")"));
+    addItem("Last sector:", QString::number(selected_part->lbaStart()) + " ("
+                            + QString::fromStdString(int_to_hex(selected_part->lbaStart()) + ")"));
+    addItem("Encrypted:", selected_part->isEncryptedPartition() ? "Yes" : "No");
 
     if (selected_part->type() == BOOT0)
     {
-        index = ui->properties_table->rowCount();
-        ui->properties_table->insertRow(index);
-        ui->properties_table->setItem(index, 0, new QTableWidgetItem("Soc revision:"));
-        ui->properties_table->setItem(index, 1, new QTableWidgetItem(input->isEristaBoot0 ? "Erista" : "Unknown (Mariko ?)"));
-
-
+        addItem("Soc revision:", input->isEristaBoot0 ? "Erista" : "Unknown (Mariko ?)");
         if (input->isEristaBoot0)
         {
-            index = ui->properties_table->rowCount();
-            ui->properties_table->insertRow(index);
-            ui->properties_table->setItem(index, 0, new QTableWidgetItem("AutoRCM:"));
-            ui->properties_table->setItem(index, 1, new QTableWidgetItem(input->autoRcm ? "Enabled" : "Disabled"));
-            index = ui->properties_table->rowCount();
-            ui->properties_table->insertRow(index);
-            ui->properties_table->setItem(index, 0, new QTableWidgetItem("Bootloader ver.:"));
-            ui->properties_table->setItem(index, 1, new QTableWidgetItem(QString::number(input->bootloader_ver)));
+            addItem("AutoRCM:", input->autoRcm ? "Enabled" : "Disabled");
+            addItem("Bootloader ver.:", QString::number(input->bootloader_ver));
         }
-
+    }
+    QString info;
+    switch (selected_part->type())
+    {
+    case BOOT0:
+        info = "- BCT - first bootloader (package1ldr)\n- second bootloader (package1)\n- TrustZone code";
+        break;
+    case BOOT1:
+        info = "Contains safe mode package1 (cf. BOOT0)";
+        break;
+    case PRODINFO:
+        info = "CAL0. Raw binary blob containing the main calibration data, which ranges from hardware IDs to system keys";
+        break;
+    case PRODINFOF:
+        info = "Contains additional calibration data.";
+        break;
+    case BCPKG21:
+        info = "- BootConfig\n- Switch kernel & sysmodules";
+        break;
+    case BCPKG22:
+        info = "Backup partition for BCPKG2-1-Normal-Main";
+        break;
+    case BCPKG23:
+        info = "Contains safe mode package2";
+        break;
+    case BCPKG24:
+        info = "Backup partition for BCPKG2-3-SafeMode-Main";
+        break;
+    case BCPKG25:
+        info = "Installed at the factory, never written afterwards on retail";
+        break;
+    case BCPKG26:
+        info = "Backup partition for BCPKG2-5-Repair-Main";
+        break;
+    case SAFE:
+        info = "The official name for this partition is \"SafeMode\"";
+        break;
+    case SYSTEM:
+        info = "- system titles (applications)\n- saves for system titles";
+        break;
+    case USER:
+        info = "- non-system titles (games, applications)\n- saves for non-system titles";
+        break;
 
     }
-
-    ui->properties_table->resizeColumnsToContents();
+    addItem("Description:\n" + info);
     ui->properties_table->resizeRowsToContents();
 
+    // Set buttons visibility
     ui->partQDumpBtn->setVisible(true);
     ui->partADumpBtn->setVisible(true);
     ui->partRestoreBtn->setVisible(true);
     ui->partQDumpBtn->setEnabled(true);
     ui->partADumpBtn->setEnabled(true);
     ui->partRestoreBtn->setEnabled(true);
-
     ui->partCustom1Btn->setVisible(false);
     ui->partCustom1Btn->setEnabled(false);
 
@@ -937,6 +968,8 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     {
         auto *button = new QPushButton(this);
         button->setObjectName("mount_button");
+        const QIcon icon = QIcon::fromTheme("document-open", QIcon(selected_part->is_vfs_mounted() ? ":/images/unmount.png" : ":/images/drive.png"));
+        button->setIcon(icon);
         QString label = selected_part->is_vfs_mounted() ? "Unmount" : "Mount";
         if(selected_part->is_vfs_mounted())
         {
@@ -945,16 +978,16 @@ void MainWindow::on_partition_table_itemSelectionChanged()
             label.append(" (" + QString::fromStdWString(mountPoint).toUpper() + ":)");
         }
         button->setText(label);
-        button->setFixedSize(80, 30);
+        button->setFixedSize(110, 30);
         connect(button, &QPushButton::clicked, [=]() {
             on_mountParition(selected_part->type());
         });
 
-        QString statusTip(selected_part->is_vfs_mounted() ? "Unmount virtual disk" : "Mount partition as virtual disk");
+        QString statusTip(selected_part->is_vfs_mounted() ? "Unmount virtual disk" : "Mount partition as virtual disk (virtual filesystem)");
         if (selected_part->isEncryptedPartition() && (selected_part->badCrypto() || !selected_part->crypto()))
         {
             button->setDisabled(true);
-            statusTip = "CRYPTO FAILED. KEYSET MISSING OR WRONG KEYS!";
+            statusTip = selected_part->crypto() ? "CRYPTO FAILED! WRONG KEYS" : "KEYSET MISSING! CTRL+K TO CONFIGURE KEYSET";
         }
         button->setStatusTip(statusTip);
         button->setToolTip(statusTip);
