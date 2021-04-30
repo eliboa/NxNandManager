@@ -1236,12 +1236,12 @@ void MainWindow::on_mountParition(int nx_type)
         return exit(ERROR_DECRYPT_FAILED);
 
     if(!nxp->mount_fs())
-        return exit(1, "Failed to mount filesystem.");
+        return exit(ERR_FAILED_TO_MOUNT_FS);
 
     auto v_fs = std::make_shared<virtual_fs::virtual_fs>(nxp);
 
     if(v_fs->populate() < 0)
-        return exit(1, "Failed to populate fs");
+        return exit(ERR_FAILED_TO_POPULATE_VFS);
 
     v_fs->setCallBackFunction(&virtual_fs_callback);
 

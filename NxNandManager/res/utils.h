@@ -95,6 +95,9 @@ extern bool isGUI;
 #define ERR_INPUT_READ_ONLY        -1050
 #define ERR_OUTPUT_READY_ONLY      -1051
 #define ERR_MOUNTED_VIRTUAL_FS     -1052
+#define ERR_DOKAN_DRIVER_NOT_FOUND -1053
+#define ERR_FAILED_TO_MOUNT_FS     -1054
+#define ERR_FAILED_TO_POPULATE_VFS -1055
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -104,6 +107,9 @@ struct ErrorLabel {
 
 static ErrorLabel ErrorLabelArr[] =
 {
+    { ERR_FAILED_TO_POPULATE_VFS, "Failed to populate virtual filesystem" },
+    { ERR_FAILED_TO_MOUNT_FS, "Failed to mount filesystem" },
+    { ERR_DOKAN_DRIVER_NOT_FOUND, "Dokan driver not found" },
     { ERR_INPUT_READ_ONLY, "Input is read-only" },
     { ERR_OUTPUT_READY_ONLY, "Output is read-only" },
     { ERR_MOUNTED_VIRTUAL_FS, "NxStorage is mounted as virtual disk. Unmount first" },

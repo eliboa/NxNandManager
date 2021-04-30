@@ -196,7 +196,7 @@ int main(int argc, char *argv[])
     printf("[ NxNandManager v5.a by eliboa ]\n\n");
     const char *input = nullptr, *output = nullptr, *partitions = nullptr, *keyset = nullptr, *user_resize = nullptr, *boot0 = nullptr, *boot1 = nullptr;
     wchar_t driveLetter = L'\0';
-    BOOL info = false, gui = false, setAutoRCM = false, autoRCM = false, decrypt = false, encrypt = false;
+    BOOL dokan_install = false, info = false, gui = false, setAutoRCM = false, autoRCM = false, decrypt = false, encrypt = false;
     BOOL incognito = false, createEmuNAND = false, zipOutput = false, passThroughZeroes = false, cryptoCheck = false, mount = false;
     EmunandType emunandType = unknown;
     u64 chunksize = 0;
@@ -236,7 +236,8 @@ int main(int argc, char *argv[])
             "                    Only applies to input (-i) containing a FAT partition (SYSTEM, USER, SAFE & PRODINFOF)\n"
             "                    If input contains more than one partition, use argument -part to specifiy\n"
             "                    the partition to mount. -keyset is mandatory.\n"
-            "  -driveLetter=     drive letter to mount virtual disk. --mount is mandatory"
+            "  -driveLetter=     drive letter to mount virtual disk. --mount is mandatory\n"
+            "  --install_dokan   Install dokan driver\n"
             "  --incognito       Wipe all console unique id's and certificates from CAL0 (a.k.a incognito)\n"
             "                    Only applies to input type RAWNAND or PRODINFO\n\n"
             "  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
@@ -320,6 +321,7 @@ int main(int argc, char *argv[])
     const char CRYPTOCHECK[] = "--crypto_check";
     const char MOUNT_ARGUMENT[] = "--mount";
     const char DRIVE_LETTER_ARGUMENT[] = "-driveLetter";
+    const char DOKAN_ARGUMENT[] = "--install_dokan";
 
     for (int i = 1; i < argc; i++)
     {
@@ -332,6 +334,9 @@ int main(int argc, char *argv[])
 
         else if (!strncmp(currArg, CRYPTOCHECK, array_countof(CRYPTOCHECK) - 1))
             cryptoCheck = true;
+
+        else if (!strncmp(currArg, DOKAN_ARGUMENT, array_countof(DOKAN_ARGUMENT) - 1))
+            dokan_install = true;
 
         else if (!strncmp(currArg, CREATE_SD_AMS_EMUNAND_ARGUMENT, array_countof(CREATE_SD_AMS_EMUNAND_ARGUMENT) - 1))
         {
@@ -450,6 +455,12 @@ int main(int argc, char *argv[])
         exit(EXIT_SUCCESS);
     }
 
+    if (dokan_install)
+    {
+        installDokanDriver();
+        exit(EXIT_SUCCESS);
+    }
+
     if (LIST)
     {
         printf("Listing drives...\r");
@@ -475,7 +486,6 @@ int main(int argc, char *argv[])
 
     if (FORCE)
         printf("Force mode activated, no questions will be asked.\n");
-
 
 
     ///
@@ -648,7 +658,7 @@ int main(int argc, char *argv[])
             in_part = nx_input.getNxPartition(nx_input.type);
 
         if (!in_part)
-            throwException("Partition not found on input");
+            throwException(ERR_IN_PART_NOT_FOUND);
 
         if (in_part->badCrypto())
             throwException(ERROR_DECRYPT_FAILED);
@@ -657,7 +667,7 @@ int main(int argc, char *argv[])
             throwException("An existing mount point already uses this drive letter");
 
         if(!in_part->mount_fs())
-            throwException("Failed to mount filesystem.");
+            throwException(ERR_FAILED_TO_MOUNT_FS);
 
         printf("FAT filesystem mounted.\n");
 
@@ -670,7 +680,7 @@ int main(int argc, char *argv[])
         printf("Populating virtual fs...             \r");
         int ent = v_fs->populate();
         if(ent < 0)
-            throwException("Failed to populate fs");
+            throwException(ERR_FAILED_TO_POPULATE_VFS);
         printf("Virtual fs populated (%d entries found).\n", ent);                
 
         auto callback = [](NTSTATUS status) {
@@ -679,7 +689,9 @@ int main(int argc, char *argv[])
 
             if (status != DOKAN_DRIVER_INSTALL_ERROR)
                 throwException(dokanNtStatusToStr(status).c_str());
-            else if(AskYesNoQuestion("Dokan driver not found. Do you want to proceed with installation (MSI)?"))
+            else if (FORCE)
+                throwException(ERR_DOKAN_DRIVER_NOT_FOUND);
+            else if(!FORCE && AskYesNoQuestion("Dokan driver not found. Do you want to proceed with installation (MSI)?"))
             {
                 installDokanDriver();
                 printf("Re-run NxNandManager after installation.\n");
