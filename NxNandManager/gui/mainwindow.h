@@ -89,7 +89,7 @@ private:
     QIcon unmountIcon;
 
 
-	bool bTaskBarSet = FALSE;
+    bool bTaskBarSet = FALSE;
     bool bKeyset;
     int elapsed_seconds = 0;
 
@@ -97,7 +97,7 @@ private:
     void beforeInputSet();
 
 protected:
-	void showEvent(QShowEvent *e) override;
+    void showEvent(QShowEvent *e) override;
     void closeEvent(QCloseEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 
@@ -146,6 +146,7 @@ public slots:
 
 public:
     KeySet biskeys;
+    QWinTaskbarButton* get_TaskBarButton() { return TaskBarButton; }
 
 signals:
     void error_signal(int, QString s = nullptr);

@@ -26,7 +26,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui(new Ui::MainWindow)
 {
     mainWindowInstance = this;
-	bTaskBarSet = FALSE;
 	ui->setupUi(this);
 
     dumpIcon = QIcon(":/images/save.png");
@@ -38,6 +37,9 @@ MainWindow::MainWindow(QWidget *parent) :
     formtIcon = QIcon(":/images/format.png");
     mountIcon = QIcon(":/images/drive.png");
     unmountIcon = QIcon(":/images/unmount.png");
+
+
+    TaskBarButton = new QWinTaskbarButton(this);
 
     //setFixedWidth(380);
     //setFixedHeight(490);
@@ -92,7 +94,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->analysingLbl->setVisible(false);
     ui->loadingBar->setVisible(false);
-	TaskBarButton = new QWinTaskbarButton(this);
 
 	// Init buttons
 	ui->rawdump_button->setEnabled(false);
@@ -160,10 +161,11 @@ void MainWindow::showEvent(QShowEvent *e)
 	{
 		TaskBarButton->setWindow(windowHandle());
 		TaskBarProgress = TaskBarButton->progress();
-		bTaskBarSet = TRUE;
+        bTaskBarSet = true;
 	}
 	e->accept();
 }
+
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {

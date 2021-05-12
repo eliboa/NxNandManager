@@ -621,7 +621,6 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
                 bytesToWrite = (u32)m_chunksize - (u32)split_currentPtr();
         }
 
-        DWORD bytesWrite = 0;
         u8* u8_buff = reinterpret_cast<u8*>(buffer);
         if (!WriteFile(m_h, &u8_buff[bytesCount], bytesToWrite, &bytesWrite, nullptr))
         {

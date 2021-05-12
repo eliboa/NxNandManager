@@ -24,7 +24,7 @@ void updateProgressWrapper(ProgressInfo pi)
 
 Worker::~Worker()
 {
-    delete worker_instance;
+    //delete worker_instance;
     WorkInProgress = false;
 }
 

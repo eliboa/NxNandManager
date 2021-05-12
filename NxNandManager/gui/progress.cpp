@@ -1,5 +1,6 @@
 #include "progress.h"
 #include "ui_progress.h"
+#include "mainwindow.h"
 
 Progress::Progress(QWidget *parent, NxStorage *workingStorage) :
     QDialog(parent),
@@ -17,11 +18,11 @@ Progress::Progress(QWidget *parent, NxStorage *workingStorage) :
     setProgressBarStyle(ui->progressBar1, "CFCFCF");
     setProgressBarStyle(ui->progressBar2, "CFCFCF");
 
-    TaskBarButton = new QWinTaskbarButton(this);
-    TaskBarButton->setWindow(windowHandle());
+
+    auto mainWin = reinterpret_cast<MainWindow*>(parent);
+    TaskBarButton = mainWin->get_TaskBarButton();
     TaskBarProgress = TaskBarButton->progress();
-
-
+    TaskBarProgress->setVisible(true);
 
     m_buf_time = std::chrono::system_clock::now();
     // Init timer
@@ -32,6 +33,7 @@ Progress::Progress(QWidget *parent, NxStorage *workingStorage) :
 
 Progress::~Progress()
 {
+    TaskBarProgress->setVisible(false);
     delete ui;
 }
 
@@ -254,3 +256,15 @@ void Progress::on_pushButton_clicked()
 {
     reject();
 }
+/*
+void Progress::showEvent(QShowEvent *e)
+{
+    if(!bTaskBarSet)
+    {
+        TaskBarButton->setWindow(m_parent->windowHandle());
+        TaskBarProgress = TaskBarButton->progress();
+        bTaskBarSet = true;
+    }
+    e->accept();
+}
+*/

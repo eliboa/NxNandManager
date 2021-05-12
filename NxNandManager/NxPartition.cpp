@@ -252,6 +252,9 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
         if (!outHandle->write(buffer, &bytesWrite, bytesRead))
             break;
 
+        if(!bytesWrite)
+            break;
+
         pi.bytesCount += bytesWrite;
 
         if (buff_size == CLUSTER_SIZE)

@@ -33,6 +33,8 @@ public slots:
 private slots:
     void on_pushButton_clicked();
 
+protected:
+    //void showEvent(QShowEvent *e) override;
 private:
     // Pointers
     Ui::Progress *ui;
@@ -40,7 +42,7 @@ private:
     NxStorage *m_workingStorage;
     QWinTaskbarButton *TaskBarButton;
     QWinTaskbarProgress *TaskBarProgress;
-
+    bool bTaskBarSet = false;
     // Member variables
     bool m_workerSet = false;
     bool m_isRunning = false;
