@@ -78,7 +78,13 @@ NxPartition::NxPartition(NxStorage *p, const char* p_name, u32 lba_start, u32 lb
 
 NxPartition::~NxPartition()
 {
-    if (nullptr != nxCrypto)
+    if (is_vfs_mounted())
+        unmount_vfs();
+
+    if (is_mounted())
+        unmount_fs();
+
+    if (nxCrypto)
         delete nxCrypto;
 }
 
@@ -564,10 +570,11 @@ bool NxPartition::fat32_dir(std::vector<fat32::dir_entry> *entries, const char *
         return true;
 
     // Explore path, one directory (*dir) after each other, from root
-    char *cdir = strdup(path), *dir;
-    while ((dir = strtok(cdir, "/")) != nullptr)
+    std::string str_path(path);
+    auto dirs = explode(str_path, '/');
+    for (auto dir_str : dirs) if (dir_str.length())
     {
-        cdir = nullptr;
+        const char *dir = dir_str.c_str();
         bool found = false;
         for (fat32::dir_entry dir_entry : *entries)
         {
@@ -577,7 +584,7 @@ bool NxPartition::fat32_dir(std::vector<fat32::dir_entry> *entries, const char *
                 // path is a file
                 if (!dir_entry.is_directory)
                 {
-                    dir_entry.data_offset = fs.bytes_per_sector * ((dir_entry.entry.first_cluster - 2) * fs.sectors_per_cluster) + (fs.num_fats * fs.fat_size * fs.bytes_per_sector) + (fs.reserved_sector_count * fs.bytes_per_sector);                    
+                    dir_entry.data_offset = fs.bytes_per_sector * ((dir_entry.entry.first_cluster - 2) * fs.sectors_per_cluster) + (fs.num_fats * fs.fat_size * fs.bytes_per_sector) + (fs.reserved_sector_count * fs.bytes_per_sector);
                     entries->clear();
                     entries->push_back(dir_entry);
                     return true;

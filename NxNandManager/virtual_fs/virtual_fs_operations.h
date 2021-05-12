@@ -40,6 +40,8 @@ extern DOKAN_OPERATIONS virtual_fs_operations;
 // Helper getting the virtual_fs filenodes context at each Dokan API call.
 #define GET_FS_INSTANCE \
   reinterpret_cast<fs_filenodes*>(dokanfileinfo->DokanOptions->GlobalContext)
+#define GET_FILE_INSTANCE \
+  reinterpret_cast<FIL*>(dokanfileinfo->Context)
 }  // namespace virtual_fs
 
 #endif  // virtual_fs_OPERATIONS_H_

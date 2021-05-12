@@ -25,6 +25,13 @@ NxCrypto::NxCrypto(char* crypto, char* tweak)
     crypto_key = hex_string::decode(crypto);
     tweak_key = hex_string::decode(tweak);    
 }
+NxCrypto::~NxCrypto()
+{
+    EVP_CIPHER_CTX_free(ctx_crypto);
+    EVP_CIPHER_CTX_free(ctx_tweak);
+    crypto_key.clear();
+    tweak_key.clear();
+}
 
 // Create & encrypt tweak
 void NxCrypto::create_tweak(unsigned char* tweak, size_t offset) 

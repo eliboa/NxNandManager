@@ -18,7 +18,7 @@
 #include "NxPartition.h"
 #include "res/utils.h"
 #include "virtual_fs/virtual_fs.h"
-
+#include <fcntl.h>
 
 BOOL BYPASS_MD5SUM = FALSE;
 bool isdebug = FALSE;
@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
     std::setlocale(LC_ALL, "");
     std::locale::global(std::locale(""));
     printf("[ NxNandManager v5.a by eliboa ]\n\n");
-    const char *input = nullptr, *output = nullptr, *partitions = nullptr, *keyset = nullptr, *user_resize = nullptr, *boot0 = nullptr, *boot1 = nullptr;
+    const char *input = nullptr, *output = nullptr, *partitions = nullptr, *keyset = nullptr, *user_resize = nullptr, *boot0 = nullptr, *boot1 = nullptr, *std_redir_output = nullptr;
     wchar_t driveLetter = L'\0';
     BOOL dokan_install = false, info = false, gui = false, setAutoRCM = false, autoRCM = false, decrypt = false, encrypt = false;
     BOOL incognito = false, createEmuNAND = false, zipOutput = false, passThroughZeroes = false, cryptoCheck = false, mount = false;
@@ -242,7 +242,8 @@ int main(int argc, char *argv[])
             "                    Only applies to input type RAWNAND or PRODINFO\n\n"
             "  --enable_autoRCM  Enable auto RCM. -i must point to a valid BOOT0 file/drive\n"
             "  --disable_autoRCM Disable auto RCM. -i must point to a valid BOOT0 file/drive\n"
-            "  --crypto_check    Validate crypto for a given keyset file (-keyset) and input (-i)\n\n");
+            "  --crypto_check    Validate crypto for a given keyset file (-keyset) and input (-i)\n"
+            "  -stdout_redirect  Path to file to redirect to (stdout+stderr) \n\n");
 
         printf("=> Flags:\n\n"
             "                    \"BYPASS_MD5SUM\" to bypass MD5 integrity checks (faster but less secure)\n"
@@ -322,6 +323,8 @@ int main(int argc, char *argv[])
     const char MOUNT_ARGUMENT[] = "--mount";
     const char DRIVE_LETTER_ARGUMENT[] = "-driveLetter";
     const char DOKAN_ARGUMENT[] = "--install_dokan";
+    const char STDREDIR_ARGUMENT[] = "-stdout_redirect";
+
 
     for (int i = 1; i < argc; i++)
     {
@@ -364,6 +367,9 @@ int main(int argc, char *argv[])
 
         else if (!strncmp(currArg, BOOT1_ARGUMENT, array_countof(BOOT1_ARGUMENT) - 1) && i < argc)
             boot1 = argv[++i];
+
+        else if (!strncmp(currArg, STDREDIR_ARGUMENT, array_countof(STDREDIR_ARGUMENT) - 1) && i < argc)
+            std_redir_output = argv[++i];
 
         else if (!strncmp(currArg, PARTITION_ARGUMENT, array_countof(PARTITION_ARGUMENT) - 1))
         {
@@ -455,10 +461,25 @@ int main(int argc, char *argv[])
         exit(EXIT_SUCCESS);
     }
 
+    if (std_redir_output)
+    {
+        int fd;
+        if ((fd = open(std_redir_output, O_RDWR | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR)) < 0)
+            throwException("Failed to create/open %s", (void*)std_redir_output);
+
+        printf("Redirecting stdout to %s\n", std_redir_output);
+        // redirect stdout
+        _dup2(fd, _fileno(stdout));
+
+        // redirect stderr
+        _dup2(_fileno(stdout), _fileno(stderr));
+    }
+
     if (dokan_install)
     {
-        installDokanDriver();
-        exit(EXIT_SUCCESS);
+        int res = installDokanDriver();
+        if (res) throwException(res);
+        else exit(EXIT_SUCCESS);
     }
 
     if (LIST)

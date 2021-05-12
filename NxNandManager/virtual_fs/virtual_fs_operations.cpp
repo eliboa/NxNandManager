@@ -1,22 +1,18 @@
 /*
   Dokan : user-mode file system library for Windows
-
   Copyright (C) 2019 Adrien J. <liryna.stark@gmail.com>
   Copyright (C) 2020 Google, Inc.
   Copyright (C) 2021 eliboa (eliboa@gmail.com)
-  
-  http://dokan-dev.github.io
 
+  http://dokan-dev.github.io
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
-
 The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
-
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -68,6 +64,8 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
     ACCESS_MASK generic_desiredaccess;
     DWORD creation_disposition;
     DWORD file_attributes_and_flags;
+    dokanfileinfo->Context = 0;
+    dbg_printf("CreateFile\n");
 
     DokanMapKernelToUserCreateFileFlags(
       desiredaccess, fileattributes, createoptions, createdisposition,
@@ -89,7 +87,8 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
     auto f = filenodes->find(filename_str);
     auto stream_names = virtual_fs_helper::GetStreamNames(filename_str);
     auto nxp = filenodes->nx_part;
-    dbg_wprintf(L"CreateFile: %ls with node: %b\n", filename_str.c_str(), (f != nullptr));
+    //if (!dokanfileinfo->IsDirectory)
+    //    dbg_wprintf(L"CreateFile: %ls with node: %b\n", filename_str.c_str(), (f != nullptr));
 
     // We only support filename length under 255.
     // See GetVolumeInformation - MaximumComponentLength
@@ -104,14 +103,14 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
 
     if (f && f->is_directory) {
     if (createoptions & FILE_NON_DIRECTORY_FILE)
-      return STATUS_FILE_IS_A_DIRECTORY;
-    dokanfileinfo->IsDirectory = true;
+        return STATUS_FILE_IS_A_DIRECTORY;
+        dokanfileinfo->IsDirectory = true;
     }
 
 
     // TODO Use AccessCheck to check security rights
     if (dokanfileinfo->IsDirectory) {
-        dbg_wprintf(L"CreateFile: %ls is a Directory\n", filename_str.c_str());
+        //dbg_wprintf(L"CreateFile: %ls is a Directory\n", filename_str.c_str());
 
         if (creation_disposition == CREATE_NEW ||
             creation_disposition == OPEN_ALWAYS) {
@@ -119,7 +118,7 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
             if (nxp->parent->nxHandle->isReadOnly())
                 return STATUS_WMI_READ_ONLY;
 
-            dbg_wprintf(L"CreateFile: %ls create Directory\n", filename_str.c_str());
+            //dbg_wprintf(L"CreateFile: %ls create Directory\n", filename_str.c_str());
             // Cannot create a stream as directory.
             if (!stream_names.second.empty()) return STATUS_NOT_A_DIRECTORY;
 
@@ -139,9 +138,9 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
         if (f && !f->is_directory) return STATUS_NOT_A_DIRECTORY;
         if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
 
-        dbg_wprintf(L"CreateFile: %ls open Director\ny", filename_str.c_str());
+        //dbg_wprintf(L"CreateFile: %ls open Director\ny", filename_str.c_str());
     } else {
-        dbg_wprintf(L"CreateFile: %ls is a File\n", filename_str.c_str());
+        //dbg_wprintf(L"CreateFile: %ls is a File\n", filename_str.c_str());
 
         if (nxp->parent->nxHandle->isReadOnly() && creation_disposition != OPEN_EXISTING)
             return STATUS_WMI_READ_ONLY;
@@ -194,6 +193,20 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
           file_attributes_and_flags &= ~FILE_ATTRIBUTE_NORMAL;
         }
 
+        auto alloc_FIL = [&](BYTE desiredAccess)
+        {
+             FIL* file = reinterpret_cast<FIL*>(malloc(sizeof(FIL)));
+             auto res = f_open(file, virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str(), desiredAccess);
+             if (res != FR_OK)
+             {
+                 free(file);
+                 dbg_printf("f_open ERROR %d (OPEN_EXISTING, \"%ls\")\n", res, virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str());
+                 return false;
+             }
+             dokanfileinfo->Context = reinterpret_cast<ULONG64>(file);
+             return true;
+        };
+
         switch (creation_disposition) {
             case CREATE_ALWAYS: {
                 dbg_wprintf(L"CreateFile: %ls CREATE_ALWAYS\n", filename_str.c_str());
@@ -212,17 +225,9 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
                                          file_attributes_and_flags, security_context);
                   if (n != STATUS_SUCCESS) return n;
                 }
-                else
-                {
-                    FIL fp;
-                    if(f_open(&fp, virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str(), FA_CREATE_ALWAYS))
-                        return STATUS_OBJECT_PATH_INVALID;
-
-                    f_close(&fp);
-                }
-                auto n = filenodes->add(std::make_shared<filenode>(
-                    filename_str, false, file_attributes_and_flags, security_context));
-                if (n != STATUS_SUCCESS) return n;
+                // Alloc new file handle
+                else if (!alloc_FIL(FA_CREATE_ALWAYS | FA_READ | FA_WRITE))
+                    return STATUS_OBJECT_PATH_INVALID;
 
                 /*
                  * If the specified file exists and is writable, the function overwrites
@@ -230,6 +235,10 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
                  * ERROR_ALREADY_EXISTS
                  */
                 if (f) return STATUS_OBJECT_NAME_COLLISION;
+
+                auto n = filenodes->add(std::make_shared<filenode>(filename_str, false, file_attributes_and_flags, security_context));
+                if (n != STATUS_SUCCESS) return n;
+
               } break;
             case CREATE_NEW: {
                 dbg_wprintf(L"CreateFile: %ls CREATE_ALWAYS\n", filename_str.c_str());
@@ -246,14 +255,10 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
                                          file_attributes_and_flags, security_context);
                   if (n != STATUS_SUCCESS) return n;
                 }
-                else
-                {
-                    FIL fp;
-                    if(f_open(&fp, virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str(), FA_CREATE_NEW))
-                        return STATUS_OBJECT_PATH_INVALID;
+                // Alloc new file handle
+                else if (!alloc_FIL(FA_CREATE_NEW| FA_READ | FA_WRITE))
+                    return STATUS_OBJECT_PATH_INVALID;
 
-                    f_close(&fp);
-                }
                 auto n = filenodes->add(std::make_shared<filenode>(
                     filename_str, false, file_attributes_and_flags, security_context));
                 if (n != STATUS_SUCCESS) return n;
@@ -264,12 +269,11 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
                  * Opens a file, always.
                  */
 
-                if (!f) {
-                    FIL fp;
-                    if(f_open(&fp, virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str(), FA_OPEN_ALWAYS))
-                        return STATUS_OBJECT_PATH_INVALID;
-                    f_close(&fp);
+                // Alloc new file handle
+                if (!alloc_FIL(FA_OPEN_ALWAYS | (desiredaccess & FILE_WRITE_DATA || desiredaccess & FILE_GENERIC_WRITE) ? FA_READ | FA_WRITE : FA_READ))
+                    return STATUS_OBJECT_PATH_INVALID;
 
+                if (!f) {
                     auto n = filenodes->add(std::make_shared<filenode>(
                       filename_str, false, file_attributes_and_flags,
                       security_context));
@@ -289,9 +293,15 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
                  */
                 if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
 
+                // Alloc new file handle
+                if (!alloc_FIL(FA_OPEN_EXISTING | (desiredaccess & FILE_WRITE_DATA || desiredaccess & FILE_GENERIC_WRITE) ? FA_READ | FA_WRITE : FA_READ))
+                    return STATUS_OBJECT_NAME_NOT_FOUND;
+
                 if (desiredaccess & FILE_EXECUTE) {
                   f->times.lastaccess = filetimes::get_currenttime();
                 }
+
+
               } break;
               case TRUNCATE_EXISTING: {
                 dbg_wprintf(L"CreateFile: %ls TRUNCATE_EXISTING\n", filename_str.c_str());
@@ -331,6 +341,39 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
             creation_disposition == OPEN_ALWAYS))
     return STATUS_OBJECT_NAME_COLLISION;
 
+
+    if (!dokanfileinfo->IsDirectory)
+        {
+            wstring dbg;
+            if (creation_disposition == CREATE_NEW)
+                dbg.append(L"CREATE_NEW\n");
+            if (creation_disposition == OPEN_ALWAYS)
+                dbg.append(L"OPEN_ALWAYS\n");
+            if (creation_disposition == OPEN_EXISTING)
+                dbg.append(L"OPEN_EXISTING\n");
+            if (creation_disposition == CREATE_ALWAYS)
+                dbg.append(L"CREATE_ALWAYS\n");
+
+            if (desiredaccess & FILE_WRITE_DATA)
+                dbg.append(L"FILE_WRITE_DATA\n");
+            if (desiredaccess & FILE_READ_DATA)
+                dbg.append(L"FILE_READ_DATA\n");
+            if (desiredaccess & FILE_APPEND_DATA)
+                dbg.append(L"FILE_APPEND_DATA\n");
+            if (desiredaccess & FILE_EXECUTE)
+                dbg.append(L"FILE_EXECUTE\n");
+            if (desiredaccess & FILE_APPEND_DATA)
+                dbg.append(L"FILE_APPEND_DATA\n");
+            if (desiredaccess & FILE_WRITE_ATTRIBUTES)
+                dbg.append(L"FILE_WRITE_ATTRIBUTES\n");
+            if (desiredaccess & FILE_GENERIC_READ)
+                dbg.append(L"FILE_GENERIC_READ\n");
+            if (desiredaccess & FILE_GENERIC_WRITE)
+                dbg.append(L"FILE_GENERIC_WRITE\n");
+
+            dbg_wprintf(L"### CreateFile %ls [Ctx ptr %ld]\n%ls", filename_str.c_str(), dokanfileinfo->Context, dbg.c_str());
+        }
+
     return STATUS_SUCCESS;
 }
 
@@ -340,6 +383,17 @@ static void DOKAN_CALLBACK virtual_fs_cleanup(LPCWSTR filename,
   auto nxp = filenodes->nx_part;
   auto filename_str = std::wstring(filename);
   dbg_wprintf(L"Cleanup: %ls\n", filename_str.c_str());
+
+  if (dokanfileinfo->Context)
+  {
+      auto fp = GET_FILE_INSTANCE;
+      dbg_wprintf(L"Close file handle %ld for %ls\n", fp, filename_str.c_str());
+      f_close(fp);
+      free(fp);
+      dokanfileinfo->Context = 0;
+  }
+
+
   if (dokanfileinfo->DeleteOnClose) {
     // Delete happens during cleanup and not in close event.
     dbg_wprintf(L"\tDeleteOnClose: %ls\n", filename_str.c_str());
@@ -349,13 +403,11 @@ static void DOKAN_CALLBACK virtual_fs_cleanup(LPCWSTR filename,
 }
 
 static void DOKAN_CALLBACK virtual_fs_closeFile(LPCWSTR filename,
-                                           PDOKAN_FILE_INFO /*dokanfileinfo*/) {
-  auto filename_str = std::wstring(filename);
-  // Here we should release all resources from the createfile context if we had.
-  if (wstring(filename).length()>10)
-      int t = 0;
+                                           PDOKAN_FILE_INFO dokanfileinfo) {
 
+  auto filename_str = std::wstring(filename);
   dbg_wprintf(L"CloseFile: %ls\n", filename_str.c_str());
+  // Here we should release all resources from the createfile context if we had.
 }
 
 static NTSTATUS DOKAN_CALLBACK virtual_fs_readfile(LPCWSTR filename, LPVOID buffer,
@@ -372,19 +424,22 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_readfile(LPCWSTR filename, LPVOID buff
         *readlength = bufferlength;
         return STATUS_SUCCESS;
     }
-    dbg_wprintf(L"ReadFile: %ls\n", filename_str.c_str());
     auto f = filenodes->find(filename_str);
     if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
 
-    auto nxp = filenodes->nx_part;
-    FIL fp;
-    if(f_open(&fp, virtual_path_to_nx_path(filename, nxp).c_str(), FA_READ))
+    auto ctx = dokanfileinfo->Context;
+    FIL* fp = ctx ? GET_FILE_INSTANCE : reinterpret_cast<FIL*>(malloc(sizeof(FIL)));
+    if(!ctx && f_open(fp, virtual_path_to_nx_path(filename, filenodes->nx_part).c_str(), FA_READ))
         return STATUS_OBJECT_NAME_NOT_FOUND;
-    f_lseek(&fp, offset);
-    bool err = f_read(&fp, (void*)buffer, bufferlength, (u32*)readlength);
-    f_close(&fp);
 
-    return err ? STATUS_OBJECT_NAME_NOT_FOUND : STATUS_SUCCESS;
+    f_lseek(fp, offset);
+    auto res = f_read(fp, (void*)buffer, bufferlength, (u32*)readlength);
+    if (!ctx) {
+        f_close(fp);
+        free(fp);
+    }
+
+    return res ? STATUS_OBJECT_NAME_NOT_FOUND : STATUS_SUCCESS;
 }
 
 static NTSTATUS DOKAN_CALLBACK virtual_fs_writefile(LPCWSTR filename, LPCVOID buffer,
@@ -418,42 +473,46 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_writefile(LPCWSTR filename, LPCVOID bu
     if (offset == -1) offset = file_size;
 
     if (dokanfileinfo->PagingIo) {
-    // PagingIo cannot extend file size.
-    // We return STATUS_SUCCESS when offset is beyond fileSize
-    // and write the maximum we are allowed to.
-    if (offset >= file_size) {
-        dbg_wprintf(L"\tPagingIo Outside offset: %ld FileSize: %d\n", offset,
-                   file_size);
-        *number_of_bytes_written = 0;
-        return STATUS_SUCCESS;
-    }
-
-    if ((offset + number_of_bytes_to_write) > file_size) {
-        // resize the write length to not go beyond file size.
-        LONGLONG bytes = file_size - offset;
-        if (bytes >> 32) {
-        number_of_bytes_to_write = static_cast<DWORD>(bytes & 0xFFFFFFFFUL);
-        } else {
-        number_of_bytes_to_write = static_cast<DWORD>(bytes);
+        // PagingIo cannot extend file size.
+        // We return STATUS_SUCCESS when offset is beyond fileSize
+        // and write the maximum we are allowed to.
+        if (offset >= file_size) {
+            dbg_wprintf(L"\tPagingIo Outside offset: %ld FileSize: %d\n", offset,
+                       file_size);
+            *number_of_bytes_written = 0;
+            return STATUS_SUCCESS;
         }
-    }
-    dbg_wprintf(L"\tPagingIo number_of_bytes_to_write: %d\n",
-                 number_of_bytes_to_write);
+
+        if ((offset + number_of_bytes_to_write) > file_size) {
+            // resize the write length to not go beyond file size.
+            LONGLONG bytes = file_size - offset;
+            if (bytes >> 32) {
+            number_of_bytes_to_write = static_cast<DWORD>(bytes & 0xFFFFFFFFUL);
+            } else {
+            number_of_bytes_to_write = static_cast<DWORD>(bytes);
+            }
+        }
+        dbg_wprintf(L"\tPagingIo number_of_bytes_to_write: %d\n",
+                     number_of_bytes_to_write);
     }
 
 
-    auto nxp = filenodes->nx_part;
-    FIL fp;
-    if(f_open(&fp, virtual_path_to_nx_path(filename, nxp).c_str(), FA_WRITE))
+    auto ctx = dokanfileinfo->Context;
+    FIL* fp = ctx ? GET_FILE_INSTANCE : reinterpret_cast<FIL*>(malloc(sizeof(FIL)));
+    if(!ctx && f_open(fp, virtual_path_to_nx_path(filename, filenodes->nx_part).c_str(), FA_WRITE))
         return STATUS_OBJECT_NAME_NOT_FOUND;
-    f_lseek(&fp, offset);
-    f_write(&fp, (void*)buffer, number_of_bytes_to_write, (u32*)number_of_bytes_written);
-    f_close(&fp);
+
+    auto res = f_lseek(fp, offset);
+    res = f_write(fp, (void*)buffer, number_of_bytes_to_write, (u32*)number_of_bytes_written);
+    if (!ctx) {
+        f_close(fp);
+        free(fp);
+    }
 
     if (offset + *number_of_bytes_written > f->size)
         f->set_endoffile(offset + *number_of_bytes_written);
 
-    return STATUS_SUCCESS;
+    return res ? STATUS_OBJECT_NAME_NOT_FOUND : STATUS_SUCCESS;
 }
 
 static NTSTATUS DOKAN_CALLBACK
@@ -475,7 +534,7 @@ virtual_fs_getfileInformation(LPCWSTR filename, LPBY_HANDLE_FILE_INFORMATION buf
                          PDOKAN_FILE_INFO dokanfileinfo) {
   auto filenodes = GET_FS_INSTANCE;
   auto filename_str = std::wstring(filename);
-  dbg_wprintf(L"GetFileInformation: %ls\n", filename_str.c_str());
+  //dbg_wprintf(L"GetFileInformation: %ls\n", filename_str.c_str());
   auto f = filenodes->find(filename_str);
   if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
   buffer->dwFileAttributes = f->attributes;
@@ -509,7 +568,7 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_findfiles(LPCWSTR filename,
   auto filename_str = std::wstring(filename);
   auto files = filenodes->list_folder(filename_str);
   WIN32_FIND_DATAW findData;
-  dbg_wprintf(L"FindFiles: %ls\n", filename_str.c_str());
+  //dbg_wprintf(L"FindFiles: %ls\n", filename_str.c_str());
   ZeroMemory(&findData, sizeof(WIN32_FIND_DATAW));
   for (const auto& f : files) {
     if (f->main_stream) continue; // Do not list File Streams
@@ -528,7 +587,7 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_findfiles(LPCWSTR filename,
     virtual_fs_helper::LlongToDwLowHigh(file_size, findData.nFileSizeLow,
                                    findData.nFileSizeHigh);
 
-    dbg_wprintf(L"FindFiles: %ls\n", filename_str.c_str());
+    //dbg_wprintf(L"FindFiles: %ls\n", filename_str.c_str());
     /*
     spdlog::info(
         L"FindFiles: {} fileNode: {} Attributes: {} Times: Creation {} "
@@ -690,12 +749,17 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_setendoffile(
 
   if (ByteOffset < f->size)
   {
-      FIL fp;
-      if(f_open(&fp, virtual_path_to_nx_path(filename, nxp).c_str(), FA_WRITE))
+      auto ctx = dokanfileinfo->Context;
+      FIL* fp = ctx ? GET_FILE_INSTANCE : reinterpret_cast<FIL*>(malloc(sizeof(FIL)));
+      if(!ctx && f_open(fp, virtual_path_to_nx_path(filename, filenodes->nx_part).c_str(), FA_WRITE))
           return STATUS_OBJECT_NAME_NOT_FOUND;
-      f_lseek(&fp, ByteOffset);
-      f_truncate(&fp);
-      f_close(&fp);
+
+      f_lseek(fp, ByteOffset);
+      f_truncate(fp);
+      if (!ctx) {
+          f_close(fp);
+          free(fp);
+      }
   }
 
   f->set_endoffile(ByteOffset);
@@ -737,7 +801,7 @@ virtual_fs_unlockfile(LPCWSTR filename, LONGLONG byte_offset, LONGLONG length,
 static NTSTATUS DOKAN_CALLBACK virtual_fs_getdiskfreespace(
     PULONGLONG free_bytes_available, PULONGLONG total_number_of_bytes,
     PULONGLONG total_number_of_free_bytes, PDOKAN_FILE_INFO dokanfileinfo) {
-  dbg_wprintf(L"GetDiskFreeSpace\n");
+  //dbg_wprintf(L"GetDiskFreeSpace\n");
   auto nxp = GET_FS_INSTANCE->nx_part;
   auto fs = nxp->fs();
   u64 tb = (u64)fs->n_fatent * (u64)fs->csize * (u64)512;
@@ -761,7 +825,7 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_getvolumeinformation(
     LPDWORD volume_serialnumber, LPDWORD maximum_component_length,
     LPDWORD filesystem_flags, LPWSTR filesystem_name_buffer,
     DWORD filesystem_name_size, PDOKAN_FILE_INFO dokanfileinfo) {
-  dbg_wprintf(L"GetVolumeInformation\n");
+  //dbg_wprintf(L"GetVolumeInformation\n");
     auto fileNodes = GET_FS_INSTANCE;
     auto nx_part = fileNodes->nx_part;
     std::wstring name(convertCharArrayToLPWSTR(nx_part->partitionName().c_str()));
@@ -803,7 +867,7 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_getfilesecurity(
     PULONG length_needed, PDOKAN_FILE_INFO dokanfileinfo) {
   auto filenodes = GET_FS_INSTANCE;
   auto filename_str = std::wstring(filename);
-  dbg_wprintf(L"GetFileSecurity: %ls\n", filename_str.c_str());
+  //dbg_wprintf(L"GetFileSecurity: %ls\n", filename_str.c_str());
   auto f = filenodes->find(filename_str);
 
   if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
@@ -869,7 +933,8 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_setfilesecurity(
   HANDLE pHeap = GetProcessHeap();
   PSECURITY_DESCRIPTOR heapSecurityDescriptor =
       HeapAlloc(pHeap, 0, f->security.descriptor_size);
-  if (!heapSecurityDescriptor) return STATUS_INSUFFICIENT_RESOURCES;
+  if (!heapSecurityDescriptor)
+      return STATUS_INSUFFICIENT_RESOURCES;
   // Copy our current descriptor into heap memory
   memcpy(heapSecurityDescriptor, f->security.descriptor.get(),
          f->security.descriptor_size);
@@ -897,10 +962,8 @@ virtual_fs_findstreams(LPCWSTR filename, PFillFindStreamData fill_findstreamdata
   if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
   /*
   auto streams = f->get_streams();
-
   WIN32_FIND_STREAM_DATA stream_data;
   ZeroMemory(&stream_data, sizeof(WIN32_FIND_STREAM_DATA));
-
   if (!f->is_directory) {
     // Add the main stream name - \foo::$DATA by returning ::$DATA
     std::copy(DataStreamNameStr.begin(),
@@ -914,7 +977,6 @@ virtual_fs_findstreams(LPCWSTR filename, PFillFindStreamData fill_findstreamdata
     // The node is a directory without any alternate streams
     return STATUS_END_OF_FILE;
   }
-
   // Add the alternated stream attached
   // for \foo:bar we need to return in the form of bar:$DATA
   for (const auto& stream : streams) {

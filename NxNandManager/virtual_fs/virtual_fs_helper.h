@@ -38,7 +38,7 @@ std::wstring base_name(const std::wstring & path);
 wstring virtual_path_to_nx_path(const wchar_t* path, NxPartition* part);
 wstring nx_path_to_virtual_path(const wchar_t* path, NxPartition* part);
 std::string dokanNtStatusToStr(NTSTATUS status);
-void installDokanDriver();
+int installDokanDriver(bool siletn = false);
 
 static const std::wstring DataStreamNameStr;
 

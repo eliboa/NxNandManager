@@ -487,6 +487,23 @@ int parseKeySetFile(const char *keyset_file, KeySet* biskeys)
     return num_keys;
 }
 
+void app_printf (const char *format, ...)
+{
+    va_list args;
+    va_start( args, format );
+    vprintf(format, args);
+    va_end( args );
+    fflush(stdout);
+}
+void app_wprintf (const wchar_t *format, ...)
+{
+    va_list args;
+    va_start( args, format );
+    vwprintf(format, args);
+    va_end( args );
+    fflush(stdout);
+}
+
 void dbg_printf (const char *format, ...)
 {
 	if(!isdebug)
@@ -623,4 +640,17 @@ BOOL IsWow64()
     if(nullptr != fnIsWow64Process)
         fnIsWow64Process(GetCurrentProcess(),&bIsWow64);
     return bIsWow64;
+}
+
+std::vector<std::string> explode(std::string const & s, char delim)
+{
+    std::vector<std::string> result;
+    std::istringstream iss(s);
+
+    for (std::string token; std::getline(iss, token, delim); )
+    {
+        result.push_back(std::move(token));
+    }
+
+    return result;
 }

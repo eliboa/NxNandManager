@@ -33,7 +33,7 @@ THE SOFTWARE.
 #include <dokan/fileinfo.h>
 #include "filenodes.h"
 #include "virtual_fs_operations.h"
-#include <WinBase.h>
+#include <winbase.h>
 #include <iostream>
 #include "../NxPartition.h"
 
@@ -53,7 +53,7 @@ class virtual_fs {
     // FileSystem mount options
     WCHAR mount_point[4] = L"\0:\\";
     WCHAR unc_name[MAX_PATH] = L"";
-    USHORT thread_number = 1; // Do not change
+    USHORT thread_number = 1;
     bool network_drive = false;
     bool removable_drive = false;
     bool current_session = false;

@@ -57,15 +57,13 @@ int nxfs_initialize(NxPartition* nx_partition, FATFS* fatfs)
 int nxfs_uninit(FATFS* fatfs)
 {
     NXFS *fs = get_nxfs_by_ix(fatfs->pdrv);
-    if (fs == nullptr || !nxfs_arr[fs->index-1].index || nxfs_arr[fs->index-1].index > FF_VOLUMES)
+    if (!fs || !fs->index || fs->index > FF_VOLUMES)
         return RES_PARERR;
 
-    nxfs_arr[fs->index-1].nx_partition = nullptr;
-    nxfs_arr[fs->index-1].fatfs = nullptr;
-    nxfs_arr[fs->index-1].index = 0;
-    // Clear Handle
-    //nxfs_arr[fs->index-1].nx_handle->clearHandle();
-    delete nxfs_arr[fs->index-1].nx_handle;
+    fs->nx_partition = nullptr;
+    fs->fatfs = nullptr;
+    fs->index = 0;
+    delete fs->nx_handle;
     return 0;
 }
 
@@ -122,9 +120,29 @@ DRESULT disk_read (
     if (fs->nx_partition->isEncryptedPartition())
         fs->nx_handle->setCrypto(DECRYPT);
 
-    if (!fs->nx_handle->read((u32)sector, (void*) buff, nullptr, count * NX_BLOCKSIZE))
+    if (!fs->nx_handle->read((u32)sector, (void*)buff, nullptr, count * NX_BLOCKSIZE))
         return RES_PARERR;
+    /*
+    u64 offset = (u64)sector * NX_BLOCKSIZE;
+    DWORD bytesToRead = count * NX_BLOCKSIZE;
+    DWORD bytesCount = 0;
+    while (bytesCount < bytesToRead)
+    {
+        DWORD bytesRead = 0;
+        if (!fs->nx_handle->read(offset, (void*)&buff[bytesCount], &bytesRead, NX_BLOCKSIZE))
+            return RES_PARERR;
 
+        if (!bytesRead)
+            break;
+
+        offset += bytesRead;
+        bytesCount += bytesRead;
+    }
+
+    for (UINT i(0); i < count; i++)
+        if (!fs->nx_handle->read((u32)(sector+i), (void*)&buff[i*NX_BLOCKSIZE], nullptr, NX_BLOCKSIZE))
+            return RES_PARERR;
+    */
     return RES_OK;
 }
 
@@ -150,11 +168,34 @@ DRESULT disk_write (
     if (fs->nx_partition->isEncryptedPartition())
         fs->nx_handle->setCrypto(ENCRYPT);
 
-    DWORD bw;
-    if (!fs->nx_handle->write((u32)sector, (void*) buff, &bw, count * NX_BLOCKSIZE))
+    DWORD bytesWrite = 0;
+    if (!fs->nx_handle->write((u32)(sector), (void*)buff, &bytesWrite, count * NX_BLOCKSIZE))
         return RES_PARERR;
+    /*
+    u64 offset = (u64)sector * NX_BLOCKSIZE;
+    DWORD bytesToWrite = count * NX_BLOCKSIZE;
+    DWORD bytesCount = 0;
+    while (bytesCount < bytesToWrite)
+    {
+        DWORD bytesWrite = 0;
+        if (!fs->nx_handle->write(offset, (void*)&buff[bytesCount], &bytesWrite, NX_BLOCKSIZE))
+            return RES_PARERR;
 
+        if (!bytesWrite)
+            break;
+
+        offset += bytesWrite;
+        bytesCount += bytesWrite;
+    }
+
+
+    DWORD bw;
+    for (UINT i(0); i < count; i++)
+        if (!fs->nx_handle->write((u32)(sector+i), (void*)&buff[i*NX_BLOCKSIZE], &bw, NX_BLOCKSIZE))
+            return RES_PARERR;
+    */
     return RES_OK;
+
 }
 
 #endif

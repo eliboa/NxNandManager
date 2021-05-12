@@ -66,6 +66,7 @@ static NxStorageType NxTypesArr[] =
 
 // Title ID 0100000000000809 (SystemVersion)
 static NxSystemTitles systemTitlesArr[] = {
+    { "12.0.2", "63d928b5a3016fe8cc0e76d2f06f4e98.nca"},
     { "12.0.1", "e65114b456f9d0b566a80e53bade2d89.nca"},
     { "12.0.0", "bd4185843550fbba125b20787005d1d2.nca"},
     { "11.0.1", "56211c7a5ed20a5332f5cdda67121e37.nca"},
@@ -93,7 +94,7 @@ static NxSystemTitles systemTitlesArr[] = {
     { "6.1.0", "1d21680af5a034d626693674faf81b02.nca"},
     { "6.0.1", "663e74e45ffc86fbbaeb98045feea315.nca"},
     { "6.0.0", "258c1786b0f6844250f34d9c6f66095b.nca"},
-    { "6.0.0 (pre-release)", "286e30bafd7e4197df6551ad802dd815.nca"},
+    { "6.0.0", "286e30bafd7e4197df6551ad802dd815.nca"}, /* pre-release */
     { "5.1.0", "fce3b0ea366f9c95fe6498b69274b0e7.nca"},
     { "5.0.2", "c5758b0cb8c6512e8967e38842d35016.nca"},
     { "5.0.1", "7f5529b7a092b77bf093bdf2f9a3bf96.nca"},
@@ -113,6 +114,7 @@ static NxSystemTitles systemTitlesArr[] = {
 
 // Title ID 010000000000081B (BootImagePackageExFat)
 static NxSystemTitles exFatTitlesArr[] = {
+    { "12.0.2", "77bbe586d5b4bfe8fee7a2a10936716f.nca"},
     { "12.0.1", "22f8b6e12000aa530c1d301b5ed4d70a.nca"},
     { "12.0.0", "22f8b6e12000aa530c1d301b5ed4d70a.nca"},
     { "11.0.1", "0fd89afc0d0f1ee7021084df503bcc19.nca"},
@@ -138,7 +140,7 @@ static NxSystemTitles exFatTitlesArr[] = {
     {"6.1.0", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
     {"6.0.1", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
     {"6.0.0", "d5186022d6080577b13f7fd8bcba4dbb.nca" },
-    {"6.0.0 (pre-release)", "711b5fc83a1f07d443dfc36ba606033b.nca" },
+    {"6.0.0", "711b5fc83a1f07d443dfc36ba606033b.nca" }, /* pre-release */
     {"5.1.0", "c9e500edc7bb0fde52eab246028ef84c.nca" },
     {"5.0.2", "432f5cc48e6c1b88de2bc882204f03a1.nca" },
     {"5.0.1", "432f5cc48e6c1b88de2bc882204f03a1.nca" },
@@ -495,6 +497,8 @@ NxStorage::NxStorage(const char *p_path)
         {
             dbg_printf("NxStorage::NxStorage() - Error CAL0 not found in %s\n", getNxTypeAsStr());
             type = UNKNOWN;
+            for (auto p : partitions)
+                delete p;
             partitions.clear();
         }
     }
@@ -637,17 +641,11 @@ NxStorage::~NxStorage()
     //printf("NxStorage::~NxStorage() DESTRUCTOR \n");
     for (auto part : partitions)
     {
-        if (part->is_vfs_mounted())
-            part->unmount_vfs();
-
-        if (part->is_mounted())
-            part->unmount_fs();
+        if (part)
+            delete part;
     }
 
-    if(partitions.size())
-        partitions.clear();
-
-    if (nullptr != nxHandle)
+    if (nxHandle)
         delete nxHandle;
 }
 
@@ -2701,12 +2699,13 @@ std::string NxStorage::getFirmwareVersion(firmware_version_t* fmv)
 void NxStorage::setFirmwareVersion(firmware_version_t *fwv, const char* fwv_string)
 {
     int i(0);
-    char *buf2, *buf = strdup(fwv_string);
-    while((buf2 = strtok(buf, ".")) != nullptr)
+    std::string str(fwv_string);
+    auto entries = explode(str, '.');
+
+    for (auto entry : entries)
     {
-        buf = nullptr;
         try {
-            int number = std::stoi(std::string(buf2));
+            int number = std::stoi(entry);
             switch(i) {
                 case 0:
                     fwv->major = number;

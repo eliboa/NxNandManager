@@ -26,11 +26,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 #include "../res/utils.h"
-
 #include "virtual_fs.h"
 #include <memory>
 #include <vector>
-
 
 using namespace std;
 
@@ -97,15 +95,19 @@ int virtual_fs::populate() {
     return nodes_count;
 }
 
-void virtual_fs::run() {
-    //fs_filenodes = boost::make_unique<::virtual_fs::fs_filenodes>();
+void virtual_fs::run()
+{
     DOKAN_OPTIONS dokan_options;
     ZeroMemory(&dokan_options, sizeof(DOKAN_OPTIONS));
     dokan_options.Version = DOKAN_VERSION;
     dokan_options.Options = DOKAN_OPTION_ALT_STREAM | DOKAN_OPTION_CASE_SENSITIVE;
 
     if(isdebug)
-    dokan_options.Options |= DOKAN_OPTION_STDERR | DOKAN_OPTION_DEBUG;
+    {
+        dokan_options.Options |= DOKAN_OPTION_STDERR | DOKAN_OPTION_DEBUG;
+        //dokan_options.Options |= 16384;
+    }
+
     // Mount type
     if (network_drive) {
         dokan_options.Options |= DOKAN_OPTION_NETWORK;
@@ -128,6 +130,9 @@ void virtual_fs::run() {
     dokan_options.ThreadCount = thread_number;
     dokan_options.Timeout = timeout;
 
+    if (partition->nxHandle->isReadOnly())
+        dokan_options.Options |= DOKAN_OPTION_WRITE_PROTECT;
+
     TCHAR driveLetter;
     if(!mount_point[0] && GetAvailableMountPoint(&driveLetter))
       mount_point[0] = driveLetter;
@@ -141,6 +146,8 @@ void virtual_fs::run() {
         callback_func(status);
 }
 
-virtual_fs::~virtual_fs() { DokanRemoveMountPoint(mount_point); }
+virtual_fs::~virtual_fs() {
+    DokanRemoveMountPoint(mount_point);
+}
 
 }  // namespace virtual_fs

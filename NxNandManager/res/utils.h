@@ -31,6 +31,12 @@ extern bool isGUI;
 #include "../gui/debug.h"
 #endif
 
+
+void app_printf (const char *format, ...);
+void app_wprintf (const wchar_t *format, ...);
+#define printf(f_, ...) app_printf((f_), ##__VA_ARGS__)
+#define wprintf(f_, ...) app_wprintf((f_), ##__VA_ARGS__)
+
 // MinGW
 #if defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
 #define strcpy_s strcpy
@@ -98,6 +104,7 @@ extern bool isGUI;
 #define ERR_DOKAN_DRIVER_NOT_FOUND -1053
 #define ERR_FAILED_TO_MOUNT_FS     -1054
 #define ERR_FAILED_TO_POPULATE_VFS -1055
+#define ERR_DRIVER_FILE_NOT_FOUND  -1056
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -107,6 +114,7 @@ struct ErrorLabel {
 
 static ErrorLabel ErrorLabelArr[] =
 {
+    { ERR_DRIVER_FILE_NOT_FOUND, "Failed to locate driver files" },
     { ERR_FAILED_TO_POPULATE_VFS, "Failed to populate virtual filesystem" },
     { ERR_FAILED_TO_MOUNT_FS, "Failed to mount filesystem" },
     { ERR_DOKAN_DRIVER_NOT_FOUND, "Dokan driver not found" },
@@ -194,6 +202,8 @@ void hexStrPrint(unsigned char *data, int len);
 static DWORD crc32table[256];
 static bool crc32Intalized = false;
 DWORD crc32Hash(const void *data, DWORD size);
+
+std::vector<std::string> explode(std::string const & s, char delim);
 
 template<class T>
 T base_name(T const & path, T const & delims = "/\\")

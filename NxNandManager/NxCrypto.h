@@ -35,6 +35,7 @@ class NxCrypto
     // Constructors
     public:
         NxCrypto(char* crypto, char* tweak);
+        ~NxCrypto();
 
     // Member variables
     private:

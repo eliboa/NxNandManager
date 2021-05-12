@@ -142,6 +142,7 @@ class filenode {
     std::mutex _fileName_mutex;
     // _fileName_mutex need to be aquired
     std::wstring _fileName;
+
 };
 }  // namespace virtual_fs
 

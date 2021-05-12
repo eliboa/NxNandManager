@@ -80,9 +80,9 @@ std::string dokanNtStatusToStr(NTSTATUS status)
     }
     return str;
 }
-void installDokanDriver()
+int installDokanDriver(bool silent)
 {
-
+/*
     SHELLEXECUTEINFO shExInfo = { 0 };
     shExInfo.cbSize = sizeof(shExInfo);
     shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
@@ -103,5 +103,34 @@ void installDokanDriver()
 
     if (ShellExecuteEx(&shExInfo))
         CloseHandle(shExInfo.hProcess);
+*/
+
+#ifdef ARCH64
+    bool x64 = true;
+#else
+    bool x64 = IsWow64();
+#endif
+
+    wstring dpinst = parent_path(ExePathW()).append(x64 ? L"\\driver\\dpinst_x64.exe" : L"\\driver\\dpinst_x86.exe");
+    if (!file_exists(dpinst.c_str()))
+        return ERR_DRIVER_FILE_NOT_FOUND;
+
+    SHELLEXECUTEINFO shExInfo = { 0 };
+    shExInfo.cbSize = sizeof(shExInfo);
+    shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+    shExInfo.hwnd = nullptr;
+    shExInfo.lpVerb = L"runas";
+    wstring args_w = L"/path .\\ /p";
+    if (silent) args_w.append(L" /q /se");
+    shExInfo.lpFile = dpinst.c_str();
+    shExInfo.lpParameters = args_w.c_str();
+    shExInfo.lpDirectory = nullptr;
+    shExInfo.nShow = SW_SHOW;
+    shExInfo.hInstApp = nullptr;
+
+    if (ShellExecuteEx(&shExInfo))
+        CloseHandle(shExInfo.hProcess);
+
+    return SUCCESS;
 }
 

@@ -29,6 +29,16 @@ MainWindow::MainWindow(QWidget *parent) :
 	bTaskBarSet = FALSE;
 	ui->setupUi(this);
 
+    dumpIcon = QIcon(":/images/save.png");
+    restoreIcon = QIcon(":/images/restore.png");
+    encIcon = QIcon(":/images/decrypt.png");
+    decIcon = QIcon(":/images/encrypt.png");
+    rcmIcon = QIcon(":/images/autorcm.png");
+    incoIcon = QIcon(":/images/incognito.png");
+    formtIcon = QIcon(":/images/format.png");
+    mountIcon = QIcon(":/images/drive.png");
+    unmountIcon = QIcon(":/images/unmount.png");
+
     //setFixedWidth(380);
     //setFixedHeight(490);
     //adjustSize();
@@ -114,7 +124,9 @@ MainWindow::MainWindow(QWidget *parent) :
     {
         beforeInputSet();
         qApp->processEvents();
-        Worker *workThread = new Worker(this, WorkerMode::new_storage, input_path);
+        if (workThread)
+            delete workThread;
+        workThread = new Worker(this, WorkerMode::new_storage, input_path);
         workThread->start();
     }
 
@@ -130,7 +142,16 @@ MainWindow::MainWindow(QWidget *parent) :
 
 MainWindow::~MainWindow()
 {
+    foreach (QAction *action, ui->partition_table->actions()) {
+        ui->partition_table->removeAction(action);
+        delete action;
+    }
+    delete TaskBarButton;
 	delete ui;
+    if (workThread)
+        delete workThread;
+    if (input)
+        delete input;
 }
 
 void MainWindow::showEvent(QShowEvent *e)
@@ -170,22 +191,28 @@ void MainWindow::open()
     if (fileName.isEmpty())
         return;
 
-    if(input != nullptr)
+    if(input) {
         delete input;
+        input = nullptr;
+    }
     beforeInputSet();
-    Worker *workThread = new Worker(this, WorkerMode::new_storage, fileName);
+    if (workThread)
+        delete workThread;
+    workThread = new Worker(this, WorkerMode::new_storage, fileName);
     workThread->start();
 
 }
 
 void MainWindow::closeInput()
 {
+    if(input) {
+        delete input;
+        input = nullptr;
+    }
     beforeInputSet();
     ui->analysingLbl->setVisible(false);
     ui->loadingBar->setVisible(false);
     ui->partitionsGrp->setVisible(true);
-    if (input != nullptr)
-        input->clearHandles();
 };
 
 void MainWindow::openDrive()
@@ -543,6 +570,8 @@ void MainWindow::beforeInputSet()
 
 void MainWindow::inputSet(NxStorage *storage)
 {
+    if (input)
+        delete input;
 	input = storage;
     ui->analysingLbl->setVisible(false);    
     ui->loadingBar->setVisible(false);
@@ -735,6 +764,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 	// Partition table context menu
 	foreach (QAction *action, ui->partition_table->actions()) {
 		ui->partition_table->removeAction(action);
+        delete action;
 	}
     ui->partCustom1Btn->disconnect();
 
@@ -860,7 +890,6 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     ui->partCustom1Btn->setEnabled(false);
 
     // Dump action
-    const QIcon dumpIcon = QIcon::fromTheme("document-open", QIcon(":/images/save.png"));
     QAction* dumpAction = new QAction(dumpIcon, "Dump to file...");
     dumpAction->setStatusTip(tr("Save as new file"));
     ui->partition_table->connect(dumpAction, SIGNAL(triggered()), this, SLOT(dumpPartition()));
@@ -873,7 +902,6 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     ui->partition_table->addAction(dumpAAction);
 
     // Restore action
-    const QIcon restoreIcon = QIcon::fromTheme("document-open", QIcon(":/images/restore.png"));
     QAction* restoreAction = new QAction(restoreIcon, "Restore from file...");
     restoreAction->setStatusTip(tr("Open an existing file"));
     ui->partition_table->connect(restoreAction, SIGNAL(triggered()), this, SLOT(restorePartition()));
@@ -882,7 +910,6 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     // Decrypt action
     if(selected_part->isEncryptedPartition() && !selected_part->badCrypto())
     {
-        const QIcon encIcon = QIcon::fromTheme("document-open", QIcon(":/images/decrypt.png"));
         QAction* dumpDecAction = new QAction(encIcon, "Decrypt && dump to file...");
         dumpDecAction->setStatusTip(tr("Save as new file"));
         if(!bKeyset)
@@ -894,7 +921,6 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     // Encrypt action
     if(selected_part->nxPart_info.isEncrypted && !selected_part->isEncryptedPartition())
     {
-        const QIcon decIcon = QIcon::fromTheme("document-open", QIcon(":/images/encrypt.png"));
         QAction* dumpEncAction = new QAction(decIcon, "Encrypt && dump to file...");
         dumpEncAction->setStatusTip(tr("Save as new file"));
         if(!bKeyset)
@@ -906,11 +932,9 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     // AutoRCM action
     if (selected_part->type() == BOOT0 && input->isEristaBoot0)
     {
-        const QIcon rcmIcon = QIcon::fromTheme("document-open", QIcon(":/images/autorcm.png"));
         ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
         QString statusTip(tr(input->autoRcm ? "Disable autoRCM" : "Enable AutoRCM"));
         QAction* action = new QAction(rcmIcon, statusTip);
-
         action->setStatusTip(statusTip);
         ui->partition_table->connect(action, SIGNAL(triggered()), this, SLOT(toggleAutoRCM()));
         ui->partition_table->addAction(action);
@@ -926,14 +950,13 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     // Incognito action
     if (selected_part->type() == PRODINFO)
     {
-        const QIcon icon = QIcon::fromTheme("document-open", QIcon(":/images/incognito.png"));
-        QAction* incoAction = new QAction(icon, "Apply incognito");
+        QAction* incoAction = new QAction(incoIcon, "Apply incognito");
         QString statusTip(tr("Wipe personnal information from PRODINFO"));
         incoAction->setStatusTip(statusTip);
         ui->partition_table->connect(incoAction, SIGNAL(triggered()), this, SLOT(incognito()));
         ui->partition_table->addAction(incoAction);
 
-        ui->partCustom1Btn->setIcon(icon);
+        ui->partCustom1Btn->setIcon(incoIcon);
         ui->partCustom1Btn->setStatusTip(statusTip);
         ui->partCustom1Btn->setToolTip(statusTip);
         ui->partCustom1Btn->connect(ui->partCustom1Btn, SIGNAL(clicked()), this, SLOT(incognito()));
@@ -944,14 +967,13 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     // Format partition action
     if (selected_part->type() == USER)
     {
-        const QIcon icon = QIcon::fromTheme("document-open", QIcon(":/images/format.png"));
-        QAction* incoAction = new QAction(icon, "Format partition (FAT32)");
+        QAction* formtAction = new QAction(formtIcon, "Format partition (FAT32)");
         QString statusTip(tr("Erase all data on selected partition (quick format)"));
-        incoAction->setStatusTip(statusTip);
-        ui->partition_table->connect(incoAction, SIGNAL(triggered()), this, SLOT(formatPartition()));
-        ui->partition_table->addAction(incoAction);
+        formtAction->setStatusTip(statusTip);
+        ui->partition_table->connect(formtAction, SIGNAL(triggered()), this, SLOT(formatPartition()));
+        ui->partition_table->addAction(formtAction);
 
-        ui->partCustom1Btn->setIcon(icon);
+        ui->partCustom1Btn->setIcon(formtIcon);
         ui->partCustom1Btn->setStatusTip(statusTip);
         ui->partCustom1Btn->setToolTip(statusTip);
         ui->partCustom1Btn->connect(ui->partCustom1Btn, SIGNAL(clicked()), this, SLOT(formatPartition()));
@@ -968,8 +990,8 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     {
         auto *button = new QPushButton(this);
         button->setObjectName("mount_button");
-        const QIcon icon = QIcon::fromTheme("document-open", QIcon(selected_part->is_vfs_mounted() ? ":/images/unmount.png" : ":/images/drive.png"));
-        button->setIcon(icon);
+
+        button->setIcon(selected_part->is_vfs_mounted() ? unmountIcon : mountIcon);
         QString label = selected_part->is_vfs_mounted() ? "Unmount" : "Mount";
         if(selected_part->is_vfs_mounted())
         {
@@ -1015,9 +1037,14 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 void MainWindow::driveSet(QString drive)
 {    
 	qApp->processEvents();
-    if(input != nullptr) delete input;
+    if(input) {
+        delete input;
+        input = nullptr;
+    }
 	// Open new thread to init storage (callback => inputSet(NxStorage))
     beforeInputSet();
+    if (workThread)
+        delete workThread;
     workThread = new Worker(this,  WorkerMode::new_storage, drive);
 	workThread->start();
 }
@@ -1158,6 +1185,9 @@ void MainWindow::toggleAutoRCM()
         beforeInputSet();
         QString filename = QString::fromWCharArray(input->m_path);
         delete input;
+        input = nullptr;
+        if (workThread)
+            delete workThread;
         workThread = new Worker(this, WorkerMode::new_storage, filename);
         workThread->start();
 
@@ -1187,6 +1217,8 @@ void MainWindow::formatPartition()
     beforeInputSet();
     QString filename = QString::fromWCharArray(input->m_path);
     delete input;
+    if (workThread)
+        delete workThread;
     workThread = new Worker(this, WorkerMode::new_storage, filename);
     workThread->start();
 }
@@ -1203,6 +1235,8 @@ void MainWindow::keySetSet()
         qApp->processEvents();
         QString filename = QString::fromWCharArray(input->m_path);
         delete input;
+        if (workThread)
+            delete workThread;
         workThread = new Worker(this, WorkerMode::new_storage, filename);
         workThread->start();
     }
@@ -1234,7 +1268,11 @@ void MainWindow::vfs_callback(NTSTATUS status)
         msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
         msgBox.setDefaultButton(QMessageBox::Yes);
         if(msgBox.exec() == QMessageBox::Yes)
-            installDokanDriver();
+        {
+            int res = installDokanDriver();
+            if (res)
+                error(res);
+        }
     }
     else error(1, QString::fromStdString(dokanNtStatusToStr(status)));
     updateParitionInfo();
@@ -1246,9 +1284,11 @@ void MainWindow::on_mountParition(int nx_type)
         return;
 
     auto mount_button = ui->selPartGrp->findChild<QPushButton*>("mount_button");
+    mount_button->setDisabled(true);
     auto exit = [&](int e, const QString l = nullptr ){
         if (e)
             error(e, l);
+        mount_button->setEnabled(true);
         on_partition_table_itemSelectionChanged();
         return;
     };
@@ -1273,8 +1313,6 @@ void MainWindow::on_mountParition(int nx_type)
 
     auto v_fs = std::make_shared<virtual_fs::virtual_fs>(nxp);
 
-    if(v_fs->populate() < 0)
-        return exit(ERR_FAILED_TO_POPULATE_VFS);
 
     v_fs->setCallBackFunction(&virtual_fs_callback);
 
@@ -1283,6 +1321,12 @@ void MainWindow::on_mountParition(int nx_type)
 
 void MainWindow::launch_vfs(std::shared_ptr<virtual_fs::virtual_fs> fs)
 {
+    if(fs->populate() < 0)
+    {
+        emit error(ERR_FAILED_TO_POPULATE_VFS);
+        return;
+    }
+
     fs->run();
 }
 

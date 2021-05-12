@@ -36,7 +36,8 @@ struct NxSplitFile {
     u64 offset;
     u64 size;
     wchar_t file_path[MAX_PATH];
-    NxSplitFile *next = NULL;
+    HANDLE handle = nullptr;
+    NxSplitFile *next = nullptr;
 };
 
 typedef struct splitFileName_t splitFileName_t;
@@ -84,7 +85,9 @@ class NxHandle {
 
         LARGE_INTEGER lp_CurrentPointer;
         LARGE_INTEGER li_DistanceToMove;
-
+        u64 virtual_currentPtr() { return (u64)lp_CurrentPointer.QuadPart - m_off_start; }
+        u64 real_currentPtr() { return (u64)lp_CurrentPointer.QuadPart; }
+        u64 split_currentPtr() { return m_curSplitFile ? (u64)lp_CurrentPointer.QuadPart - m_curSplitFile->offset : 0; }
         // Geometry & size
         u64 m_totalSize = 0;
         u64 m_fileDiskTotalBytes;
@@ -105,16 +108,12 @@ class NxHandle {
         NxCrypto *nxCrypto;
         int m_crypto = NO_CRYPTO;
 
-        // Cache
-        cluster_cache_t *m_cluster_cache = nullptr;
-        void invalidate_cache();
-    
         // Boolean
         bool b_isDrive = false;
 
         // Methods        
         NxSplitFile* getSplitFile(u64 offset);        
-
+        void do_crypto(u8* buffer, u32 buff_size, u64 start_offset);
     public:
 
         // Public variables
@@ -163,7 +162,7 @@ class NxHandle {
         bool write(void *buffer, DWORD* bytesWrite, DWORD length = 0);
         bool write(u64 offset, void *buffer, DWORD* bytesWrite, DWORD length = 0);
         bool write(u32 sector, void *buffer, DWORD* bw, DWORD length);
-        bool createFile(wchar_t *path, unsigned long io_mode = GENERIC_READ);
+        bool createFile(wchar_t *path, unsigned long io_mode = GENERIC_READ, HANDLE *handle = nullptr);
         void createHandle(unsigned long io_mode = GENERIC_READ);
         bool hash(u64* bytesCount);
         bool setPointer(u64 offset);

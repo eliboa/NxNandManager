@@ -72,11 +72,15 @@ void NxHandle::createHandle(unsigned long io_mode)
 
     // Get size for file
     LARGE_INTEGER Lsize;
-    if (!b_isDrive && GetFileSizeEx(m_h, &Lsize))
+    if (!b_isDrive )
     {
-        m_size = Lsize.QuadPart;
-        m_totalSize = m_size;
-        exists = m_size ? true : false;
+        auto res = GetFileSizeEx(m_h, &Lsize);
+        if (res)
+        {
+            m_size = Lsize.QuadPart;
+            m_totalSize = m_size;
+            exists = m_size ? true : false;
+        }
     }
 
     // Get available space on disk for file
@@ -105,11 +109,14 @@ void NxHandle::createHandle(unsigned long io_mode)
 
 NxHandle::~NxHandle()
 {
-    if (nullptr != m_cluster_cache) delete m_cluster_cache;
     NxSplitFile *current = m_lastSplitFile, *next;
     while (nullptr != current)
     {
         next = current->next;
+        DWORD lpdwFlags[100];
+        if (GetHandleInformation(current->handle, lpdwFlags))
+            CloseHandle(current->handle);
+
         delete current;
         current = next;
     }
@@ -119,14 +126,6 @@ NxHandle::~NxHandle()
     {
         CloseHandle(m_h);
     }
-}
-
-void NxHandle::invalidate_cache()
-{
-    if (!m_cluster_cache)
-        return;
-
-    memset(m_cluster_cache, 0, sizeof(cluster_cache_t));
 }
 
 void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
@@ -174,7 +173,6 @@ void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
     m_readAmount = 0;
     m_cur_block = 0;
     lp_CurrentPointer.QuadPart = 0;
-    invalidate_cache();
     m_crypto = crypto_mode;
 
     if (nullptr != partition)
@@ -341,9 +339,10 @@ bool NxHandle::detectSplittedStorage()
     // For each splitted file
     do {
         // Get handle
-        createFile(&path[0]);
+        HANDLE h;
+        createFile(&path[0], GENERIC_READ, &h);
 
-        if (!GetFileSizeEx(m_h, &Lsize))
+        if (!GetFileSizeEx(h, &Lsize))
             break;               
 
         // New NxSplitFile
@@ -351,6 +350,7 @@ bool NxHandle::detectSplittedStorage()
         wcscpy(splitfile->file_path, path.c_str());
         splitfile->offset = s_size;
         splitfile->size = static_cast<u64>(Lsize.QuadPart);
+        splitfile->handle = h;
         splitfile->next = m_lastSplitFile;
         m_lastSplitFile = splitfile;
 
@@ -361,7 +361,7 @@ bool NxHandle::detectSplittedStorage()
         s_size += splitfile->size;
 
         ++m_splitFileCount;
-        clearHandle();
+        //clearHandle();
 
         // Format path to next file
         if (!getNextSplitFile(path, path))
@@ -369,50 +369,51 @@ bool NxHandle::detectSplittedStorage()
 
     } while (file_exists(path.c_str()));
 
-    clearHandle();
-
-    // Get handle for original file
-    createFile((wchar_t*)m_path.c_str(), GENERIC_READ);
-
     // If more than one file found
     if (m_splitFileCount > 1)
     {
         // New handle size
         m_size = s_size;
         b_isSplitted = true;
+        m_h = m_curSplitFile->handle;
         initHandle();
         return true;
     }
-    else return false;
+    else
+    {
+        // Get handle for original file
+        createFile((wchar_t*)m_path.c_str(), GENERIC_READ);
+        return false;
+    }
 }
 
-bool NxHandle::createFile(wchar_t *path, unsigned long io_mode)
+bool NxHandle::createFile(wchar_t *path, unsigned long io_mode, HANDLE *h)
 {
     if (io_mode != GENERIC_READ && io_mode != GENERIC_WRITE)
         return false;
 
-    DWORD lpdwFlags[100];
-    if (GetHandleInformation(m_h, lpdwFlags))
+    if (!h)
     {
-        CloseHandle(m_h);
+        DWORD lpdwFlags[100];
+        if (GetHandleInformation(m_h, lpdwFlags))
+            CloseHandle(m_h);
     }
+
+    HANDLE *handle = h ? h : &m_h;
 
     auto access = !b_isDrive && m_isReadOnly && io_mode != GENERIC_WRITE ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE;
     auto share = !b_isDrive && m_isReadOnly && io_mode != GENERIC_WRITE ? FILE_SHARE_READ : FILE_SHARE_READ | FILE_SHARE_WRITE;
     if (io_mode == GENERIC_READ)
-        m_h = CreateFileW(path, access, share, nullptr, OPEN_EXISTING, 0, nullptr);
+        *handle = CreateFileW(path, access, share, nullptr, OPEN_EXISTING, 0, nullptr);
     else
-        m_h = CreateFileW(path, access, share, nullptr, CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
+        *handle = CreateFileW(path, access, share, nullptr, CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
     
-    if (m_h == INVALID_HANDLE_VALUE)
+    if (*handle == INVALID_HANDLE_VALUE)
     {
         dbg_wprintf(L"NxHandle::createFile() for %s ERROR %s\n", path, GetLastErrorAsString().c_str());
-        CloseHandle(m_h);
+        CloseHandle(*handle);
         return false;
-    }    
-    
-    //if (b_isDrive && !dismountVolume())
-    //    dbg_printf("failed to dismount volume\n");
+    }
 
     return true;
 }
@@ -421,179 +422,136 @@ bool NxHandle::setPointer(u64 offset)
 {
     if (b_isSplitted)
     {
-        u64 real_offset = m_off_start + offset - m_curSplitFile->offset;;
         NxSplitFile *file = getSplitFile(m_off_start + offset);
-        if (nullptr == file)
+        if (!file)
             return false;
 
-        if (wcscmp(file->file_path, m_curSplitFile->file_path))
-        {            
+        if (m_curSplitFile != file)
+        {                        
             // Switch to next split file
-            createFile(file->file_path);
-            real_offset = m_off_start + offset - file->offset;
             m_curSplitFile = file;
-
-           // dbg_printf("NxHandle::setPointer Switch to split, real offset = %s \n", n2hexstr(real_offset, 12).c_str());           
+            m_h = file->handle;
         }
 
+        u64 real_offset = m_off_start + offset - m_curSplitFile->offset;
         li_DistanceToMove.QuadPart = real_offset;
         if (SetFilePointerEx(m_h, li_DistanceToMove, nullptr, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
             return false;
 
-        
         lp_CurrentPointer.QuadPart = m_curSplitFile->offset + real_offset;
-        //dbg_printf("NxHandle::setPointer - lp_CurrentPointer = %s (real = %s)\n", n2hexstr(lp_CurrentPointer.QuadPart, 12).c_str(),
-        //    n2hexstr(real_offset, 12).c_str());
     }
     else
     {
         li_DistanceToMove.QuadPart = m_off_start + offset;
         if (SetFilePointerEx(m_h, li_DistanceToMove, &lp_CurrentPointer, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
-        {
-            dbg_printf("INVALID POINTER\n");
             return false;
-        }
     }
 
     //dbg_printf("NxHandle::setPointer(%s) real offset = %s\n", n2hexstr(offset, 12).c_str(), n2hexstr(m_off_start + offset, 12).c_str());
-
     return true;
 }
 
+void NxHandle::do_crypto(u8* buffer, u32 buff_size, u64 start_offset)
+{
+    if (!is_in(m_crypto, {ENCRYPT, DECRYPT}) || !nxCrypto)
+        return;
+
+    m_cur_block = start_offset / CLUSTER_SIZE; // Current cluster number
+    u64 clus_off = (u64)m_cur_block * (u64)CLUSTER_SIZE; // Current cluster offset
+    auto t_buff_offset = start_offset - clus_off; // Start offset for real data in tmp buff
+    auto t_buff_size = t_buff_offset + buff_size; // Size of tmp buff in bytes
+    u32 t_buff_cl_size = (u32)(t_buff_size / CLUSTER_SIZE); // Size of tmp buff in clusters
+    if (!t_buff_cl_size || t_buff_size % CLUSTER_SIZE) t_buff_cl_size++;
+
+    // Allocate temp buffer & Copy buffer to temp buffer
+    u8* t_buff = (u8*)malloc(t_buff_cl_size*CLUSTER_SIZE);
+    memcpy(&t_buff[t_buff_offset], buffer, buff_size);
+
+    //printf("Decrypted buffer :\n");
+    //hexStrPrint((u8*)buffer, bytesCount > 0x200 ? 0x200 : buff_size);
+
+    // Do crypto
+    for (u32 i=0; i < t_buff_cl_size; i++)
+        if (m_crypto == DECRYPT)
+            nxCrypto->decrypt(&t_buff[i*CLUSTER_SIZE], m_cur_block+i);
+        else
+            nxCrypto->encrypt(&t_buff[i*CLUSTER_SIZE], m_cur_block+i);
+
+    // Emplace back buffer data
+    memcpy(buffer, &t_buff[t_buff_offset], buff_size);
+
+    //printf("Encrypted buffer :\n");
+    //hexStrPrint((u8*)buffer, bytesCount > 0x200 ? 0x200 : buff_size);
+    free(t_buff);
+}
+
 bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
-{       
-    if(nullptr != br) *br = 0;
-    DWORD bytesRead;
+{
+    //auto begin = std::chrono::system_clock::now();
+    if(br) *br = 0;
+
+    auto init_pointer = virtual_currentPtr();
 
     // Set default buffer size 
     if (!length) 
         length = getDefaultBuffSize();
 
-    // TO-DO : Resize buffer if there's not enough bytes in split file
-    if (b_isSplitted)
-    {
-        NxSplitFile *file = getSplitFile((u64)lp_CurrentPointer.QuadPart);
-        if (nullptr == file)
-            return false;
-
-        // Switch to next split file (in setPointer(u64 off))
-        if (wcscmp(file->file_path, m_curSplitFile->file_path)) 
-        {            
-            setPointer(lp_CurrentPointer.QuadPart - m_off_start);
-            dbg_printf("NxHandle::read() - Switch to next split file at offset %s\n", n2hexstr(u64(lp_CurrentPointer.QuadPart - m_off_start), 10).c_str());
-        }
-    }
-    
-    /*
-    dbg_printf("NxHandle::read(buffer, bytesRead=%I64d, length=%s) at offset %s crypto mode = %d\n",
-    nullptr != br ? *br : 0, n2hexstr(length, 6).c_str(), n2hexstr(lp_CurrentPointer.QuadPart, 10).c_str(), 
-    m_crypto);
-    */
-
     // eof
-    if (lp_CurrentPointer.QuadPart > m_off_end) {        
-        
-        dbg_printf("NxHandle::read reach eof (cur = %s, m_off_end = %s)\n",
-            n2hexstr(lp_CurrentPointer.QuadPart, 10).c_str(),
-            n2hexstr(m_off_end, 10).c_str());
-        
+    if (real_currentPtr() > m_off_end)
         return false;
+
+    // Resize read length to prevent overflow
+    if (real_currentPtr() + (u64)length > m_off_end + 1)
+        length = m_off_end + 1 - real_currentPtr();
+
+    // Read data to buffer
+    DWORD bytesToReadTotal = length;
+    DWORD bytesCount = 0;
+    while(bytesCount < bytesToReadTotal)
+    {
+        DWORD bytesToRead = bytesToReadTotal - bytesCount;
+        if (b_isSplitted)
+        {
+            if (m_curSplitFile != getSplitFile(real_currentPtr()))
+                setPointer(virtual_currentPtr()); // Switch to new splitted file
+
+            // Split file overflows
+            if (real_currentPtr() - m_curSplitFile->offset + bytesToRead > m_curSplitFile->size)
+                bytesToRead = m_curSplitFile->size - real_currentPtr() - m_curSplitFile->offset;
+        }
+        DWORD bytesRead = 0;
+        u8* u8_buff = reinterpret_cast<u8*>(buffer);
+        if (!ReadFile(m_h, &u8_buff[bytesCount], bytesToRead, &bytesRead, nullptr))
+        {
+            dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
+            return false;
+        }
+        if (!bytesRead)
+            break;
+
+        bytesCount += bytesRead;
+        lp_CurrentPointer.QuadPart += bytesRead;
     }
 
-    // Resize buffer length before calling ReadFile (otherwise hekate's mass storage tool will disconnect)
-    if (lp_CurrentPointer.QuadPart + (u64)length > m_off_end + 1)
-    {
-        length = m_off_end + 1 - lp_CurrentPointer.QuadPart;
-    }
-
-    bool do_crypto = is_in(m_crypto, { ENCRYPT, DECRYPT }) && nxCrypto != nullptr ? true : false;
-    if (do_crypto)
-    {
-        u64 rel_offset = lp_CurrentPointer.QuadPart - m_off_start; // Relative offset
-        m_cur_block = rel_offset / CLUSTER_SIZE; // Current cluster number
-        u64 clus_off = (u64)m_cur_block * (u64)CLUSTER_SIZE; // Current cluster offset
-
-        // Read cluster from cache or disk
-        if (!m_cluster_cache || !m_cluster_cache->valid || m_cluster_cache->clu_number != m_cur_block)
-        {
-            if (m_cluster_cache)
-                invalidate_cache();
-            else
-                m_cluster_cache = new cluster_cache_t;
-
-            setPointer(clus_off); // Switch to cluster start offset
-
-            DWORD br;
-            if (!ReadFile(m_h, m_cluster_cache->data, CLUSTER_SIZE, &br, nullptr)) {
-                dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
-                return false;
-            }
-
-            //printf("Encrypted buffer :\n");
-            //hexStrPrint(&m_cluster_cache->data[rel_offset-clus_off], length > 0x200 ? 0x200 : length);
-
-            if (m_crypto == DECRYPT)
-                nxCrypto->decrypt(m_cluster_cache->data, m_cur_block);
-
-            m_cluster_cache->clu_number = m_cur_block;
-            m_cluster_cache->valid = true;
-
-            setPointer(rel_offset + length); // Switch back to initial offset + initial buff length
-
-            //printf("Decrypted buffer :\n");
-            //hexStrPrint(&m_cluster_cache->data[rel_offset-clus_off], length > 0x200 ? 0x200 : length);
-
-
-        }
-        if (m_crypto == ENCRYPT)
-        {
-            u8 tmp_buffer[CLUSTER_SIZE];
-            memcpy(tmp_buffer, m_cluster_cache->data, CLUSTER_SIZE);
-            nxCrypto->encrypt((unsigned char*)tmp_buffer, m_cur_block);
-            memcpy(buffer, &tmp_buffer[rel_offset-clus_off], length);
-        }
-        else
-        {
-            memcpy(buffer, &m_cluster_cache->data[rel_offset-clus_off], length);
-        }
-        bytesRead = length;
-    }
-    else if (!ReadFile(m_h, buffer, length, &bytesRead, NULL))
-    {
-        dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
+    if (!bytesCount)
         return false;
-    }
 
-    if (bytesRead == 0)
-    {
-        dbg_printf("NxHandle::read 0 BYTE read\n");
-        return false;
-    }
-
-    lp_CurrentPointer.QuadPart += bytesRead;
-
-    if (nullptr != br)
-    {
-        // Resize buffer length if eof is reached
-        if (lp_CurrentPointer.QuadPart > m_off_end + 1)
-        {
-            u32 bytes = lp_CurrentPointer.QuadPart - m_off_end - 1;
-            dbg_printf("Resize buffer original %I32d b, new %I32d b (cur_off = %s, m_off_end = %s)\n", bytesRead, bytes, 
-                n2hexstr(lp_CurrentPointer.QuadPart, 10).c_str(), n2hexstr(m_off_end, 10).c_str());
-            *br = bytesRead - bytes;
-        }
-        else *br = bytesRead;
-    }
+    do_crypto((u8*)buffer, bytesCount, init_pointer);
 
     // Hash buffer
     if (m_crypto == MD5_HASH || m_isHashLocked)
     {
-        CryptHashData(m_md5_hash, (BYTE*)buffer, nullptr != br ? *br : bytesRead, 0);
+        CryptHashData(m_md5_hash, (BYTE*)buffer, bytesCount, 0);
     }
 
-    //dbg_printf("NxHandle::read returns %I64d bytes\n", bytesRead);
+    if (br)
+        *br = bytesCount;
+    /*
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed = end - begin;
+    dbg_printf("NxHandle Read %ld bytes in %.6f\n", bytesCount, elapsed.count());
+    */
     return true;
-
 }
 
 bool NxHandle::read(u64 offset, void *buffer, DWORD* bytesRead, DWORD length)
@@ -617,146 +575,68 @@ bool NxHandle::read(u32 lba, void *buffer, DWORD* bytesRead, DWORD length)
 
 bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
 {    
-    if (nullptr != bw) *bw = 0;
+    if (bw) *bw = 0;
     if (!length) length = getDefaultBuffSize();
     DWORD bytesWrite;
 
-    // TO-DO : Resize buffer if there's not enough bytes in split file
-    if (b_isSplitted)
-    {
-        NxSplitFile *file = getSplitFile((u64)lp_CurrentPointer.QuadPart);
-        if (nullptr == file)
-            return false;
-
-        // Switch to next split file (in setPointer(u64 off))
-        if (wcscmp(file->file_path, m_curSplitFile->file_path))
-            setPointer(lp_CurrentPointer.QuadPart - m_off_start);
-    }
-
     // eof
-    if (m_off_max && lp_CurrentPointer.QuadPart > m_off_max) {
+    if (m_off_max && lp_CurrentPointer.QuadPart > m_off_max)
         return false;
-    }
 
-    // Resize buffer if eof
+    // Resize buffer if we'll reach eof
     if (m_off_end && lp_CurrentPointer.QuadPart + length > m_off_end)
-    {
-        u32 bytes = lp_CurrentPointer.QuadPart + length - m_off_end - 1;
-        length -= bytes;
-        dbg_printf("NxHandle::write - buffer resized to %I32d bytes\n", length);
-    }
+        length -= lp_CurrentPointer.QuadPart + length - m_off_end - 1;
 
-    // Resize buffer if chunksize limit reached
-    u32 sub_bytes = 0;
-    void *sub_buffer_ptr = nullptr;
-    if (m_chunksize && lp_CurrentPointer.QuadPart + length > m_chunksize )
-    {
-        u32 new_length = m_chunksize - lp_CurrentPointer.QuadPart;
-        sub_bytes = length - new_length;
-        length = new_length;
-        sub_buffer_ptr = (char*)buffer + length;
-    }
 
-    if (m_crypto == ENCRYPT && nxCrypto != nullptr )
-    {
-        u64 rel_offset = lp_CurrentPointer.QuadPart - m_off_start; // Relative offset
-        m_cur_block = rel_offset / CLUSTER_SIZE; // Current cluster number
-        u64 clus_off = (u64)m_cur_block * (u64)CLUSTER_SIZE; // Current cluster offset
+    do_crypto((u8*)buffer, length, virtual_currentPtr());
 
-        // Read cluster from cache or disk
-        if (!m_cluster_cache || !m_cluster_cache->valid || m_cluster_cache->clu_number != m_cur_block)
+    DWORD bytesToWriteTotal = length;
+    DWORD bytesCount = 0;
+    while(bytesCount < bytesToWriteTotal)
+    {
+        DWORD bytesToWrite = bytesToWriteTotal - bytesCount;
+        if (b_isSplitted || m_chunksize)
         {
-            if (m_cluster_cache)
-                invalidate_cache();
-            else
-                m_cluster_cache = new cluster_cache_t;
+            // Switch to next out file
+            if (m_chunksize && split_currentPtr() >= m_chunksize )
+            {
+                // Set path for new file
+                if (!getNextSplitFile(m_path))
+                    return false;
 
-            setPointer(clus_off); // Switch to cluster start offset
-
-            if (!ReadFile(m_h, m_cluster_cache->data, CLUSTER_SIZE, nullptr, nullptr)) {
-                dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
-                return false;
+                // Clear current handle then create new file
+                clearHandle();
+                if(!createFile((wchar_t*)m_path.c_str(), GENERIC_WRITE))
+                    return false;
             }
 
-            nxCrypto->decrypt(m_cluster_cache->data, m_cur_block);
-            m_cluster_cache->clu_number = m_cur_block;
-            m_cluster_cache->valid = true;
+            if (m_curSplitFile != getSplitFile(real_currentPtr()))
+                setPointer(virtual_currentPtr()); // Switch to new splitted file
+
+            // Split file overflow ?
+            if (m_curSplitFile && real_currentPtr() - m_curSplitFile->offset + bytesToWrite > m_curSplitFile->size)
+                bytesToWrite = m_curSplitFile->size - real_currentPtr() - m_curSplitFile->offset;
+
+            if (m_chunksize && split_currentPtr() + bytesToWrite > m_chunksize )
+                bytesToWrite = (u32)m_chunksize - (u32)split_currentPtr();
         }
 
-        // Fetch cache
-        memcpy(&m_cluster_cache->data[rel_offset-clus_off], buffer, length);
-        /*
-        printf("WRITE : Decrypted buffer :\n");
-        hexStrPrint(&m_cluster_cache->data[rel_offset-clus_off], length > 0x200 ? 0x200 : length);
-        */
-        // Encrypt
-        u8 t_buff[CLUSTER_SIZE];
-        memcpy(t_buff, m_cluster_cache->data, CLUSTER_SIZE);
-        nxCrypto->encrypt(t_buff, m_cur_block);
-        /*
-        printf("WRITE : Encrypted buffer :\n");
-        hexStrPrint(&t_buff[rel_offset-clus_off], length > 0x200 ? 0x200 : length);
-        */
-        // Write cluster
-        setPointer(clus_off);
-        if (!WriteFile(m_h, t_buff, CLUSTER_SIZE, &bytesWrite, nullptr))
+        DWORD bytesWrite = 0;
+        u8* u8_buff = reinterpret_cast<u8*>(buffer);
+        if (!WriteFile(m_h, &u8_buff[bytesCount], bytesToWrite, &bytesWrite, nullptr))
         {
-            DWORD errorMessageID = ::GetLastError();
-            dbg_printf("NxHandle::write - FAILED WriteFile - %I32d : %s", errorMessageID, GetLastErrorAsString().c_str());
+            dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
             return false;
         }
+        if (!bytesWrite)
+            break;
 
-        setPointer(rel_offset + length); // Switch back to initial offset + initial buff length
-        bytesWrite = length;
-    }
-    else if (!WriteFile(m_h, buffer, length, &bytesWrite, nullptr))
-    {
-        DWORD errorMessageID = ::GetLastError();
-        dbg_printf("NxHandle::write - FAILED WriteFile - %I32d : %s", errorMessageID, GetLastErrorAsString().c_str());
-        return false;
-    }
-    if (bytesWrite == 0) {
-        dbg_printf("NxHandle::write - FAILED NO BYTE WRITE\n");
-        return false;
-    }
-
-    lp_CurrentPointer.QuadPart += bytesWrite;
-    *bw = bytesWrite;
-
-    // Switch to next out file
-    if (m_chunksize && lp_CurrentPointer.QuadPart >= m_chunksize )
-    {
-        // Set path for new file
-        if (!getNextSplitFile(m_path))
-            return false;
-
-        // Clear current handle then create new file
-        clearHandle();
-        if(!createFile((wchar_t*)m_path.c_str(), GENERIC_WRITE))
-            return false;
-
-        // Init cur pointer
-        lp_CurrentPointer.QuadPart = 0;
-    }
-
-    // Write remaining bytes from buffer
-    if (sub_bytes)
-    {
-        if (!WriteFile(m_h, sub_buffer_ptr, sub_bytes, &bytesWrite, nullptr))
-        {
-            DWORD errorMessageID = ::GetLastError();
-            dbg_printf("NxHandle::write - FAILED WriteFile - %I32d : %s", errorMessageID, GetLastErrorAsString().c_str());
-            return false;
-        }
-        if (bytesWrite == 0) {
-            dbg_printf("NxHandle::write - FAILED NO BYTE WRITE\n");
-            return false;
-        }
-
+        bytesCount += bytesWrite;
         lp_CurrentPointer.QuadPart += bytesWrite;
-        *bw += bytesWrite;
     }
 
+
+    if (bw) *bw = bytesWrite;
     return true;
 }
 

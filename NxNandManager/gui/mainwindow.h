@@ -69,16 +69,26 @@ private:
     Debug* DebugDialog = nullptr;
     Explorer* ExplorerDialog;
 
-
 	NxStorage* input;
     NxStorage* selected_io = nullptr;
     NxPartition *selected_part;
 	bool m_ready;
-	Worker* workThread;
-
+    Worker* workThread = nullptr;
 	int cur_operation = 0;
 	QWinTaskbarButton *TaskBarButton;
 	QWinTaskbarProgress *TaskBarProgress;
+
+    QIcon dumpIcon;
+    QIcon restoreIcon;
+    QIcon encIcon;
+    QIcon decIcon;
+    QIcon rcmIcon;
+    QIcon incoIcon;
+    QIcon formtIcon;
+    QIcon mountIcon;
+    QIcon unmountIcon;
+
+
 	bool bTaskBarSet = FALSE;
     bool bKeyset;
     int elapsed_seconds = 0;
