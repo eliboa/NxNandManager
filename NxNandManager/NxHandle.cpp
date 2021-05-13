@@ -608,6 +608,8 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
                 clearHandle();
                 if(!createFile((wchar_t*)m_path.c_str(), GENERIC_WRITE))
                     return false;
+
+                lp_CurrentPointer.QuadPart = 0;
             }
 
             if (m_curSplitFile != getSplitFile(real_currentPtr()))

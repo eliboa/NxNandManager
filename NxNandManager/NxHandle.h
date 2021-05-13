@@ -87,7 +87,7 @@ class NxHandle {
         LARGE_INTEGER li_DistanceToMove;
         u64 virtual_currentPtr() { return (u64)lp_CurrentPointer.QuadPart - m_off_start; }
         u64 real_currentPtr() { return (u64)lp_CurrentPointer.QuadPart; }
-        u64 split_currentPtr() { return m_curSplitFile ? (u64)lp_CurrentPointer.QuadPart - m_curSplitFile->offset : 0; }
+        u64 split_currentPtr() { return m_curSplitFile ? (u64)lp_CurrentPointer.QuadPart - m_curSplitFile->offset : (u64)lp_CurrentPointer.QuadPart; }
         // Geometry & size
         u64 m_totalSize = 0;
         u64 m_fileDiskTotalBytes;
