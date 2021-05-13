@@ -15,12 +15,14 @@ SRC_FATFS = $(wildcard lib/fatfs/*.cpp)
 # sources
 SRC = \
 	$(wildcard *.cpp)        \
+	$(wildcard *.rc)        \
 	$(wildcard res/*.cpp)        \
 	$(wildcard virtual_fs/*.cpp)        \
 	$(wildcard lib/ZipLib/*.cpp)        \
 	$(wildcard lib/ZipLib/detail/*.cpp)
 
-OBJS = \
+RCOBJ = $(patsubst %.rc,%.rc.o, $(wildcard gui/*.rc))
+OBJS = $(RCOBJ) \
 	$(SRC:.cpp=.o)     \
 	$(SRC_ZLIB:.c=.o)  \
 	$(SRC_LZMA:.c=.o)  \
@@ -33,6 +35,7 @@ all : $(EXEC_NAME)
 
 clean :
 	-@rm -rf *.o
+	-@rm -rf gui/NxNandManager.tres
 	-@rm -rf res/*.o
 	-@rm -rf lib/ZipLib/*.o
 	-@rm -rf lib/ZipLib/detail/*.o
@@ -42,7 +45,10 @@ clean :
 	-@rm -rf lib/fatfs/*.o
 
 $(EXEC_NAME): $(OBJS)
-	$(CXX) -o $@ $^ $(LIBS)
+	$(CXX) -o $@ $^ $(LIBS) 
+
+$(RCOBJ) : %.rc.o : %.rc
+	windres $^ -o $@
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
