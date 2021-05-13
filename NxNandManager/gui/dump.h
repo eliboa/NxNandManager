@@ -48,6 +48,7 @@ private:
     void on_crypto_changed();
     void lock_md5CheckBox(bool checked = true);
     void unlock_md5CheckBox();
+    QWidget* m_parent = nullptr;
 };
 
 #endif // DUMP_H

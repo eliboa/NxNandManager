@@ -6,6 +6,7 @@ Dump::Dump(QWidget *parent, NxStorage* input, int in_part) :
     ui(new Ui::Dump)
 {
     ui->setupUi(this);
+    m_parent = parent;
 
     if(input->isNxStorage())
         m_input = input;
@@ -188,6 +189,6 @@ void Dump::on_pushButton_clicked()
     }
 
     // Do COPY
-    WorkerInstance wi(this, WorkerMode::dump, &m_par, m_input, ui->outPathValue->text());
+    WorkerInstance wi(m_parent, WorkerMode::dump, &m_par, m_input, ui->outPathValue->text());
     wi.exec();
 }

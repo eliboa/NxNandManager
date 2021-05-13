@@ -444,7 +444,7 @@ void Emunand::on_createEmunandBtn_clicked()
 
     // Do WORK
     stop_timer = true;
-    WorkerInstance wi(this, create_emunand, &m_par, input, output.c_str());
+    WorkerInstance wi(parent, create_emunand, &m_par, input, output.c_str());
     wi.exec();
     stop_timer = false;
 }

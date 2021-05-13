@@ -75,7 +75,7 @@ private:
 	bool m_ready;
     Worker* workThread = nullptr;
 	int cur_operation = 0;
-	QWinTaskbarButton *TaskBarButton;
+    QWinTaskbarButton *TaskBarButton = nullptr;
 	QWinTaskbarProgress *TaskBarProgress;
 
     QIcon dumpIcon;

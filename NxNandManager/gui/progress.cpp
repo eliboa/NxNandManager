@@ -33,6 +33,7 @@ Progress::Progress(QWidget *parent, NxStorage *workingStorage) :
 
 Progress::~Progress()
 {
+    TaskBarProgress->setValue(0);
     TaskBarProgress->setVisible(false);
     delete ui;
 }
@@ -217,11 +218,12 @@ void Progress::reject()
                 m_workingStorage->stopWork = true;
                 return;
             }
+            TaskBarProgress->setVisible(false);
             QDialog::reject();
         }
         return;
     }
-
+    TaskBarProgress->setVisible(false);
     QDialog::done(result());
 }
 

@@ -101,7 +101,7 @@ void ResizeUser::on_buttonBox_accepted()
     par.user_new_size = ui->new_size->value() * 0x800;
     par.format_user = ui->checkBox->isChecked();
 
-    WorkerInstance wi(this, WorkerMode::dump, &par, input, ui->output->text());
+    WorkerInstance wi(parent, WorkerMode::dump, &par, input, ui->output->text());
     wi.exec();
 
     //emit finished(ui->output->text(), ui->new_size->value(), ui->checkBox->isChecked());

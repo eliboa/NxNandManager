@@ -1237,6 +1237,7 @@ void MainWindow::keySetSet()
         qApp->processEvents();
         QString filename = QString::fromWCharArray(input->m_path);
         delete input;
+        input = nullptr;
         if (workThread)
             delete workThread;
         workThread = new Worker(this, WorkerMode::new_storage, filename);
