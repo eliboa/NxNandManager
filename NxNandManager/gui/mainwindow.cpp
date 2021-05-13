@@ -193,28 +193,38 @@ void MainWindow::open()
     if (fileName.isEmpty())
         return;
 
-    if(input) {
-        delete input;
-        input = nullptr;
-    }
-    beforeInputSet();
+    if (!safe_closeInput())
+        return;
+
     if (workThread)
         delete workThread;
     workThread = new Worker(this, WorkerMode::new_storage, fileName);
     workThread->start();
 
 }
-
-void MainWindow::closeInput()
+bool MainWindow::safe_closeInput()
 {
-    if(input) {
-        delete input;
-        input = nullptr;
-    }
+    if (!input)
+        return true;
+
+    if(input->is_vfs_mounted() && QMessageBox::question(this, "Warning",
+                "At least one partition is mounted as virtual disk.\nAre you sure you want to unmount & close input ?\n ",
+                QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+        return false;
+
+    delete input;
+    input = nullptr;
     beforeInputSet();
     ui->analysingLbl->setVisible(false);
     ui->loadingBar->setVisible(false);
     ui->partitionsGrp->setVisible(true);
+
+    return true;
+};
+
+void MainWindow::closeInput()
+{
+    safe_closeInput();
 };
 
 void MainWindow::openDrive()
@@ -572,8 +582,9 @@ void MainWindow::beforeInputSet()
 
 void MainWindow::inputSet(NxStorage *storage)
 {
-    if (input)
-        delete input;
+    if (!safe_closeInput())
+        return;
+
 	input = storage;
     ui->analysingLbl->setVisible(false);    
     ui->loadingBar->setVisible(false);
@@ -1001,11 +1012,6 @@ void MainWindow::on_partition_table_itemSelectionChanged()
             selected_part->getVolumeMountPoint(mountPoint);
             label.append(" (" + QString::fromStdWString(mountPoint).toUpper() + ":)");
         }
-        button->setText(label);
-        button->setFixedSize(110, 30);
-        connect(button, &QPushButton::clicked, [=]() {
-            on_mountParition(selected_part->type());
-        });
 
         QString statusTip(selected_part->is_vfs_mounted() ? "Unmount virtual disk" : "Mount partition as virtual disk (virtual filesystem)");
         if (selected_part->isEncryptedPartition() && (selected_part->badCrypto() || !selected_part->crypto()))
@@ -1013,9 +1019,22 @@ void MainWindow::on_partition_table_itemSelectionChanged()
             button->setDisabled(true);
             statusTip = selected_part->crypto() ? "CRYPTO FAILED! WRONG KEYS" : "KEYSET MISSING! CTRL+K TO CONFIGURE KEYSET";
         }
+        else
+        {
+            QAction* mountAction = new QAction(selected_part->is_vfs_mounted() ? unmountIcon : mountIcon, label);
+            mountAction->setStatusTip(statusTip);
+            ui->partition_table->connect(mountAction, &QAction::triggered, [=]() {
+                on_mountParition(selected_part->type());
+            });
+            ui->partition_table->addAction(mountAction);
+        }
         button->setStatusTip(statusTip);
         button->setToolTip(statusTip);
-
+        button->setText(label);
+        button->setFixedSize(110, 30);
+        connect(button, &QPushButton::clicked, [=]() {
+            on_mountParition(selected_part->type());
+        });
         ui->horizontalLayout_2->addWidget(button);
     }
 
@@ -1039,10 +1058,9 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 void MainWindow::driveSet(QString drive)
 {    
 	qApp->processEvents();
-    if(input) {
-        delete input;
-        input = nullptr;
-    }
+    if (!safe_closeInput())
+        return;
+
 	// Open new thread to init storage (callback => inputSet(NxStorage))
     beforeInputSet();
     if (workThread)
@@ -1186,8 +1204,8 @@ void MainWindow::toggleAutoRCM()
         qApp->processEvents();
         beforeInputSet();
         QString filename = QString::fromWCharArray(input->m_path);
-        delete input;
-        input = nullptr;
+        if (!safe_closeInput())
+            return;
         if (workThread)
             delete workThread;
         workThread = new Worker(this, WorkerMode::new_storage, filename);
@@ -1218,7 +1236,8 @@ void MainWindow::formatPartition()
 
     beforeInputSet();
     QString filename = QString::fromWCharArray(input->m_path);
-    delete input;
+    if (!safe_closeInput())
+        return;
     if (workThread)
         delete workThread;
     workThread = new Worker(this, WorkerMode::new_storage, filename);
@@ -1236,8 +1255,8 @@ void MainWindow::keySetSet()
     {
         qApp->processEvents();
         QString filename = QString::fromWCharArray(input->m_path);
-        delete input;
-        input = nullptr;
+        if (!safe_closeInput())
+            return;
         if (workThread)
             delete workThread;
         workThread = new Worker(this, WorkerMode::new_storage, filename);

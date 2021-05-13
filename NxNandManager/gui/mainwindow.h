@@ -95,6 +95,7 @@ private:
 
 	void initButtons();
     void beforeInputSet();
+    bool safe_closeInput();
 
 protected:
     void showEvent(QShowEvent *e) override;
