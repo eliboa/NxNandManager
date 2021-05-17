@@ -1,5 +1,5 @@
 ![Png](https://img.shields.io/badge/platform-windows-lightgrey)
-![Png](https://img.shields.io/badge/latest%20stable%20release-4.0-yellow)
+![Png](https://img.shields.io/badge/latest%20stable%20release-4.1.2-yellow)
 ![GitHub](https://img.shields.io/github/license/eliboa/NxNandManager)
 ![GitHub All Releases](https://img.shields.io/github/downloads/eliboa/NxNandManager/total)
 ![GitHub repo size](https://img.shields.io/github/repo-size/eliboa/NxNandManager)
@@ -8,7 +8,7 @@
 
 # NxNandManager
 
-![Png](https://www.eliboa.com/NxNandManager4.0b_00.png)
+![Png](https://www.eliboa.com/NxNandManager_v5.0.png)
 
 ## What can this program do ?
 
@@ -23,6 +23,8 @@
 ![Png](https://www.eliboa.com/NxNandManager4.0b_03.png)
 - "Advanced copy" feature (passthrough zeroes, split output, zip output, etc.)   
 ![Png](https://www.eliboa.com/NxNandManager4.0b_02.png)
+- Mount any FAT partition (USER, SYSTEM, etc.) as virtual disk. Follow steps to install Dokan's driver first.
+![Gif](https://www.eliboa.com/NxNandManager_v5.0_mount.gif)
 
 ## Supported file format
 
