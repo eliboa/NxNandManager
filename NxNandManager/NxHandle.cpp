@@ -487,7 +487,6 @@ void NxHandle::do_crypto(u8* buffer, u32 buff_size, u64 start_offset)
 
 bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
 {
-    //auto begin = std::chrono::system_clock::now();
     if(br) *br = 0;
 
     auto init_pointer = virtual_currentPtr();
@@ -515,7 +514,7 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
             if (m_curSplitFile != getSplitFile(real_currentPtr()))
                 setPointer(virtual_currentPtr()); // Switch to new splitted file
 
-            // Split file overflows
+            // Split file overflow
             if (real_currentPtr() - m_curSplitFile->offset + bytesToRead > m_curSplitFile->size)
                 bytesToRead = m_curSplitFile->size - real_currentPtr() - m_curSplitFile->offset;
         }
@@ -546,11 +545,7 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
 
     if (br)
         *br = bytesCount;
-    /*
-    auto end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed = end - begin;
-    dbg_printf("NxHandle Read %ld bytes in %.6f\n", bytesCount, elapsed.count());
-    */
+
     return true;
 }
 
@@ -586,7 +581,6 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     // Resize buffer if we'll reach eof
     if (m_off_end && lp_CurrentPointer.QuadPart + length > m_off_end)
         length -= lp_CurrentPointer.QuadPart + length - m_off_end - 1;
-
 
     do_crypto((u8*)buffer, length, virtual_currentPtr());
 
@@ -859,7 +853,6 @@ bool NxHandle::getVolumeName(WCHAR *pVolumeName, u32 start_sector)
 
 void NxHandle::lockHash()
 {
-
     CryptAcquireContext(&h_WinCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
     CryptCreateHash(h_WinCryptProv, CALG_MD5, 0, 0, &m_md5_hash);
     m_isHashLocked = true;

@@ -82,28 +82,6 @@ std::string dokanNtStatusToStr(NTSTATUS status)
 }
 int installDokanDriver(bool silent)
 {
-/*
-    SHELLEXECUTEINFO shExInfo = { 0 };
-    shExInfo.cbSize = sizeof(shExInfo);
-    shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
-    shExInfo.hwnd = nullptr;
-    shExInfo.lpVerb = L"runas";
-    wstring args_w = L"/i " + parent_path(ExePathW());
-#ifdef ARCH64
-    bool x64 = true;
-#else
-    bool x64 = IsWow64();
-#endif
-    LPCWSTR args = (const wchar_t*) args_w.append(x64 ? L"\\dokan_x64.msi" : L"\\dokan_x86.msi").c_str();
-    shExInfo.lpFile = L"msiexec.exe";
-    shExInfo.lpParameters = args;
-    shExInfo.lpDirectory = nullptr;
-    shExInfo.nShow = SW_SHOW;
-    shExInfo.hInstApp = nullptr;
-
-    if (ShellExecuteEx(&shExInfo))
-        CloseHandle(shExInfo.hProcess);
-*/
 
 #ifdef ARCH64
     bool x64 = true;
