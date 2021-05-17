@@ -8,7 +8,7 @@
 
 # NxNandManager
 
-![Png](https://www.eliboa.com/NxNandManager_v5.0.png)
+![Png](https://www.eliboa.com/NxNandManager_v5.0_2.png)
 
 ## What can this program do ?
 
