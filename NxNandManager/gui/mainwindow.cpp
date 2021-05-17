@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2019 eliboa
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -832,8 +832,8 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     }
     addItem("First sector:", QString::number(selected_part->lbaStart())
                              + " (" + QString::fromStdString(int_to_hex(selected_part->lbaStart()) + ")"));
-    addItem("Last sector:", QString::number(selected_part->lbaStart()) + " ("
-                            + QString::fromStdString(int_to_hex(selected_part->lbaStart()) + ")"));
+    addItem("Last sector:", QString::number(selected_part->lbaEnd()) + " ("
+                            + QString::fromStdString(int_to_hex(selected_part->lbaEnd()) + ")"));
     addItem("Encrypted:", selected_part->isEncryptedPartition() ? "Yes" : "No");
 
     if (selected_part->type() == BOOT0)
@@ -1286,7 +1286,7 @@ void MainWindow::vfs_callback(NTSTATUS status)
         QMessageBox msgBox;
         msgBox.setIcon(QMessageBox::Icon::Warning);
         msgBox.setText("Dokan driver not found");
-        msgBox.setInformativeText("Click \"Yes\" to proceed with installation.\nClick \"No\" to cancel.");
+        msgBox.setInformativeText("Do you want to proceed with installation ?");
         msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
         msgBox.setDefaultButton(QMessageBox::Yes);
         if(msgBox.exec() == QMessageBox::Yes)
