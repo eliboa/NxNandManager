@@ -7,6 +7,7 @@
 #include <QProgressBar>
 #include <QWinTaskbarProgress>
 #include "../NxStorage.h"
+#include <QPlainTextEdit>
 
 namespace Ui {
 class Progress;
@@ -29,6 +30,7 @@ public slots:
     void on_WorkFinished();
     void timer1000();
     void reject() override;
+    void consoleWrite(const QString &str);
 
 private slots:
     void on_pushButton_clicked();
@@ -42,6 +44,7 @@ private:
     NxStorage *m_workingStorage;
     QWinTaskbarButton *TaskBarButton;
     QWinTaskbarProgress *TaskBarProgress;
+    QPlainTextEdit* console = nullptr;
     bool bTaskBarSet = false;
     // Member variables
     bool m_workerSet = false;
@@ -53,7 +56,7 @@ private:
     timepoint_t m_buf_time;
     u64 m_bytesProcessedPerSecond = 0;
     std::vector<u64> m_l_bytesProcessedPerSecond;
-
+    bool b_done = false;
     // Methods
     void setProgressBarStyle(QProgressBar* progressBar, QString color);
 };

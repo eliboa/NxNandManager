@@ -654,7 +654,7 @@ NxStorage::~NxStorage()
         delete nxHandle;
 }
 
-int NxStorage::setKeys(const char* keyset)
+int NxStorage::setKeys(const char* keyset_file)
 {
 
     if (!isNxStorage())
@@ -672,106 +672,21 @@ int NxStorage::setKeys(const char* keyset)
     memset(keys.crypt3, 0, 33);
     memset(keys.tweak3, 0, 33);
 
-    int num_keys = 0;
-    ifstream readFile(keyset);
-    string readout;
-    std::string delimiter = ":";
-    std::string value = "";
-
-    if (readFile.is_open())
-    {
-        while (getline(readFile, readout)) {
-            value.clear();
-            if (readout.find("BIS KEY 0 (crypt)") != std::string::npos) {
-                value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(keys.crypt0, value.substr(0, 32).c_str());
-                num_keys++;
-            }
-            else if (readout.find("BIS KEY 0 (tweak)") != std::string::npos) {
-                value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(keys.tweak0, value.substr(0, 32).c_str());
-                num_keys++;
-            }
-            else if (readout.find("BIS KEY 1 (crypt)") != std::string::npos) {
-                value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(keys.crypt1, value.substr(0, 32).c_str());
-                num_keys++;
-            }
-            else if (readout.find("BIS KEY 1 (tweak)") != std::string::npos) {
-                value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(keys.tweak1, value.substr(0, 32).c_str());
-                num_keys++;
-            }
-            else if (readout.find("BIS KEY 2 (crypt)") != std::string::npos) {
-                value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(keys.crypt2, value.substr(0, 32).c_str());
-                num_keys++;
-            }
-            else if (readout.find("BIS KEY 2 (tweak)") != std::string::npos) {
-                value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(keys.tweak2, value.substr(0, 32).c_str());
-                num_keys++;
-            }
-            else if (readout.find("BIS KEY 3 (crypt)") != std::string::npos) {
-                value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(keys.crypt3, value.substr(0, 32).c_str());
-                num_keys++;
-            }
-            else if (readout.find("BIS KEY 3 (tweak)") != std::string::npos) {
-                value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(keys.tweak3, value.substr(0, 32).c_str());
-                num_keys++;
-            }
-            else if (readout.find("bis_key_00") != std::string::npos) {
-                value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
-                strcpy_s(keys.crypt0, value.substr(0, 32).c_str());
-                strcpy_s(keys.tweak0, value.substr(32, 32).c_str());
-                num_keys += 2;
-            }
-            else if (readout.find("bis_key_01") != std::string::npos) {
-                value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
-                strcpy_s(keys.crypt1, value.substr(0, 32).c_str());
-                strcpy_s(keys.tweak1, value.substr(32, 32).c_str());
-                num_keys += 2;
-            }
-            else if (readout.find("bis_key_02") != std::string::npos) {
-                value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
-                strcpy_s(keys.crypt2, value.substr(0, 32).c_str());
-                strcpy_s(keys.tweak2, value.substr(32, 32).c_str());
-                num_keys += 2;
-            }
-            else if (readout.find("bis_key_03") != std::string::npos) {
-                value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
-                strcpy_s(keys.crypt3, value.substr(0, 32).c_str());
-                strcpy_s(keys.tweak3, value.substr(32, 32).c_str());
-                num_keys += 2;
-            }
-        }
-    }
-    else
-    {
-        return ERR_KEYSET_NOT_EXISTS;
-    }
-
-    readFile.close();
+    int num_keys = parseKeySetFile(keyset_file, &keyset);
 
     if (!num_keys)
         return ERR_KEYSET_EMPTY;
-    
+
     m_keySet_set = true;
 
-    // toupper keys
-    for (int i = 0; i < strlen(keys.crypt0); i++) keys.crypt0[i] = toupper(keys.crypt0[i]);
-    for (int i = 0; i < strlen(keys.crypt1); i++) keys.crypt1[i] = toupper(keys.crypt1[i]);
-    for (int i = 0; i < strlen(keys.crypt2); i++) keys.crypt2[i] = toupper(keys.crypt2[i]);
-    for (int i = 0; i < strlen(keys.crypt3); i++) keys.crypt3[i] = toupper(keys.crypt3[i]);
-    for (int i = 0; i < strlen(keys.tweak0); i++) keys.tweak0[i] = toupper(keys.tweak0[i]);
-    for (int i = 0; i < strlen(keys.tweak1); i++) keys.tweak1[i] = toupper(keys.tweak1[i]);
-    for (int i = 0; i < strlen(keys.tweak2); i++) keys.tweak2[i] = toupper(keys.tweak2[i]);
-    for (int i = 0; i < strlen(keys.tweak3); i++) keys.tweak3[i] = toupper(keys.tweak3[i]);
-    
-    BYTE buff[CLUSTER_SIZE];
-    DWORD bytesRead;
+    memcpy(keys.crypt0, keyset.crypt0, 33);
+    memcpy(keys.tweak0, keyset.tweak0, 33);
+    memcpy(keys.crypt1, keyset.crypt1, 33);
+    memcpy(keys.tweak1, keyset.tweak1, 33);
+    memcpy(keys.crypt2, keyset.crypt2, 33);
+    memcpy(keys.tweak2, keyset.tweak2, 33);
+    memcpy(keys.crypt3, keyset.crypt3, 33);
+    memcpy(keys.tweak3, keyset.tweak3, 33);
 
     for (NxPartition *part : partitions)
         part->setBadCrypto(false);
@@ -805,12 +720,12 @@ int NxStorage::setKeys(const char* keyset)
     // Retrieve information from encrypted partitions
     if (!badCrypto())
     {
-        dbg_printf("NxStorage::setKeys(%s) - CRYPTO is GOOD", keyset);
+        dbg_printf("NxStorage::setKeys(%s) - CRYPTO is GOOD", keyset_file);
         setStorageInfo();
     }
     if (badCrypto()) 
     {
-        dbg_printf("NxStorage::setKeys(%s) BAD crypto\n", keyset);
+        dbg_printf("NxStorage::setKeys(%s) BAD crypto\n", keyset_file);
         return ERROR_DECRYPT_FAILED;
     }
 

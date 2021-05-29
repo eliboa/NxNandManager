@@ -39,13 +39,15 @@ virtual_fs::virtual_fs(NxPartition* part)
     partition = part;
     fs_filenodes = unique_ptr<::virtual_fs::fs_filenodes>(new ::virtual_fs::fs_filenodes());
     fs_filenodes->nx_part = partition;
-
+    callback_func = nullptr;
 }
 
-int virtual_fs::populate() {
+int virtual_fs::populate()
+{
+    int res = SUCCESS;
     // Ensure FS is mounted for NxPartition
-    if (!partition->mount_fs())
-        return -1;
+    if ((res = partition->mount_fs()))
+        return res;
 
     vector<wstring> queue;
     DIR dp;
@@ -142,8 +144,14 @@ void virtual_fs::run()
     dokan_options.GlobalContext = reinterpret_cast<ULONG64>(fs_filenodes.get());
 
     NTSTATUS status = DokanMain(&dokan_options, &virtual_fs_operations);
+
     if (callback_func)
         callback_func(status);
+
+#if defined(ENABLE_GUI)
+    emit dokan_callback((long)status);
+#endif
+
 }
 
 virtual_fs::~virtual_fs() {

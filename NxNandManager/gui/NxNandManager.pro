@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui sql
+QT       += core gui network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -16,7 +16,6 @@ TEMPLATE = app
 # depend on your compiler). Please consult the documentation of the
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
-
 # You can also make your code fail to compile if you use deprecated APIs.
 # In order to do so, uncomment the following line.
 # You can also select to disable deprecated APIs only up to a certain version of Qt.
@@ -30,11 +29,14 @@ CONFIG += object_parallel_to_source
 QMAKE_CXXFLAGS += -fpermissive
 
 SOURCES += \
+    ../NxFile.cpp \
+    ../NxSave.cpp \
     ../lib/fatfs/diskio.cpp \
     ../lib/fatfs/ff.cpp \
     ../lib/fatfs/ffsystem.cpp \
     ../lib/fatfs/ffunicode.cpp \
     ../main.cpp \
+    ../res/hactool/utils.c \
     ../res/hex_string.cpp \
     ../res/fat32.cpp \
     ../res/mbr.cpp \
@@ -53,6 +55,7 @@ SOURCES += \
     emunand.cpp \
     explorer.cpp \
     keyset.cpp \
+    loading_widget.cpp \
     mainwindow.cpp \
     properties.cpp \
     qutils.cpp \
@@ -67,10 +70,16 @@ SOURCES += \
     $$files(../lib/ZipLib/extlibs/lzma/*.c, false) \
     debug.cpp
 HEADERS += \
+    ../NxFile.h \
     ../NxNandManager.h \
+    ../NxSave.h \
     ../lib/fatfs/diskio.h \
     ../lib/fatfs/ff.h \
     ../lib/fatfs/ffconf.h \
+    ../res/hactool/ivfc.h \
+    ../res/hactool/settings.h \
+    ../res/hactool/types.h \
+    ../res/hactool/utils.h \
     ../res/hex_string.h \
     ../res/fat32.h \
     ../res/mbr.h \
@@ -88,6 +97,7 @@ HEADERS += \
     explorer.h \
     gui.h \
     keyset.h \
+    loading_widget.h \
     mainwindow.h \
     properties.h \
     ../NxPartition.h \
@@ -117,6 +127,7 @@ CONFIG(DYNAMIC) {
 FORMS += \
     emunand.ui \
     explorer.ui \
+    loading_widget.ui \
     mainwindow.ui \
     opendrive.ui \
     keyset.ui \

@@ -1122,11 +1122,6 @@ QTableCornerButton::section {background-color: transparent;}</string>
      <string>Options</string>
     </property>
     <addaction name="actionConfigureKeyset"/>
-    <addaction name="actionIncognito"/>
-    <addaction name="actionautoRCM"/>
-    <addaction name="actionResize"/>
-    <addaction name="actionDumpRawnandOnly"/>
-    <addaction name="actionCreateEmunand"/>
     <addaction name="actionRestartDebug"/>
    </widget>
    <widget class="QMenu" name="menuDebug">
@@ -1135,7 +1130,18 @@ QTableCornerButton::section {background-color: transparent;}</string>
     </property>
     <addaction name="actionDebug_console"/>
    </widget>
+   <widget class="QMenu" name="menuTools_2">
+    <property name="title">
+     <string>Tools</string>
+    </property>
+    <addaction name="actionIncognito"/>
+    <addaction name="actionautoRCM"/>
+    <addaction name="actionResize"/>
+    <addaction name="actionCreateEmunand"/>
+    <addaction name="actionDumpRawnandOnly"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuTools_2"/>
    <addaction name="menuTools"/>
    <addaction name="menuDebug"/>
   </widget>
@@ -1427,6 +1433,11 @@ QTableCornerButton::section {background-color: transparent;}</string>
   <action name="actionRestartDebug">
    <property name="text">
     <string>Restart program in debug mode</string>
+   </property>
+  </action>
+  <action name="actionConfigureHactool">
+   <property name="text">
+    <string>Configure hactool</string>
    </property>
   </action>
  </widget>

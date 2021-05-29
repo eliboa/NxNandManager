@@ -738,36 +738,81 @@ void NxPartition::clearHandles()
     //p_ofstream.close();
 }
 
-bool NxPartition::mount_fs()
+int NxPartition::mount_fs()
 {
     if (is_mounted())
-        return true;
+        return SUCCESS;
 
     if (!is_in(type(), {PRODINFOF, SAFE, USER, SYSTEM}))
-        return false;
+        return ERR_PARTITION_NO_FATFS;
 
     if (isEncryptedPartition() && nxCrypto == nullptr || badCrypto())
-        return false;
+        return ERR_BAD_CRYPTO;
 
     if (nxfs_initialize(this, &m_fatfs) != RES_OK)
-        return false;
+        return ERR_FAILED_TO_MOUNT_FS;
 
     if(f_mount(&m_fatfs, fs_prefix().c_str(), 1))
-        return false;
+        return ERR_FAILED_TO_MOUNT_FS;
 
-    return true;
+    return SUCCESS;
 }
-bool NxPartition::unmount_fs()
+int NxPartition::unmount_fs()
 {
     if (!is_mounted())
-        return true;
+        return SUCCESS;
 
     if (nxfs_uninit(&m_fatfs) != RES_OK)
-        return false;
+        return ERR_FAILED_TO_UNMOUNT_FS;
 
     memset(&m_fatfs, 0, sizeof(FATFS));
 
-    return true;
+    return SUCCESS;
+}
+
+int NxPartition::mount_vfs(bool run, wchar_t driveLetter, void(*clb_func_ptr)(NTSTATUS))
+{
+    long res = SUCCESS;
+
+    if (is_vfs_mounted())
+        return res;
+
+    if ((res = mount_fs()))
+        return res;
+
+    m_vfs = new virtual_fs::virtual_fs(this);
+
+    if (driveLetter)
+        m_vfs->setDriveLetter(driveLetter);
+
+    int ent = m_vfs->populate();
+    if(ent < 0)
+        res = ERR_FAILED_TO_POPULATE_VFS;
+
+    if (!res && clb_func_ptr)
+        m_vfs->setCallBackFunction(clb_func_ptr);
+
+    if (!res && run)
+    {
+#if defined(ENABLE_GUI)
+        connect(m_vfs, &virtual_fs::virtual_fs::dokan_callback, [&](long r) {
+            if (r) emit vfs_callback(r);
+        });
+#endif
+        m_vfs->run(); // Will pause current thread execution until error or unmount
+    }
+    return res;
+}
+
+int NxPartition::unmount_vfs()
+{
+    if (!is_vfs_mounted())
+        return ERR_FAILED_TO_UNMOUNT_FS;
+
+    WCHAR mount_point[4] = L" :\\";
+    getVolumeMountPoint(mount_point);
+    int res = DokanRemoveMountPoint(mount_point) ? SUCCESS : ERR_FAILED_TO_UNMOUNT_FS;
+    return res;
 }
 
 wstring NxPartition::fs_prefix(const wchar_t* path) {
@@ -783,8 +828,18 @@ void NxPartition::setVolumeMountPoint(WCHAR *mountPoint)
         return;
 
     m_mount_point[0] = mountPoint[0];
-}
 
+#if defined(ENABLE_GUI)
+    emit mountPoint ? vfs_mounted_signal() : vfs_unmounted_signal();
+#endif
+}
+wstring NxPartition::getVolumeMountPoint()
+{
+    if (!m_mount_point[0] || !m_is_vfs_mounted)
+        return wstring();
+
+    return wstring(m_mount_point);
+}
 void NxPartition::getVolumeMountPoint(WCHAR *mountPoint)
 {
     if (!mountPoint || !m_is_vfs_mounted)
@@ -793,12 +848,42 @@ void NxPartition::getVolumeMountPoint(WCHAR *mountPoint)
     mountPoint[0] = m_mount_point[0];
 }
 
-bool NxPartition::unmount_vfs()
-{
-    if (!is_vfs_mounted())
-        return true;
 
-    WCHAR mount_point[4] = L" :\\";
-    getVolumeMountPoint(mount_point);
-    return DokanRemoveMountPoint(mount_point);
+FRESULT static (*fs_open)(FIL* fp, const TCHAR* path, BYTE mode) = &f_open;
+FRESULT static (*fs_opendir) (DIR* dp, const TCHAR* path) = &f_opendir;
+FRESULT static (*fs_mkdir) (const TCHAR* path) = &f_mkdir;
+FRESULT static (*fs_unlink) (const TCHAR* path) = &f_unlink;
+FRESULT static (*fs_rename) (const TCHAR* path_old, const TCHAR* path_new) = &f_rename;
+FRESULT static (*fs_stat) (const TCHAR* path, FILINFO* fno) = &f_stat;
+FRESULT static (*fs_chmod) (const TCHAR* path, BYTE attr, BYTE mask) = &f_chmod;
+FRESULT static (*fs_utime) (const TCHAR* path, const FILINFO* fno) = &f_utime;
+FRESULT static (*fs_getfree) (const TCHAR* path, DWORD* nclst, FATFS** fatfs) = f_getfree;
+
+FRESULT NxPartition::f_open (FIL* fp, const TCHAR* path, BYTE mode) {
+    return !is_mounted() ? FR_NO_FILESYSTEM : fs_open(fp, fs_prefix(path).c_str(), mode);
 }
+FRESULT NxPartition::f_opendir (DIR* dp, const TCHAR* path) {
+    return !is_mounted() ? FR_NO_FILESYSTEM : fs_opendir(dp, fs_prefix(path).c_str());
+}
+FRESULT NxPartition::f_mkdir (const TCHAR* path) {
+    return !is_mounted() ? FR_NO_FILESYSTEM : fs_mkdir(fs_prefix(path).c_str());
+}
+FRESULT NxPartition::f_unlink (const TCHAR* path) {
+    return !is_mounted() ? FR_NO_FILESYSTEM : fs_unlink(fs_prefix(path).c_str());
+}
+FRESULT NxPartition::f_rename (const TCHAR* path_old, const TCHAR* path_new) {
+    return !is_mounted() ? FR_NO_FILESYSTEM : fs_rename(fs_prefix(path_old).c_str(), fs_prefix(path_new).c_str());
+}
+FRESULT NxPartition::f_stat (const TCHAR* path, FILINFO* fno) {
+    return !is_mounted() ? FR_NO_FILESYSTEM : fs_stat(fs_prefix(path).c_str(), fno);
+}
+FRESULT NxPartition::f_chmod (const TCHAR* path, BYTE attr, BYTE mask) {
+    return !is_mounted() ? FR_NO_FILESYSTEM : fs_chmod(fs_prefix(path).c_str(), attr, mask);
+}
+FRESULT NxPartition::f_utime (const TCHAR* path, const FILINFO* fno) {
+    return !is_mounted() ? FR_NO_FILESYSTEM : fs_utime(fs_prefix(path).c_str(), fno);
+}
+FRESULT NxPartition::f_getfree (const TCHAR* path, DWORD* nclst, FATFS** fatfs) {
+    return !is_mounted() ? FR_NO_FILESYSTEM : fs_getfree(fs_prefix(path).c_str(), nclst, fatfs);
+}
+

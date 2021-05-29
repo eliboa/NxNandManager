@@ -60,6 +60,7 @@
 #define FAT12   1
 #define FAT32   2
 
+#define FILE_ATTRIBUTE_NX_ARCHIVE    0x30
 
 //Errors
 
@@ -69,7 +70,6 @@ typedef unsigned int u32;
 typedef unsigned long long int u64;
 typedef char s8;
 typedef unsigned char BYTE;
-
 
 #include <chrono>
 typedef std::chrono::duration< double > double_prec_seconds;

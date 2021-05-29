@@ -28,7 +28,7 @@ THE SOFTWARE.
 
 #ifndef virtual_fs_H_
 #define virtual_fs_H_
-
+#include "../gui/gui.h"
 #include <dokan/dokan.h>
 #include <dokan/fileinfo.h>
 #include "filenodes.h"
@@ -37,8 +37,20 @@ THE SOFTWARE.
 #include <iostream>
 #include "../NxPartition.h"
 
+#if defined(ENABLE_GUI)
+#include <QObject>
+#endif
+
 namespace virtual_fs {
-class virtual_fs {
+class fs_filenodes;
+class virtual_fs
+#if defined(ENABLE_GUI)
+    : public QObject
+{
+    Q_OBJECT
+#else
+{
+#endif
     public:
     virtual_fs(NxPartition* part);
 
@@ -65,10 +77,16 @@ class virtual_fs {
     void setDriveLetter(const wchar_t letter) { mount_point[0] = letter; }
 
     void(*callback_func)(NTSTATUS) = nullptr;
-    void setCallBackFunction(void(*func_ptr)(NTSTATUS)) { callback_func = func_ptr; }
+    void setCallBackFunction(void(*func_ptr)(NTSTATUS)) {
+        callback_func = func_ptr;
+    }
 
     // FileSystem context runtime
     std::unique_ptr<fs_filenodes> fs_filenodes;
+#if defined(ENABLE_GUI)
+signals:
+    void dokan_callback(long res);
+#endif
 };
 }  // namespace virtual_fs
 

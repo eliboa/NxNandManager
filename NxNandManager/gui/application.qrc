@@ -21,5 +21,13 @@
         <file>images/emunand.png</file>
         <file>images/format.png</file>
         <file>images/unmount.png</file>
+        <file>images/loader_bgFFFFFF.gif</file>
+        <file>res/all_titles.json</file>
+        <file>res/nca.json</file>
+        <file>images/export.png</file>
+        <file>images/extract_decrypt.png</file>
+        <file>images/import.png</file>
+        <file>images/search.png</file>
+        <file>images/nsw.png</file>
     </qresource>
 </RCC>

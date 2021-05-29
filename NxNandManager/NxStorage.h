@@ -167,6 +167,7 @@ class NxStorage
         bool autoRcm = false;
         bool exFat_driver = false;
         NxKeys keys;
+        KeySet keyset;
 
         u32 mmc_b0_lba_start = 0;
         bool b_MayBeNxStorage = false;

@@ -80,6 +80,15 @@ void hexStrPrint(unsigned char *data, int len)
     printf("%s\n", s.c_str());
 }
 
+void flipBytes(u8* buf, size_t len)
+{
+    u8* tmp_buf = (u8*)malloc(len);
+    for (size_t i(0); i < len; i++)
+        memcpy(&tmp_buf[i], &buf[len-1-i], 1);
+    memcpy(buf, tmp_buf, len);
+    free(tmp_buf);
+}
+
 BOOL AskYesNoQuestion(const char* question, void* p_arg1, void* p_arg2)
 {
 	BOOL bContinue = TRUE;
@@ -382,7 +391,7 @@ bool is_dir(const char* path) {
 }
 
 
-int parseKeySetFile(const char *keyset_file, KeySet* biskeys)
+int parseKeySetFile(const char *keyset_file, KeySet* keyset)
 {
 
     int num_keys = 0;
@@ -390,82 +399,89 @@ int parseKeySetFile(const char *keyset_file, KeySet* biskeys)
     string readout;
     std::string delimiter = ":";
     std::string value = "";
+    keyset->other_keys.clear();
     if (readFile.is_open())
     {
-        memset(biskeys->crypt0, 0, 33);
-        memset(biskeys->tweak0, 0, 33);
-        memset(biskeys->crypt1, 0, 33);
-        memset(biskeys->tweak1, 0, 33);
-        memset(biskeys->crypt2, 0, 33);
-        memset(biskeys->tweak2, 0, 33);
-        memset(biskeys->crypt3, 0, 33);
-        memset(biskeys->tweak3, 0, 33);
+        memset(keyset->crypt0, 0, 33);
+        memset(keyset->tweak0, 0, 33);
+        memset(keyset->crypt1, 0, 33);
+        memset(keyset->tweak1, 0, 33);
+        memset(keyset->crypt2, 0, 33);
+        memset(keyset->tweak2, 0, 33);
+        memset(keyset->crypt3, 0, 33);
+        memset(keyset->tweak3, 0, 33);
 
         while (getline(readFile, readout)) {
             value.clear();
             if (readout.find("BIS KEY 0 (crypt)") != std::string::npos) {
                 value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(biskeys->crypt0, value.substr(0, 32).c_str());
+                strcpy_s(keyset->crypt0, value.substr(0, 32).c_str());
                 num_keys++;
             }
             else if (readout.find("BIS KEY 0 (tweak)") != std::string::npos) {
                 value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(biskeys->tweak0, value.substr(0, 32).c_str());
+                strcpy_s(keyset->tweak0, value.substr(0, 32).c_str());
                 num_keys++;
             }
             else if (readout.find("BIS KEY 1 (crypt)") != std::string::npos) {
                 value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(biskeys->crypt1, value.substr(0, 32).c_str());
+                strcpy_s(keyset->crypt1, value.substr(0, 32).c_str());
                 num_keys++;
             }
             else if (readout.find("BIS KEY 1 (tweak)") != std::string::npos) {
                 value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(biskeys->tweak1, value.substr(0, 32).c_str());
+                strcpy_s(keyset->tweak1, value.substr(0, 32).c_str());
                 num_keys++;
             }
             else if (readout.find("BIS KEY 2 (crypt)") != std::string::npos) {
                 value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(biskeys->crypt2, value.substr(0, 32).c_str());
+                strcpy_s(keyset->crypt2, value.substr(0, 32).c_str());
                 num_keys++;
             }
             else if (readout.find("BIS KEY 2 (tweak)") != std::string::npos) {
                 value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(biskeys->tweak2, value.substr(0, 32).c_str());
+                strcpy_s(keyset->tweak2, value.substr(0, 32).c_str());
                 num_keys++;
             }
             else if (readout.find("BIS KEY 3 (crypt)") != std::string::npos) {
                 value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(biskeys->crypt3, value.substr(0, 32).c_str());
+                strcpy_s(keyset->crypt3, value.substr(0, 32).c_str());
                 num_keys++;
             }
             else if (readout.find("BIS KEY 3 (tweak)") != std::string::npos) {
                 value = trim(readout.substr(readout.find(delimiter) + 2, readout.length() + 1));
-                strcpy_s(biskeys->tweak3, value.substr(0, 32).c_str());
+                strcpy_s(keyset->tweak3, value.substr(0, 32).c_str());
                 num_keys++;
             }
             else if (readout.find("bis_key_00") != std::string::npos) {
                 value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
-                strcpy_s(biskeys->crypt0, value.substr(0, 32).c_str());
-                strcpy_s(biskeys->tweak0, value.substr(32, 32).c_str());
+                strcpy_s(keyset->crypt0, value.substr(0, 32).c_str());
+                strcpy_s(keyset->tweak0, value.substr(32, 32).c_str());
                 num_keys += 2;
             }
             else if (readout.find("bis_key_01") != std::string::npos) {
                 value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
-                strcpy_s(biskeys->crypt1, value.substr(0, 32).c_str());
-                strcpy_s(biskeys->tweak1, value.substr(32, 32).c_str());
+                strcpy_s(keyset->crypt1, value.substr(0, 32).c_str());
+                strcpy_s(keyset->tweak1, value.substr(32, 32).c_str());
                 num_keys += 2;
             }
             else if (readout.find("bis_key_02") != std::string::npos) {
                 value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
-                strcpy_s(biskeys->crypt2, value.substr(0, 32).c_str());
-                strcpy_s(biskeys->tweak2, value.substr(32, 32).c_str());
+                strcpy_s(keyset->crypt2, value.substr(0, 32).c_str());
+                strcpy_s(keyset->tweak2, value.substr(32, 32).c_str());
                 num_keys += 2;
             }
             else if (readout.find("bis_key_03") != std::string::npos) {
                 value = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
-                strcpy_s(biskeys->crypt3, value.substr(0, 32).c_str());
-                strcpy_s(biskeys->tweak3, value.substr(32, 32).c_str());
+                strcpy_s(keyset->crypt3, value.substr(0, 32).c_str());
+                strcpy_s(keyset->tweak3, value.substr(32, 32).c_str());
                 num_keys += 2;
+            }
+            else if (readout.find("=") != std::string::npos) {
+                GenericKey key;
+                key.name = trim(readout.substr(0, readout.find("=")));
+                key.key = trim(readout.substr(readout.find("=") + 2, readout.length() + 1));
+                keyset->other_keys.emplace_back(key);
             }
         }
     }
@@ -474,17 +490,29 @@ int parseKeySetFile(const char *keyset_file, KeySet* biskeys)
     }
 
     // toupper keys
-    for (int i = 0; i < strlen(biskeys->crypt0); i++) biskeys->crypt0[i] = toupper(biskeys->crypt0[i]);
-    for (int i = 0; i < strlen(biskeys->crypt1); i++) biskeys->crypt1[i] = toupper(biskeys->crypt1[i]);
-    for (int i = 0; i < strlen(biskeys->crypt2); i++) biskeys->crypt2[i] = toupper(biskeys->crypt2[i]);
-    for (int i = 0; i < strlen(biskeys->crypt3); i++) biskeys->crypt3[i] = toupper(biskeys->crypt3[i]);
-    for (int i = 0; i < strlen(biskeys->tweak0); i++) biskeys->tweak0[i] = toupper(biskeys->tweak0[i]);
-    for (int i = 0; i < strlen(biskeys->tweak1); i++) biskeys->tweak1[i] = toupper(biskeys->tweak1[i]);
-    for (int i = 0; i < strlen(biskeys->tweak2); i++) biskeys->tweak2[i] = toupper(biskeys->tweak2[i]);
-    for (int i = 0; i < strlen(biskeys->tweak3); i++) biskeys->tweak3[i] = toupper(biskeys->tweak3[i]);
+    for (int i = 0; i < strlen(keyset->crypt0); i++) keyset->crypt0[i] = toupper(keyset->crypt0[i]);
+    for (int i = 0; i < strlen(keyset->crypt1); i++) keyset->crypt1[i] = toupper(keyset->crypt1[i]);
+    for (int i = 0; i < strlen(keyset->crypt2); i++) keyset->crypt2[i] = toupper(keyset->crypt2[i]);
+    for (int i = 0; i < strlen(keyset->crypt3); i++) keyset->crypt3[i] = toupper(keyset->crypt3[i]);
+    for (int i = 0; i < strlen(keyset->tweak0); i++) keyset->tweak0[i] = toupper(keyset->tweak0[i]);
+    for (int i = 0; i < strlen(keyset->tweak1); i++) keyset->tweak1[i] = toupper(keyset->tweak1[i]);
+    for (int i = 0; i < strlen(keyset->tweak2); i++) keyset->tweak2[i] = toupper(keyset->tweak2[i]);
+    for (int i = 0; i < strlen(keyset->tweak3); i++) keyset->tweak3[i] = toupper(keyset->tweak3[i]);
 
     readFile.close();
     return num_keys;
+}
+
+
+std::string GetGenericKey(KeySet* keyset, std::string name)
+{
+    if (!keyset)
+        return "";
+
+    for (auto k : keyset->other_keys) if (k.name == name)
+        return k.key;
+
+    return "";
 }
 
 void app_printf (const char *format, ...)
@@ -653,4 +681,40 @@ std::vector<std::string> explode(std::string const & s, char delim)
     }
 
     return result;
+}
+
+static int ishex(char c) {
+    if ('a' <= c && c <= 'f') return 1;
+    if ('A' <= c && c <= 'F') return 1;
+    if ('0' <= c && c <= '9') return 1;
+    return 0;
+}
+
+static char hextoi(char c) {
+    if ('a' <= c && c <= 'f') return c - 'a' + 0xA;
+    if ('A' <= c && c <= 'F') return c - 'A' + 0xA;
+    if ('0' <= c && c <= '9') return c - '0';
+    return 0;
+}
+
+bool parse_hex_key(unsigned char *key, const char *hex, unsigned int len) {
+    if (strlen(hex) != 2 * len) {
+        return false;
+    }
+
+    for (unsigned int i = 0; i < 2 * len; i++) {
+        if (!ishex(hex[i])) {
+            return false;
+        }
+    }
+
+    memset(key, 0, len);
+
+    for (unsigned int i = 0; i < 2 * len; i++) {
+        char val = hextoi(hex[i]);
+        if ((i & 1) == 0) {
+            val <<= 4;
+        }
+        key[i >> 1] |= val;
+    }
 }

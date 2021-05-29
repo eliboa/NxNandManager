@@ -78,6 +78,7 @@ private:
     QWinTaskbarButton *TaskBarButton = nullptr;
 	QWinTaskbarProgress *TaskBarProgress;
 
+
     QIcon dumpIcon;
     QIcon restoreIcon;
     QIcon encIcon;
@@ -100,7 +101,7 @@ private:
 protected:
     void showEvent(QShowEvent *e) override;
     void closeEvent(QCloseEvent *event) override;
-    void resizeEvent(QResizeEvent *event) override;
+    //void resizeEvent(QResizeEvent *event) override;
 
 private slots:
 	void open();
@@ -113,7 +114,7 @@ private slots:
     void openDumpDialog(int partition = UNKNOWN);
     void openDebugDialog();
     void incognito();
-    void dumpPartition(int crypto_mode=NULL);
+    void dumpPartition(int crypto_mode = 0);
     void dumpPartitionAdvanced();
     void dumpDecPartition();
     void dumpEncPartition();
@@ -130,12 +131,10 @@ private slots:
     void on_moreinfo_button_clicked();    
     void on_rawdump_button_clicked();
     void on_mountParition(int nx_type);
-    void launch_vfs(std::shared_ptr<virtual_fs::virtual_fs> fs);
-    void dokanDriveTimer();
+    void launch_vfs(virtual_fs::virtual_fs* fs);
     void restartDebug();
 
 public slots:
-    //void startWorkThread(WorkParam_t param);
 	void inputSet(NxStorage *storage = nullptr);
 	void driveSet(QString);
     void resizeUser(QString file, int new_size, bool format);
@@ -143,15 +142,17 @@ public slots:
     void keySetSet();
 	void error(int err, QString label = nullptr);
     void updateParitionInfo() {on_partition_table_itemSelectionChanged();}
-    void vfs_callback(NTSTATUS status);
-
+    void dokanDriver_install();
 public:
     KeySet biskeys;
     QWinTaskbarButton* get_TaskBarButton() { return TaskBarButton; }
+    NxTitleDB* m_titleDB = nullptr;
+    NxNcaDB* m_ncaDB = nullptr;
 
 signals:
     void error_signal(int, QString s = nullptr);
     void vfs_callback_signal(NTSTATUS);
+    void dokanDriver_install_signal();
 };
 
 void virtual_fs_callback(NTSTATUS status);

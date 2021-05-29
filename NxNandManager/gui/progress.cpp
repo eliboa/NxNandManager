@@ -35,13 +35,14 @@ Progress::~Progress()
 {
     TaskBarProgress->setValue(0);
     TaskBarProgress->setVisible(false);
+    if (console) delete console;
     delete ui;
 }
 
 void Progress::timer1000()
 {
     auto time = std::chrono::system_clock::now();
-    if(m_isRunning)
+    if(m_isRunning || b_done)
     {
         QString label;
         //elapsed time
@@ -50,12 +51,13 @@ void Progress::timer1000()
         label.append("Elapsed time: " + QString(GetReadableElapsedTime(elapsed_seconds).c_str()));
 
         //Remaining time
-        if(m_remaining_time >= time)
+        if(!b_done && m_remaining_time >= time)
         {
             std::chrono::duration<double> remaining_seconds = m_remaining_time - time;
             label.append(" / Remaining: " + QString(GetReadableElapsedTime(remaining_seconds).c_str()));
         }
         ui->elapsed_time_label->setText(label);
+        b_done = false;
     }
 
     // Transfer rate
@@ -152,7 +154,6 @@ void Progress::updateProgress(const ProgressInfo pi)
         else if (pi.mode == FORMAT) label.append(" formatted");
         else label.append(" dumped");
         label.append(" (").append(GetReadableSize(pi.bytesTotal).c_str()).append(")");
-
         if (!pi.isSubProgressInfo)
         {
             TaskBarProgress->setValue(100);
@@ -160,7 +161,7 @@ void Progress::updateProgress(const ProgressInfo pi)
             ui->progressBar2->setValue(100);
             ui->progressBar2->setFormat("");
         }
-
+        b_done = true;
     }
     else
     {                
@@ -183,6 +184,7 @@ void Progress::updateProgress(const ProgressInfo pi)
             m_remaining_time = time + remaining_seconds;
             TaskBarProgress->setValue(percent);
         }
+        b_done = false;
     }
     progressBar->setFormat(label);
 
@@ -264,15 +266,14 @@ void Progress::on_pushButton_clicked()
 {
     reject();
 }
-/*
-void Progress::showEvent(QShowEvent *e)
+
+void Progress::consoleWrite(const QString &str)
 {
-    if(!bTaskBarSet)
+    if (!console)
     {
-        TaskBarButton->setWindow(m_parent->windowHandle());
-        TaskBarProgress = TaskBarButton->progress();
-        bTaskBarSet = true;
+        console = new QPlainTextEdit(this);
+        console->setMinimumHeight(150);
+        ui->consoleLayout->addWidget(console);
     }
-    e->accept();
+    console->appendPlainText(str);
 }
-*/

@@ -41,6 +41,8 @@ public:
 
 private:
     QWidget *parent;
+    KeySet* m_keyset = nullptr;
+    void displayKeys();
 
 signals:
     void finished();

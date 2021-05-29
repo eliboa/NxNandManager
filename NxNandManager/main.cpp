@@ -31,7 +31,6 @@ BOOL FORMAT_USER = FALSE;
 int startGUI(int argc, char *argv[])
 {
 #if defined(ENABLE_GUI)
-
     if (isdebug)
     {
         QFile outFile("log_file.txt");
@@ -189,7 +188,7 @@ void printProgress(ProgressInfo pi)
 
 int main(int argc, char *argv[])
 {
-    
+
     //std::setlocale(LC_ALL, "en_US.utf8");
     std::setlocale(LC_ALL, "");
     std::locale::global(std::locale(""));
@@ -687,19 +686,20 @@ int main(int argc, char *argv[])
         if (driveLetter && !isAvailableMountPoint(&driveLetter))
             throwException("An existing mount point already uses this drive letter");
 
-        if(!in_part->mount_fs())
-            throwException(ERR_FAILED_TO_MOUNT_FS);
+        int res = SUCCESS;
+        if((res = in_part->mount_fs()))
+            throwException(res);
 
         printf("FAT filesystem mounted.\n");
 
-        auto v_fs = std::make_shared<virtual_fs::virtual_fs>(in_part);
+        virtual_fs::virtual_fs v_fs(in_part);
         printf("Virtual fs initialized.\n");
 
         if (driveLetter)
-            v_fs->setDriveLetter(driveLetter);
+            v_fs.setDriveLetter(driveLetter);
 
         printf("Populating virtual fs...             \r");
-        int ent = v_fs->populate();
+        int ent = v_fs.populate();
         if(ent < 0)
             throwException(ERR_FAILED_TO_POPULATE_VFS);
         printf("Virtual fs populated (%d entries found).\n", ent);                
@@ -719,10 +719,10 @@ int main(int argc, char *argv[])
             }
             else throwException("Operation cancelled");
         };
-        v_fs->setCallBackFunction(callback);
+        v_fs.setCallBackFunction(callback);
 
         printf("Mounting virtual disk... (CTRL+C to unmount & quit)\n");
-        v_fs->run();
+        v_fs.run();
 
         exit(EXIT_SUCCESS);
     }

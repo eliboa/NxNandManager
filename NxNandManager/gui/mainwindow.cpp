@@ -45,6 +45,7 @@ MainWindow::MainWindow(QWidget *parent) :
     //setFixedHeight(490);
     //adjustSize();
     qRegisterMetaType<NTSTATUS>("NTSTATUS");
+    qRegisterMetaType<QVector<int>>("QVector<int>");
 
     // Connect slots
     connect(ui->actionOpenFile, &QAction::triggered, this, &MainWindow::open);
@@ -67,7 +68,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->partADumpBtn, SIGNAL(clicked()), this, SLOT(dumpPartitionAdvanced()));
     connect(ui->partRestoreBtn, SIGNAL(clicked()), this, SLOT(restorePartition()));
     connect(this, SIGNAL(error_signal(int, QString)), this, SLOT(error(int, QString)));
-    connect(this, SIGNAL(vfs_callback_signal(NTSTATUS)), this, SLOT(vfs_callback(NTSTATUS)));
+    connect(this, SIGNAL(dokanDriver_install_signal()), this, SLOT(dokanDriver_install()));
     connect(ui->actionRestartDebug, &QAction::triggered, this, &MainWindow::restartDebug);
 
 
@@ -105,13 +106,10 @@ MainWindow::MainWindow(QWidget *parent) :
     if (file.exists())
         bKeyset = true;
 
-    QStringList arguments = QCoreApplication::arguments();
     bool sw = false;
     QString input_path;
-    for (QString arg : arguments)
-    {
-        if (sw)
-        {
+    for (QString arg : QCoreApplication::arguments()) {
+        if (sw) {
             input_path.append(arg);
             break;
         }
@@ -120,6 +118,15 @@ MainWindow::MainWindow(QWidget *parent) :
 
     if (isdebug)
         openDebugDialog();
+
+    // Create title database
+    m_titleDB = new NxTitleDB("all_titles.json",
+                              "https://eliboa.com/switch/all_titles.php?export=json");
+
+    // Create nca filename database
+    m_ncaDB = new NxNcaDB("nca.json",
+                          "https://eliboa.com/switch/nca.php?export=json",
+                          0x54600); // exp. delay: 4 days
 
     if(input_path.count())
     {
@@ -130,11 +137,6 @@ MainWindow::MainWindow(QWidget *parent) :
         workThread = new Worker(this, WorkerMode::new_storage, input_path);
         workThread->start();
     }
-
-    // Dokan timer
-    QTimer *timer = new QTimer(this);
-    connect(timer, SIGNAL(timeout()), this, SLOT(dokanDriveTimer()));
-    timer->start(1000);
 
     ui->properties_table->setColumnCount(2);
     ui->properties_table->setColumnWidth(0, 80);
@@ -153,6 +155,8 @@ MainWindow::~MainWindow()
         delete workThread;
     if (input)
         delete input;
+    if (m_titleDB)
+        delete m_titleDB;
 }
 
 void MainWindow::showEvent(QShowEvent *e)
@@ -179,14 +183,14 @@ void MainWindow::closeEvent(QCloseEvent *event)
 	}
 	event->accept();
 }
-
+/*
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QSize oldSize = event->oldSize();
     QSize newSize = event->size();
     event->accept();
 }
-
+*/
 void MainWindow::open()
 {
     QString fileName = FileDialog(this, fdMode::open_file);
@@ -267,6 +271,7 @@ void MainWindow::openKeySet()
     keysetDialog->show();
     keysetDialog->exec();
 }
+
 
 void MainWindow::openResizeDialog()
 {
@@ -791,107 +796,6 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 
     selected_part = t_selected_part;
 
-    // Clear properties table
-    ui->properties_table->setRowCount(0);
-
-    // Add new property lambda
-    auto addItem = [&](QString key, QString value = "") {
-        auto ix = ui->properties_table->rowCount();
-        ui->properties_table->insertRow(ix);
-
-        auto wdg_1 = new QTableWidgetItem(key);
-        wdg_1->setTextAlignment(Qt::AlignmentFlag::AlignTop | Qt::AlignmentFlag::AlignLeft);
-        ui->properties_table->setItem(ix, 0, wdg_1);
-
-        if (!value.length())
-        {
-            ui->properties_table->setSpan(ix, 0, 1, 2);
-            return;
-        }
-        auto wdg_2 = new QTableWidgetItem(value);
-        wdg_2->setTextAlignment(Qt::AlignmentFlag::AlignTop | Qt::AlignmentFlag::AlignLeft);
-        ui->properties_table->setItem(ix, 1, wdg_2);
-
-    };
-    // Fill properties table
-    QString fs;
-    switch (selected_part->nxPart_info.fs) {
-        case FAT12 : fs = "FAT12";
-            break;
-        case FAT32 : fs = "FAT32";
-            break;
-        default : fs = "None (RAW)";
-    }
-    addItem("Filesystem:", fs);
-    addItem(selected_part->availableTotSpace ? "RAW size:" : "Size:",
-            QString::fromStdString(GetReadableSize(selected_part->size())));
-    if (selected_part->availableTotSpace)
-    {
-        addItem("Avail. space:", QString::fromStdString(GetReadableSize(selected_part->availableTotSpace)));
-        addItem("Free. space:", QString::fromStdString(GetReadableSize(selected_part->freeSpace)));
-    }
-    addItem("First sector:", QString::number(selected_part->lbaStart())
-                             + " (" + QString::fromStdString(int_to_hex(selected_part->lbaStart()) + ")"));
-    addItem("Last sector:", QString::number(selected_part->lbaEnd()) + " ("
-                            + QString::fromStdString(int_to_hex(selected_part->lbaEnd()) + ")"));
-    addItem("Encrypted:", selected_part->isEncryptedPartition() ? "Yes" : "No");
-
-    if (selected_part->type() == BOOT0)
-    {
-        addItem("Soc revision:", input->isEristaBoot0 ? "Erista" : "Unknown (Mariko ?)");
-        if (input->isEristaBoot0)
-        {
-            addItem("AutoRCM:", input->autoRcm ? "Enabled" : "Disabled");
-            addItem("Bootloader ver.:", QString::number(input->bootloader_ver));
-        }
-    }
-    QString info;
-    switch (selected_part->type())
-    {
-    case BOOT0:
-        info = "- BCT - first bootloader (package1ldr)\n- second bootloader (package1)\n- TrustZone code";
-        break;
-    case BOOT1:
-        info = "Contains safe mode package1 (cf. BOOT0)";
-        break;
-    case PRODINFO:
-        info = "CAL0. Raw binary blob containing the main calibration data, which ranges from hardware IDs to system keys";
-        break;
-    case PRODINFOF:
-        info = "Contains additional calibration data.";
-        break;
-    case BCPKG21:
-        info = "- BootConfig\n- Switch kernel & sysmodules";
-        break;
-    case BCPKG22:
-        info = "Backup partition for BCPKG2-1-Normal-Main";
-        break;
-    case BCPKG23:
-        info = "Contains safe mode package2";
-        break;
-    case BCPKG24:
-        info = "Backup partition for BCPKG2-3-SafeMode-Main";
-        break;
-    case BCPKG25:
-        info = "Installed at the factory, never written afterwards on retail";
-        break;
-    case BCPKG26:
-        info = "Backup partition for BCPKG2-5-Repair-Main";
-        break;
-    case SAFE:
-        info = "The official name for this partition is \"SafeMode\"";
-        break;
-    case SYSTEM:
-        info = "- system titles (applications)\n- saves for system titles";
-        break;
-    case USER:
-        info = "- non-system titles (games, applications)\n- saves for non-system titles";
-        break;
-
-    }
-    addItem("Description:\n" + info);
-    ui->properties_table->resizeRowsToContents();
-
     // Set buttons visibility
     ui->partQDumpBtn->setVisible(true);
     ui->partADumpBtn->setVisible(true);
@@ -995,14 +899,26 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     }
 
 
-    // Delete mount_button(s)
-    for (auto b : ui->selPartGrp->findChildren<QPushButton*>("mount_button"))
-        b->deleteLater();
+    auto button = ui->selPartGrp->findChild<QPushButton*>("mount_button");
+    if (button)
+    {
+        for (auto b : ui->selPartGrp->findChildren<QPushButton*>("mount_button"))
+            if (b != button || not_in(selected_part->type(), {USER, SYSTEM, SAFE, PRODINFOF}))
+                b->deleteLater();
+    }
 
     if (is_in(selected_part->type(), {USER, SYSTEM, SAFE, PRODINFOF}))
     {
-        auto *button = new QPushButton(this);
-        button->setObjectName("mount_button");
+        if (!button)
+        {
+            button = new QPushButton(this);
+            button->setObjectName("mount_button");
+            button->setFixedSize(110, 30);
+            connect(button, &QPushButton::clicked, [=]() {
+                on_mountParition(selected_part->type());
+            });
+            ui->horizontalLayout_2->addWidget(button);
+        }
 
         button->setIcon(selected_part->is_vfs_mounted() ? unmountIcon : mountIcon);
         QString label = selected_part->is_vfs_mounted() ? "Unmount" : "Mount";
@@ -1021,6 +937,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
         }
         else
         {
+            button->setEnabled(true);
             QAction* mountAction = new QAction(selected_part->is_vfs_mounted() ? unmountIcon : mountIcon, label);
             mountAction->setStatusTip(statusTip);
             ui->partition_table->connect(mountAction, &QAction::triggered, [=]() {
@@ -1031,28 +948,126 @@ void MainWindow::on_partition_table_itemSelectionChanged()
         button->setStatusTip(statusTip);
         button->setToolTip(statusTip);
         button->setText(label);
-        button->setFixedSize(110, 30);
-        connect(button, &QPushButton::clicked, [=]() {
-            on_mountParition(selected_part->type());
-        });
-        ui->horizontalLayout_2->addWidget(button);
+
+
     }
 
     // Explorer action
-    /*
+
     if(is_in(selected_part->type(), {USER, SYSTEM}))
     {
         QAction* explAction = new QAction("Explore partition");       
         const QIcon icon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
         QString statusTip(tr("Explore partition (directory & files"));
         explAction->setStatusTip(statusTip);
-        ui->partCustom1Btn->setIcon(icon);
-        ui->partCustom1Btn->setStatusTip(statusTip);
-        ui->partCustom1Btn->connect(ui->partCustom1Btn, SIGNAL(clicked()), this, SLOT(openExplorer()));
-        ui->partCustom1Btn->setVisible(true);
-        ui->partCustom1Btn->setEnabled(true);
+
+        ui->partition_table->connect(explAction, &QAction::triggered, [=]() {
+            openExplorer();
+        });
+        ui->partition_table->addAction(explAction);
     }
-    */
+
+    // Clear properties table
+    ui->properties_table->setRowCount(0);
+
+    // Add new property lambda
+    auto addItem = [&](QString key, QString value = "") {
+        auto ix = ui->properties_table->rowCount();
+        ui->properties_table->insertRow(ix);
+
+        auto wdg_1 = new QTableWidgetItem(key);
+        wdg_1->setTextAlignment(Qt::AlignmentFlag::AlignTop | Qt::AlignmentFlag::AlignLeft);
+        ui->properties_table->setItem(ix, 0, wdg_1);
+
+        if (!value.length())
+        {
+            ui->properties_table->setSpan(ix, 0, 1, 2);
+            return;
+        }
+        auto wdg_2 = new QTableWidgetItem(value);
+        wdg_2->setTextAlignment(Qt::AlignmentFlag::AlignTop | Qt::AlignmentFlag::AlignLeft);
+        ui->properties_table->setItem(ix, 1, wdg_2);
+
+    };
+    // Fill properties table
+    QString fs;
+    switch (selected_part->nxPart_info.fs) {
+        case FAT12 : fs = "FAT12";
+            break;
+        case FAT32 : fs = "FAT32";
+            break;
+        default : fs = "None (RAW)";
+    }
+    addItem("Filesystem:", fs);
+    addItem(selected_part->availableTotSpace ? "RAW size:" : "Size:",
+            QString::fromStdString(GetReadableSize(selected_part->size())));
+    if (selected_part->availableTotSpace)
+    {
+        addItem("Avail. space:", QString::fromStdString(GetReadableSize(selected_part->availableTotSpace)));
+        addItem("Free. space:", QString::fromStdString(GetReadableSize(selected_part->freeSpace)));
+    }
+    addItem("First sector:", QString::number(selected_part->lbaStart())
+                             + " (" + QString::fromStdString(int_to_hex(selected_part->lbaStart()) + ")"));
+    addItem("Last sector:", QString::number(selected_part->lbaEnd()) + " ("
+                            + QString::fromStdString(int_to_hex(selected_part->lbaEnd()) + ")"));
+    addItem("Encrypted:", selected_part->isEncryptedPartition() ? "Yes" : "No");
+
+    if (selected_part->type() == BOOT0)
+    {
+        addItem("Soc revision:", input->isEristaBoot0 ? "Erista" : "Unknown (Mariko ?)");
+        if (input->isEristaBoot0)
+        {
+            addItem("AutoRCM:", input->autoRcm ? "Enabled" : "Disabled");
+            addItem("Bootloader ver.:", QString::number(input->bootloader_ver));
+        }
+    }
+    QString info;
+    switch (selected_part->type())
+    {
+    case BOOT0:
+        info = "- BCT - first bootloader (package1ldr)\n- second bootloader (package1)\n- TrustZone code";
+        break;
+    case BOOT1:
+        info = "Contains safe mode package1 (cf. BOOT0)";
+        break;
+    case PRODINFO:
+        info = "CAL0. Raw binary blob containing the main calibration data, which ranges from hardware IDs to system keys";
+        break;
+    case PRODINFOF:
+        info = "Contains additional calibration data.";
+        break;
+    case BCPKG21:
+        info = "- BootConfig\n- Switch kernel & sysmodules";
+        break;
+    case BCPKG22:
+        info = "Backup partition for BCPKG2-1-Normal-Main";
+        break;
+    case BCPKG23:
+        info = "Contains safe mode package2";
+        break;
+    case BCPKG24:
+        info = "Backup partition for BCPKG2-3-SafeMode-Main";
+        break;
+    case BCPKG25:
+        info = "Installed at the factory, never written afterwards on retail";
+        break;
+    case BCPKG26:
+        info = "Backup partition for BCPKG2-5-Repair-Main";
+        break;
+    case SAFE:
+        info = "The official name for this partition is \"SafeMode\"";
+        break;
+    case SYSTEM:
+        info = "- system titles (applications)\n- saves for system titles";
+        break;
+    case USER:
+        info = "- non-system titles (games, applications)\n- saves for non-system titles";
+        break;
+
+    }
+    addItem("Description:\n" + info);
+    //ui->properties_table->resizeRowsToContents();
+
 }
 
 void MainWindow::driveSet(QString drive)
@@ -1089,6 +1104,7 @@ void MainWindow::openExplorer()
     ExplorerDialog->setWindowTitle("Explorer");
     ExplorerDialog->show();
     ExplorerDialog->exec();
+    delete ExplorerDialog;
 
 }
 
@@ -1096,7 +1112,6 @@ void MainWindow::error(int err, QString label)
 {
 	if(err != ERR_WORK_RUNNING)
 	{
-
 		if(label != nullptr)
 		{
 			QMessageBox::critical(nullptr,"Error", label);
@@ -1275,31 +1290,6 @@ void MainWindow::on_rawdump_button_clicked()
     on_rawdump_button_clicked(NO_CRYPTO, false);
 }
 
-void virtual_fs_callback(NTSTATUS status) { mainWindowInstance->emit vfs_callback_signal(status); } //Static func
-void MainWindow::vfs_callback(NTSTATUS status)
-{
-    if (status == DOKAN_SUCCESS || !mainWindowInstance)
-        return;
-
-    if (status == DOKAN_DRIVER_INSTALL_ERROR)
-    {
-        QMessageBox msgBox;
-        msgBox.setIcon(QMessageBox::Icon::Warning);
-        msgBox.setText("Dokan driver not found");
-        msgBox.setInformativeText("Do you want to proceed with installation ?");
-        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-        msgBox.setDefaultButton(QMessageBox::Yes);
-        if(msgBox.exec() == QMessageBox::Yes)
-        {
-            int res = installDokanDriver();
-            if (res)
-                error(res);
-        }
-    }
-    else error(1, QString::fromStdString(dokanNtStatusToStr(status)));
-    updateParitionInfo();
-}
-
 void MainWindow::on_mountParition(int nx_type)
 {
     if(!input)
@@ -1309,9 +1299,9 @@ void MainWindow::on_mountParition(int nx_type)
     mount_button->setDisabled(true);
     auto exit = [&](int e, const QString l = nullptr ){
         if (e)
-            error(e, l);
+            emit error(e, l);
         mount_button->setEnabled(true);
-        on_partition_table_itemSelectionChanged();
+        emit on_partition_table_itemSelectionChanged();
         return;
     };
 
@@ -1322,26 +1312,38 @@ void MainWindow::on_mountParition(int nx_type)
     if (mount_button)
         mount_button->setText(nxp->is_vfs_mounted() ? "Unmounting..." : "Mounting...");
 
-    if (nxp->is_vfs_mounted())
-    {
-        return exit(nxp->unmount_vfs() ? 0 : 1, "Failed to unmount filesystem.");
-    }
+    // Unmount
+    if(nxp->is_vfs_mounted())
+        return exit(nxp->unmount_vfs());
 
-    if (nxp->badCrypto())
-        return exit(ERROR_DECRYPT_FAILED);
+    connect(nxp, &NxPartition::vfs_mounted_signal, [&](){
+        emit on_partition_table_itemSelectionChanged();
+    });
+    connect(nxp, &NxPartition::vfs_callback, [&](long status){
+        if (status == DOKAN_DRIVER_INSTALL_ERROR)
+            emit dokanDriver_install_signal();
+        else if (status < -1000)
+            emit error((int)status);
+        else if (status != DOKAN_SUCCESS)
+            emit error(1, QString::fromStdString(dokanNtStatusToStr(status)));
+        emit on_partition_table_itemSelectionChanged();
+    });
+    QtConcurrent::run(nxp, &NxPartition::mount_vfs, true, '\0', nullptr);
 
-    if(!nxp->mount_fs())
-        return exit(ERR_FAILED_TO_MOUNT_FS);
-
-    auto v_fs = std::make_shared<virtual_fs::virtual_fs>(nxp);
-
-
-    v_fs->setCallBackFunction(&virtual_fs_callback);
-
-    QtConcurrent::run(this, &MainWindow::launch_vfs, v_fs);
 }
 
-void MainWindow::launch_vfs(std::shared_ptr<virtual_fs::virtual_fs> fs)
+void MainWindow::dokanDriver_install()
+{
+    if(QMessageBox::question(nullptr, "Error", "Dokan driver not found\nDo you want to proceed with installation ?",
+             QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
+    {
+        int res = installDokanDriver();
+        if (res)
+            emit error(res);
+    }
+}
+
+void MainWindow::launch_vfs(virtual_fs::virtual_fs* fs)
 {
     if(fs->populate() < 0)
     {
@@ -1352,38 +1354,6 @@ void MainWindow::launch_vfs(std::shared_ptr<virtual_fs::virtual_fs> fs)
     fs->run();
 }
 
-static vector<NxPartition*> mounted_part;
-void MainWindow::dokanDriveTimer()
-{
-    if (!input || !input->isNxStorage() || !input->partitions.size())
-        return;
-
-    bool update = false;
-    // Add new mount point
-    for (NxPartition* part : input->partitions) if (part->is_vfs_mounted())
-    {
-        bool found = false;
-        for (auto m_part : mounted_part) if (m_part == part) {
-            found = true;
-            break;
-        }
-
-        if (!found) {
-            mounted_part.push_back(part);
-            update = true;
-        }
-    }
-
-    // Delete mount point
-    for (int i(0); i < (int)mounted_part.size(); i++) if (!mounted_part.at(i)->is_vfs_mounted())
-    {
-        mounted_part.erase(mounted_part.begin() + i);
-        update = true;
-    }
-
-    if (update)
-        on_partition_table_itemSelectionChanged();
-}
 void MainWindow::restartDebug()
 {
     PROCESS_INFORMATION pi;

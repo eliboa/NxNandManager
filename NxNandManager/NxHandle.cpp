@@ -72,7 +72,7 @@ void NxHandle::createHandle(unsigned long io_mode)
 
     // Get size for file
     LARGE_INTEGER Lsize;
-    if (!b_isDrive )
+    if (!b_isDrive)
     {
         auto res = GetFileSizeEx(m_h, &Lsize);
         if (res)
@@ -539,9 +539,7 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
 
     // Hash buffer
     if (m_crypto == MD5_HASH || m_isHashLocked)
-    {
         CryptHashData(m_md5_hash, (BYTE*)buffer, bytesCount, 0);
-    }
 
     if (br)
         *br = bytesCount;
@@ -557,7 +555,7 @@ bool NxHandle::read(u64 offset, void *buffer, DWORD* bytesRead, DWORD length)
 
     // Set new pointer if needed
     if (lp_CurrentPointer.QuadPart != m_off_start + offset && !setPointer(offset))
-            return false;
+        return false;
     
     return read(buffer, bytesRead, length);
 }

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>314</width>
-    <height>426</height>
+    <width>317</width>
+    <height>355</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -21,41 +21,33 @@
    <string notr="true"/>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="8" column="0">
-    <widget class="QLabel" name="key3_tweak_label">
-     <property name="text">
-      <string>BISKEY3_TWEAK</string>
+   <item row="13" column="1">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="locale">
+      <locale language="English" country="UnitedStates"/>
+     </property>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
      </property>
     </widget>
    </item>
-   <item row="3" column="0">
-    <widget class="QLabel" name="key1_crypt_label">
+   <item row="6" column="0">
+    <widget class="QLabel" name="key2_tweak_label">
      <property name="text">
-      <string>BISKEY1_CRYPT</string>
+      <string>BISKEY2_TWEAK</string>
      </property>
     </widget>
    </item>
-   <item row="4" column="0">
-    <widget class="QLabel" name="key1_tweak_label">
-     <property name="text">
-      <string>BISKEY1_TWEAK</string>
-     </property>
-    </widget>
-   </item>
-   <item row="7" column="1">
-    <widget class="QLineEdit" name="key3_crypt_edit"/>
+   <item row="3" column="1">
+    <widget class="QLineEdit" name="key1_crypt_edit"/>
    </item>
    <item row="7" column="0">
     <widget class="QLabel" name="key3_crypt_label">
      <property name="text">
       <string>BISKEY3_CRYPT</string>
-     </property>
-    </widget>
-   </item>
-   <item row="5" column="0">
-    <widget class="QLabel" name="key2_crypt_label">
-     <property name="text">
-      <string>BISKEY2_CRYPT</string>
      </property>
     </widget>
    </item>
@@ -105,39 +97,24 @@
      </item>
     </layout>
    </item>
-   <item row="8" column="1">
-    <widget class="QLineEdit" name="key3_tweak_edit"/>
+   <item row="2" column="1">
+    <widget class="QLineEdit" name="key0_tweak_edit"/>
    </item>
-   <item row="9" column="1">
-    <spacer name="verticalSpacer_2">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeType">
-      <enum>QSizePolicy::Fixed</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>10</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item row="1" column="0">
-    <widget class="QLabel" name="key0_crypt_label">
+   <item row="5" column="0">
+    <widget class="QLabel" name="key2_crypt_label">
      <property name="text">
-      <string>BISKEY0_CRYPT</string>
+      <string>BISKEY2_CRYPT</string>
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
-    <widget class="QLineEdit" name="key0_crypt_edit"/>
+   <item row="8" column="0">
+    <widget class="QLabel" name="key3_tweak_label">
+     <property name="text">
+      <string>BISKEY3_TWEAK</string>
+     </property>
+    </widget>
    </item>
-   <item row="3" column="1">
-    <widget class="QLineEdit" name="key1_crypt_edit"/>
-   </item>
-   <item row="12" column="1">
+   <item row="10" column="1">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
@@ -150,8 +127,25 @@
      </property>
     </spacer>
    </item>
-   <item row="2" column="1">
-    <widget class="QLineEdit" name="key0_tweak_edit"/>
+   <item row="4" column="0">
+    <widget class="QLabel" name="key1_tweak_label">
+     <property name="text">
+      <string>BISKEY1_TWEAK</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="1">
+    <widget class="QLineEdit" name="key2_tweak_edit"/>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="key0_crypt_label">
+     <property name="text">
+      <string>BISKEY0_CRYPT</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1">
+    <widget class="QLineEdit" name="key3_crypt_edit"/>
    </item>
    <item row="2" column="0">
     <widget class="QLabel" name="key0_tweak_label">
@@ -160,32 +154,29 @@
      </property>
     </widget>
    </item>
-   <item row="6" column="0">
-    <widget class="QLabel" name="key2_tweak_label">
+   <item row="3" column="0">
+    <widget class="QLabel" name="key1_crypt_label">
      <property name="text">
-      <string>BISKEY2_TWEAK</string>
+      <string>BISKEY1_CRYPT</string>
      </property>
     </widget>
-   </item>
-   <item row="5" column="1">
-    <widget class="QLineEdit" name="key2_crypt_edit"/>
-   </item>
-   <item row="6" column="1">
-    <widget class="QLineEdit" name="key2_tweak_edit"/>
    </item>
    <item row="4" column="1">
     <widget class="QLineEdit" name="key1_tweak_edit"/>
    </item>
-   <item row="10" column="1">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="locale">
-      <locale language="English" country="UnitedStates"/>
-     </property>
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+   <item row="1" column="1">
+    <widget class="QLineEdit" name="key0_crypt_edit"/>
+   </item>
+   <item row="8" column="1">
+    <widget class="QLineEdit" name="key3_tweak_edit"/>
+   </item>
+   <item row="5" column="1">
+    <widget class="QLineEdit" name="key2_crypt_edit"/>
+   </item>
+   <item row="9" column="0" colspan="2">
+    <widget class="QLabel" name="label_other_keys">
+     <property name="text">
+      <string/>
      </property>
     </widget>
    </item>

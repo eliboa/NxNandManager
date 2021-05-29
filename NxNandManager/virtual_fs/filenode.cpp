@@ -29,6 +29,13 @@ THE SOFTWARE.
 #include "filenode.h"
 #include "../res/utils.h"
 
+
+LONGLONG virtual_fs::filetimes::get_currenttime() {
+  FILETIME t;
+  GetSystemTimeAsFileTime(&t);
+  return virtual_fs_helper::DDwLowHighToLlong(t.dwLowDateTime, t.dwHighDateTime);
+}
+
 namespace virtual_fs {
 filenode::filenode(const std::wstring& filename, bool is_directory,
                    DWORD file_attr,

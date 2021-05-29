@@ -53,6 +53,7 @@ class NxCrypto
     public:        
         void decrypt(unsigned char* data, size_t offset);
         void encrypt(unsigned char* data, size_t offset);
+        void setSectorSize(size_t s) { sector_size = s; }
 };
 
 #endif

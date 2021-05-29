@@ -31,7 +31,6 @@ THE SOFTWARE.
 
 #include <dokan/dokan.h>
 #include <dokan/fileinfo.h>
-
 #include "virtual_fs_helper.h"
 
 #include <WinBase.h>
@@ -75,11 +74,7 @@ struct filetimes {
     return filetime->dwHighDateTime == 0 && filetime->dwLowDateTime == 0;
   }
 
-  static LONGLONG get_currenttime() {
-    FILETIME t;
-    GetSystemTimeAsFileTime(&t);
-    return virtual_fs_helper::DDwLowHighToLlong(t.dwLowDateTime, t.dwHighDateTime);
-  }
+  static LONGLONG get_currenttime();
 
   void set(LONGLONG t_creation, LONGLONG t_lastaccess, LONGLONG t_lastwrite) {
       creation = t_creation;

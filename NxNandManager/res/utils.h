@@ -27,6 +27,7 @@ extern bool isGUI;
 #include "types.h"
 #include "../gui/gui.h"
 
+
 #if defined(ENABLE_GUI)
 #include "../gui/debug.h"
 #endif
@@ -105,6 +106,9 @@ void app_wprintf (const wchar_t *format, ...);
 #define ERR_FAILED_TO_MOUNT_FS     -1054
 #define ERR_FAILED_TO_POPULATE_VFS -1055
 #define ERR_DRIVER_FILE_NOT_FOUND  -1056
+#define ERR_PARTITION_NO_FATFS     -1057
+#define ERR_FAILED_TO_UNMOUNT_FS   -1058
+
 
 typedef struct ErrorLabel ErrorLabel;
 struct ErrorLabel {
@@ -114,9 +118,11 @@ struct ErrorLabel {
 
 static ErrorLabel ErrorLabelArr[] =
 {
+    { ERR_PARTITION_NO_FATFS, "No FAT FS found on partition" },
     { ERR_DRIVER_FILE_NOT_FOUND, "Failed to locate driver files" },
     { ERR_FAILED_TO_POPULATE_VFS, "Failed to populate virtual filesystem" },
     { ERR_FAILED_TO_MOUNT_FS, "Failed to mount filesystem" },
+    { ERR_FAILED_TO_UNMOUNT_FS, "Failed to unmount filesystem" },
     { ERR_DOKAN_DRIVER_NOT_FOUND, "Dokan driver not found" },
     { ERR_INPUT_READ_ONLY, "Input is read-only" },
     { ERR_OUTPUT_READY_ONLY, "Output is read-only" },
@@ -162,6 +168,12 @@ static ErrorLabel ErrorLabelArr[] =
     { ERR_FORMAT_BAD_PART, "Partition formating is only possible for USER et SYSTEM"}
 };
 
+
+struct GenericKey {
+    std::string name;
+    std::string key;
+};
+
 typedef struct KeySet KeySet;
 struct KeySet {
 	char crypt0[33];
@@ -172,7 +184,9 @@ struct KeySet {
 	char tweak2[33];
 	char crypt3[33];
 	char tweak3[33];
+    std::vector<GenericKey> other_keys;
 };
+std::string GetGenericKey(KeySet* keyset, std::string name);
 
 void dbg_printf (const char *format, ...);
 void dbg_wprintf (const wchar_t *format, ...);
@@ -240,6 +254,16 @@ T get_extensionW(T const & filename)
 	typename T::size_type const p(filename.find_last_of(L'.'));
 	return p > 0 && p != T::npos ? filename.substr(p, T::npos) : filename;
 }
+template<class T>
+static bool endsWith(T const & str, T const & suffix)
+{
+    return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+}
+template<class T>
+static bool startsWith(T const & str, T const & prefix)
+{
+    return str.size() >= prefix.size() && 0 == str.compare(0, prefix.size(), prefix);
+}
 
 template< typename T >
 std::string int_to_hex(T i)
@@ -291,4 +315,6 @@ template<typename M> inline void* GetMethodPointer(M ptr)
 unsigned random(unsigned n);
 DWORD randomDWORD();
 int IsWow64();
+void flipBytes(u8* buf, size_t len);
+bool parse_hex_key(unsigned char *key, const char *hex, unsigned int len);
 #endif

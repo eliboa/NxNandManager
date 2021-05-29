@@ -38,50 +38,38 @@ namespace virtual_fs {
 static const DWORD g_volumserial = 0x19831116;
 
 
-static NTSTATUS create_main_stream(
-    fs_filenodes* fs_filenodes, const std::wstring& filename,
-    const std::pair<std::wstring, std::wstring>& stream_names,
-    DWORD file_attributes_and_flags,
-    PDOKAN_IO_SECURITY_CONTEXT security_context) {
-  // When creating a new a alternated stream, we need to be sure
-  // the main stream exist otherwise we create it.
-  auto main_stream_name = virtual_fs_helper::GetFileName(filename, stream_names);
-  if (!fs_filenodes->find(main_stream_name)) {
-    dbg_wprintf(L"create_main_stream: we create the maing stream %ls\n", main_stream_name.c_str());
-    auto n = fs_filenodes->add(std::make_shared<filenode>(
-        main_stream_name, false, file_attributes_and_flags, security_context));
-    if (n != STATUS_SUCCESS) return n;
-  }
-  return STATUS_SUCCESS;
+static NTSTATUS create_main_stream(fs_filenodes* fs_filenodes, const std::wstring& filename,
+                const std::pair<std::wstring, std::wstring>& stream_names,
+                DWORD file_attributes_and_flags, PDOKAN_IO_SECURITY_CONTEXT security_context)
+{
+    // When creating a new a alternated stream, we need to be sure
+    // the main stream exist otherwise we create it.
+    auto main_stream_name = virtual_fs_helper::GetFileName(filename, stream_names);
+    if (!fs_filenodes->find(main_stream_name))
+    {
+        dbg_wprintf(L"create_main_stream: we create the maing stream %ls\n", main_stream_name.c_str());
+        auto n = fs_filenodes->add(std::make_shared<filenode>(
+            main_stream_name, false, file_attributes_and_flags, security_context));
+        if (n != STATUS_SUCCESS) return n;
+    }
+    return STATUS_SUCCESS;
 }
 
-static NTSTATUS DOKAN_CALLBACK
-virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
-                 ACCESS_MASK desiredaccess, ULONG fileattributes,
-                 ULONG /*shareaccess*/, ULONG createdisposition,
-                 ULONG createoptions, PDOKAN_FILE_INFO dokanfileinfo) {
+static NTSTATUS DOKAN_CALLBACK virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
+                 ACCESS_MASK desiredaccess, ULONG fileattributes, ULONG /*shareaccess*/,
+                 ULONG createdisposition,  ULONG createoptions, PDOKAN_FILE_INFO dokanfileinfo)
+{
     auto filenodes = GET_FS_INSTANCE;
     ACCESS_MASK generic_desiredaccess;
     DWORD creation_disposition;
     DWORD file_attributes_and_flags;
     dokanfileinfo->Context = 0;
-    dbg_printf("CreateFile\n");
-
     DokanMapKernelToUserCreateFileFlags(
       desiredaccess, fileattributes, createoptions, createdisposition,
       &generic_desiredaccess, &file_attributes_and_flags,
       &creation_disposition);
 
     auto filename_str = std::wstring(filename);
-    /*
-    auto pos = filename_str.find_first_of(L":");
-    if (pos != std::wstring::npos)
-    {
-        if (creation_disposition == CREATE_NEW || creation_disposition == OPEN_ALWAYS)
-        return STATUS_OBJECT_NAME_COLLISION;
-        return STATUS_SUCCESS;
-    }
-    */
     virtual_fs_helper::RemoveStreamType(filename_str);
 
     auto f = filenodes->find(filename_str);
@@ -195,16 +183,17 @@ virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_cont
 
         auto alloc_FIL = [&](BYTE desiredAccess)
         {
-             FIL* file = reinterpret_cast<FIL*>(malloc(sizeof(FIL)));
-             auto res = f_open(file, virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str(), desiredAccess);
-             if (res != FR_OK)
-             {
-                 free(file);
-                 dbg_printf("f_open ERROR %d (OPEN_EXISTING, \"%ls\")\n", res, virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str());
-                 return false;
-             }
-             dokanfileinfo->Context = reinterpret_cast<ULONG64>(file);
-             return true;
+            FRESULT res;
+            FIL* file = reinterpret_cast<FIL*>(malloc(sizeof(FIL)));
+            if ((res = f_open(file, virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str(), desiredAccess)))
+            {
+                free(file);
+                dbg_printf("f_open ERROR %d (OPEN_EXISTING, \"%ls\")\n", res,
+                        virtual_path_to_nx_path(filename_str.c_str(), nxp).c_str());
+                return false;
+            }
+            dokanfileinfo->Context = reinterpret_cast<ULONG64>(file);
+            return true;
         };
 
         switch (creation_disposition) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 eliboa
+ * Copyright (c) 2021 eliboa
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,6 +28,14 @@
 #include "res/progress_info.h"
 #include "lib/fatfs/diskio.h"
 
+#if defined(ENABLE_GUI)
+#include <QObject>
+#endif
+
+#include "virtual_fs/virtual_fs.h"
+namespace virtual_fs {
+    class virtual_fs;
+}
 typedef struct NxPart NxPart;
 struct NxPart {
     s8 name[37];
@@ -62,7 +70,14 @@ class NxCrypto;
 class NxHandle;
 
 class NxPartition
+#if defined(ENABLE_GUI)
+    : public QObject
 {
+    Q_OBJECT
+
+#else
+{
+#endif
     // Constructors
     public:
         NxPartition(NxStorage *parent, const char* p_name, u32 lba_start, u32 lba_end, u64 attrs = 0);
@@ -91,8 +106,9 @@ class NxPartition
         // Filesystem
         FATFS m_fatfs;
 
-        // Virtual drive
-        WCHAR m_mount_point[4] = L" :\\";
+        // Virtual fs & virtual disk
+        virtual_fs::virtual_fs *m_vfs = nullptr;
+        WCHAR m_mount_point[5] = L" :\\\0";
         bool m_is_vfs_mounted = false;
 
     public:
@@ -115,18 +131,20 @@ class NxPartition
         int type() { return m_type; }
         NxCrypto* crypto() { return nxCrypto; }
         FATFS *fs() { return &m_fatfs; }
+        virtual_fs::virtual_fs *vfs() { return m_vfs; }
         NxStorage* nxStorage() { return parent; }
-        
+        void getVolumeMountPoint(WCHAR *mountPoint);
+        wstring getVolumeMountPoint();
+
         // Setters
         void setBadCrypto(bool bad = true) { m_bad_crypto = bad; }
         void setVolumeMountPoint(WCHAR *mountPoint);
-        void getVolumeMountPoint(WCHAR *mountPoint);
 
         // Boolean    
         bool isValidPartition();
         bool isEncryptedPartition();  
 
-        //Methods
+        // Methods
         bool fat32_dir(std::vector<fat32::dir_entry> *entries, const char *dir);
         u64 fat32_getFreeSpace(u64* contiguous = nullptr, u64* available = nullptr);
         bool fat32_isFreeCluster(u32 cluster_num, u32 *clus_count = nullptr);
@@ -143,11 +161,34 @@ class NxPartition
 
         // Filesystem
         wstring fs_prefix(const wchar_t* path = L"");
-        bool mount_fs();
-        bool unmount_fs();
+        int mount_fs();
+        int unmount_fs();
+        int unmount_vfs();
         bool is_mounted() { return m_fatfs.fs_type > 0; }
         bool is_vfs_mounted() { return m_is_vfs_mounted; }
-        bool unmount_vfs();
+
+        FRESULT f_open (FIL* fp, const TCHAR* path, BYTE mode);				/* Open or create a file */
+        FRESULT f_opendir (DIR* dp, const TCHAR* path);						/* Open a directory */
+        FRESULT f_mkdir (const TCHAR* path);								/* Create a sub directory */
+        FRESULT f_unlink (const TCHAR* path);								/* Delete an existing file or directory */
+        FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new);	/* Rename/Move a file or directory */
+        FRESULT f_stat (const TCHAR* path, FILINFO* fno);					/* Get file status */
+        FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask);			/* Change attribute of a file/dir */
+        FRESULT f_utime (const TCHAR* path, const FILINFO* fno);			/* Change timestamp of a file/dir */
+        FRESULT f_getfree (const TCHAR* path, DWORD* nclst, FATFS** fatfs);	/* Get number of free clusters on the drive */
+        /*
+#if defined(ENABLE_GUI)
+public slots:
+#endif
+*/
+        int mount_vfs(bool run = true, wchar_t driveLetter = L'\0', void(*clb_func_ptr)(NTSTATUS) = nullptr);
+
+#if defined(ENABLE_GUI)
+signals:
+        void vfs_mounted_signal();
+        void vfs_unmounted_signal();
+        void vfs_callback(long status);
+#endif
 };
 
 #endif

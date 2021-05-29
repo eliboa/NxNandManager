@@ -39,6 +39,8 @@ THE SOFTWARE.
 #include <unordered_map>
 
 namespace virtual_fs {
+
+class filenode;
 // virtual_fs filenode storage
 // There is only one instance of fs_filenodes per dokan mount
 // as fs_filenodes describre the whole filesystem hierarchy context.
