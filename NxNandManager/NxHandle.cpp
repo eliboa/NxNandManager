@@ -30,12 +30,23 @@ NxHandle::NxHandle(NxStorage *p)
 
 NxHandle::NxHandle(const char *path, u64 chunksize)
 {
-    std::string s_path(path);
+    // Convert char buff to wchar array
+    wchar_t w_path[MAX_PATH];
+    mbstowcs(w_path, path, MAX_PATH);
+    constructor(wstring(w_path), chunksize);
+}
+NxHandle::NxHandle(const wstring &path, u64 chunksize)
+{
+    constructor(path, chunksize);
+}
+
+void NxHandle::constructor(const wstring &path, u64 chunksize)
+{
     m_chunksize = chunksize;
-    m_path = std::wstring(s_path.begin(), s_path.end());
+    m_path = path;
     if (m_chunksize)
-    {        
-        splitFileName_t fna = getSplitFileNameAttributes(convertCharArrayToLPWSTR(path));
+    {
+        splitFileName_t fna = getSplitFileNameAttributes(m_path);
         if (!fna.f_type)
             m_path.append(L".00");
 

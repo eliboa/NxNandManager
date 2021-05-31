@@ -188,11 +188,11 @@ void Emunand::on_boo0_pushBtn_clicked()
     QString fileName = FileDialog(this, fdMode::open_file);
     if (!fileName.isEmpty())
     {
-        NxStorage storage(fileName.toLocal8Bit().constData());
+        NxStorage storage(fileName.toStdWString());
         if(storage.isNxStorage() && storage.isSinglePartType() && storage.getNxPartition(BOOT0) != nullptr)
         {
             ui->boot0_path->setText(fileName);
-            sprintf_s(m_par.boot0_path, 260, "%s", fileName.toLocal8Bit().constData());
+            m_par.boot0_path = fileName.toStdWString();
         }
         else QMessageBox::critical(nullptr,"Error", "Selected file is not a valid BOOT0 file");
     }
@@ -203,11 +203,11 @@ void Emunand::on_boo1_pushBtn_clicked()
     QString fileName = FileDialog(this, fdMode::open_file);
     if (!fileName.isEmpty())
     {
-        NxStorage storage(fileName.toLocal8Bit().constData());
+        NxStorage storage(fileName.toStdWString());
         if(storage.isNxStorage() && storage.isSinglePartType() && storage.getNxPartition(BOOT1) != nullptr)
         {
             ui->boot1_path->setText(fileName);
-            sprintf_s(m_par.boot1_path, 260, "%s", fileName.toLocal8Bit().constData());
+            m_par.boot1_path = fileName.toStdWString();
         }
         else QMessageBox::critical(nullptr,"Error", "Selected file is not a valid BOOT1 file");
     }
@@ -417,11 +417,11 @@ void Emunand::on_createEmunandBtn_clicked()
 
     if (input->type == RAWNAND)
     {
-        NxStorage boot0((const char*) m_par.boot0_path);
+        NxStorage boot0(m_par.boot0_path);
         if (boot0.type != BOOT0)
             return error("Input BOOT0 is missing or invalid");
 
-        NxStorage boot1((const char*) m_par.boot1_path);
+        NxStorage boot1(m_par.boot1_path);
         if (boot1.type != BOOT1)
             return error("Input BOOT1 is missing or invalid");
     }

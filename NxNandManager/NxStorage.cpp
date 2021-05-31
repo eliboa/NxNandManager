@@ -172,13 +172,25 @@ static u8 tx_sector[112] = {
 };
 
 
-NxStorage::NxStorage(const char *p_path)
+NxStorage::NxStorage(const char *path)
 {
-    type = INVALID;
-    if (p_path == nullptr)
+    if (path == nullptr)
         return;
 
-    dbg_printf("NxStorage::NxStorage() begins for %s\n", std::string(p_path).c_str());
+    wchar_t w_path[MAX_PATH];
+    mbstowcs(w_path, path, MAX_PATH);
+
+    constructor(wstring(w_path));
+}
+NxStorage::NxStorage(const wstring &storage)
+{
+    constructor(storage);
+}
+void NxStorage::constructor(const wstring &storage)
+{
+    type = INVALID;
+
+    dbg_printf("NxStorage::NxStorage() begins for %s\n", storage.c_str());
     type = INVALID;
     memset(fw_version, 0, 48);
     memset(deviceId, 0, 21);
@@ -186,12 +198,7 @@ NxStorage::NxStorage(const char *p_path)
     m_backupGPT = 0;
     m_size = 0;
 
-    // Convert char buff (p_buff) to wchar array (m_path)
-    std::string s(p_path);
-
-    wchar_t w_p[MAX_PATH];
-    mbstowcs(m_path, p_path, MAX_PATH);
-    dbg_wprintf(L"NxStorage::NxStorage() m_path is %s\n", m_path);
+    wcscpy(m_path, storage.c_str());
 
     // Get handle to file/disk
     nxHandle = new NxHandle(this);
@@ -1915,7 +1922,17 @@ int NxStorage::applyIncognito()
     return SUCCESS;
 }
 
+
+
 int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(ProgressInfo), const char* boot0_path, const char* boot1_path)
+{
+    wchar_t b0_path[MAX_PATH];
+    mbstowcs(b0_path, boot0_path, MAX_PATH);
+    wchar_t b1_path[MAX_PATH];
+    mbstowcs(b1_path, boot1_path, MAX_PATH);
+    createMmcEmuNand(mmc_path, updateProgress, wstring(b0_path), wstring(b1_path));
+}
+int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(ProgressInfo),  const wstring &boot0_path, const wstring &boot1_path)
 {
 
     dbg_printf("NxStorage::createMmcEmuNand(%s)\n", mmc_path);
@@ -1929,8 +1946,8 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
         if (nullptr == boot1_path)
             return ERR_INVALID_BOOT1;
 
-        dbg_printf("NxStorage::createMmcEmuNand() - boot0 path : %s\n", boot0_path);
-        dbg_printf("NxStorage::createMmcEmuNand() - boot1 path : %s\n", boot0_path);
+        dbg_wprintf(L"NxStorage::createMmcEmuNand() - boot0 path : %s\n", boot0_path.c_str());
+        dbg_wprintf(L"NxStorage::createMmcEmuNand() - boot1 path : %s\n", boot0_path.c_str());
     }   
 
     if (is_vfs_mounted())
@@ -2402,8 +2419,20 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
     dbg_printf("NxStorage::createMmcEmuNand() - SUCCESS\n");
     return SUCCESS;
 }
-
 int NxStorage::createFileBasedEmuNand(EmunandType emu_type, const char* volume_path, void(*updateProgress)(ProgressInfo), const char* boot0_path, const char* boot1_path)
+{
+    if (nullptr == volume_path)
+        return -1;
+
+    wchar_t vol_path[MAX_PATH];
+    mbstowcs(vol_path, volume_path, MAX_PATH);
+    wchar_t b0_path[MAX_PATH];
+    mbstowcs(b0_path, boot0_path, MAX_PATH);
+    wchar_t b1_path[MAX_PATH];
+    mbstowcs(b1_path, boot1_path, MAX_PATH);
+    createFileBasedEmuNand(emu_type, wstring(vol_path), updateProgress, wstring(b0_path), wstring(b1_path));
+}
+int NxStorage::createFileBasedEmuNand(EmunandType emu_type, const wstring &volume_path, void(*updateProgress)(ProgressInfo), const wstring &boot0_path, const wstring &boot1_path)
 {
     if (not_in(type, {RAWMMC, RAWNAND}))
         return ERR_INVALID_NAND;
@@ -2459,15 +2488,16 @@ int NxStorage::createFileBasedEmuNand(EmunandType emu_type, const char* volume_p
         nand_size = size() + boot0->size() + boot1->size();
     }
 
-    LPWSTR wpath = convertCharArrayToLPWSTR(volume_path);
     volumeDescriptor vol;
-    if (!GetVolumeDescriptor(&vol, wpath))
+    if (!GetVolumeDescriptor(&vol, (wchar_t*)volume_path.c_str()))
         return end(ERR_OUTPUT_NOT_DRIVE);
 
     if (vol.volumeFreeBytes < nand_size)
         return end(ERR_NO_SPACE_LEFT);
 
-    std::string volume(volume_path), cur_dir, emu_dir;
+    std::string volume(volume_path.begin(), volume_path.end());
+    std::string cur_dir, emu_dir;
+
     auto getDir = [&] (const char *path) { return std::string(volume + path); };
     auto n22dstr = [&] (int n) { char ns[4]; sprintf_s(ns, 4, "%02d", n); return std::string(ns); };
     switch (emu_type) {

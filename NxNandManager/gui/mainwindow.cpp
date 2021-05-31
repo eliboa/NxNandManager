@@ -476,7 +476,7 @@ void MainWindow::restorePartition()
     if (fileName.isEmpty())
         return;
 
-    selected_io = new NxStorage(fileName.toLocal8Bit().constData());
+    selected_io = new NxStorage(fileName.toStdWString());
     if(!selected_io->isNxStorage())
     {
         error(ERR_INPUT_HANDLE, "Not a valid Nx Storage");
@@ -1148,7 +1148,7 @@ void MainWindow::on_fullrestore_button_clicked()
         return;
 
     //New input storage
-    selected_io = new NxStorage(fileName.toLocal8Bit().constData());
+    selected_io = new NxStorage(fileName.toStdWString());
 
     if(!selected_io->isNxStorage())
     {

@@ -33,9 +33,12 @@ Progress::Progress(QWidget *parent, NxStorage *workingStorage) :
 
 Progress::~Progress()
 {
-    TaskBarProgress->setValue(0);
-    TaskBarProgress->setVisible(false);
-    if (console) delete console;
+    if (TaskBarProgress) {
+        TaskBarProgress->setValue(0);
+        TaskBarProgress->setVisible(false);
+    }
+    if (console)
+        delete console;
     delete ui;
 }
 

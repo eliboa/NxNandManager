@@ -63,6 +63,7 @@ class NxHandle {
     public: 
         explicit NxHandle(NxStorage *parent);
         explicit NxHandle(const char *path, u64 chunksize = 0);
+        explicit NxHandle(const wstring &path, u64 chunksize = 0);
         ~NxHandle();
 
     // Private member variables
@@ -111,7 +112,8 @@ class NxHandle {
         // Boolean
         bool b_isDrive = false;
 
-        // Methods        
+        // Member functions
+        void constructor(const wstring &path, u64 chunksize);
         NxSplitFile* getSplitFile(u64 offset);        
         void do_crypto(u8* buffer, u32 buff_size, u64 start_offset);
     public:
@@ -148,7 +150,7 @@ class NxHandle {
         void unlockHash() { m_isHashLocked = false; }
         void setChunksize(u64 size) { m_chunksize = size; }
 
-        // Public methods
+        // Public member functions
         void initHandle(int crypto_mode = NO_CRYPTO, NxPartition *partition = nullptr);
         bool detectSplittedStorage();
         splitFileName_t getSplitFileNameAttributes(std::wstring filepath = L"");

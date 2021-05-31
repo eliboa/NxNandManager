@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "types.h"
+#include <string>
 
 typedef struct ProgressInfo ProgressInfo;
 struct ProgressInfo {
@@ -42,8 +43,8 @@ struct params_t {
     std::vector<part_params_t> parts;
     int emunand_type = 0;
     bool isSubParam = false;
-    char boot0_path[260];
-    char boot1_path[260];
+    std::wstring boot0_path;
+    std::wstring boot1_path;
 };
 part_params_t* GetPartParam(params_t *params, int nxType);
 

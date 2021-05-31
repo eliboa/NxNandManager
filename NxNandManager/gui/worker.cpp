@@ -34,7 +34,7 @@ void Worker::run()
     case new_storage :
     {
         connect(this, SIGNAL(finished(NxStorage*)), m_parent, SLOT(inputSet(NxStorage*)));
-        m_WorkingStorage = new NxStorage(m_file.toLocal8Bit().constData());
+        m_WorkingStorage = new NxStorage(m_file.toStdWString());
         QFile kfile("keys.dat");
         if (kfile.exists())
             m_WorkingStorage->setKeys("keys.dat");
@@ -73,7 +73,7 @@ void Worker::run()
     switch (m_mode) {
     case dump :
     {
-        m_outHandle = new NxHandle(m_file.toLocal8Bit().constData(), m_params.chunksize);
+        m_outHandle = new NxHandle(m_file.toStdWString(), m_params.chunksize);
         rc = m_WorkingStorage->dump(m_outHandle, m_params, updateProgressWrapper);
         delete m_outHandle;
         break;
@@ -89,7 +89,7 @@ void Worker::run()
             rc = m_WorkingStorage->createMmcEmuNand(m_file.toLocal8Bit().constData(), updateProgressWrapper, m_params.boot0_path, m_params.boot1_path);
         else {
             EmunandType i = static_cast<EmunandType>(m_params.emunand_type);
-            rc = m_WorkingStorage->createFileBasedEmuNand(i, m_file.toLocal8Bit().constData(), updateProgressWrapper, m_params.boot0_path, m_params.boot1_path);
+            rc = m_WorkingStorage->createFileBasedEmuNand(i, m_file.toStdWString(), updateProgressWrapper, m_params.boot0_path, m_params.boot1_path);
         }
         break;
     }
