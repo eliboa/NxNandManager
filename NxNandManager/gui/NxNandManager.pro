@@ -173,3 +173,6 @@ DEPENDPATH += $${OPENSSL_LIB_PATH}/include
 win32:!win32-g++: PRE_TARGETDEPS += $${OPENSSL_LIB_PATH}/lib/crypto.lib
 else:win32-g++: PRE_TARGETDEPS += $${OPENSSL_LIB_PATH}/lib/libcrypto.a
 LIBS += -lpthread
+
+DISTFILES += \
+    images/explorer.png

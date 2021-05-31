@@ -638,6 +638,9 @@ u64 NxSave::readSaveFile(NxSaveFile &file, void *buf, u64 ofs, u64 btr)
     if (ofs + btr > file.size)
         btr = (u32)(file.size - ofs);
 
+    if (btr <= 0)
+        return 0;
+
     auto br = save_allocation_table_storage_read(&storage, buf, ofs, (u32)btr);
     if (openClose)
         NxFile::close();

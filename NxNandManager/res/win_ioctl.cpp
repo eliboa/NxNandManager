@@ -262,6 +262,28 @@ bool GetAvailableMountPoint(TCHAR *DriveLetter)
     return false;
 }
 
+std::vector<TCHAR> GetAvailableMountPoints()
+{
+    std::vector<TCHAR> mount_points;
+    TCHAR Buf[MAX_PATH];
+    wchar_t Drive[4] = L"d:\\";
+    // Look for existing or available mounting point
+    for (wchar_t I = L'd'; I < L'z'; I++)
+    {
+        // Stamp the drive for the appropriate letter.
+        Drive[0] = I;
+        bool bFlag = GetVolumeNameForVolumeMountPoint(
+            Drive,     // input volume mount point or directory
+            Buf,       // output volume name buffer
+            MAX_PATH); // size of volume name buffer
+        if (!bFlag)
+        {
+            mount_points.push_back(I);
+        }
+    }
+    return mount_points;
+}
+
 bool isAvailableMountPoint(TCHAR *DriveLetter)
 {
     TCHAR Buf[MAX_PATH];

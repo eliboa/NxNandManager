@@ -39,6 +39,7 @@ Explorer::Explorer(QWidget *parent, NxPartition *partition) :
     qRegisterMetaType<Qt::Orientation>("Qt::Orientation");
     qRegisterMetaType<QVector<int>>("QVector<int>");
     qRegisterMetaType<QQueue<NxFile*>>("QQueue<NxFile*>");
+    qRegisterMetaType<QList<NxFile*>>("QList<NxFile*>");
     qRegisterMetaType<QList<QPersistentModelIndex>>("QList<QPersistentModelIndex>");
     connect(this, SIGNAL(updateViewSignal()), this, SLOT(updateView()));
     setWindowFlags(Qt::Dialog | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
@@ -159,24 +160,31 @@ void Explorer::updateView()
     emit closeLoadingWdgt();
 }
 
-QQueue<CpyElement> Explorer::selection_extractQueue(bool force_dirOutput)
+QList<NxFile*> Explorer::selectedFiles()
+{
+    QList<NxFile*> files;
+    for (auto entry : ui->tableView->selectionModel()->selectedRows())
+        files << m_model.entryAt(entry.row());
+
+    return files;
+}
+
+QQueue<CpyElement> Explorer::getCopyQueue(QList<NxFile*> selectedFiles, bool force_dirOutput)
 {
     QQueue<CpyElement> queue;
-    auto table = ui->tableView;
-    auto selection = table->selectionModel()->selectedRows();
-    if (!selection.count())
+    if (!selectedFiles.count())
         return queue;
 
-    bool isDirOutput = selection.count()>1 || force_dirOutput;
+    bool isDirOutput = selectedFiles.count()>1 || force_dirOutput;
     QList<int> row_ixs;
-    for(auto s : selection) row_ixs << s.row();
 
     // File dialog
     QString caption = QString("Save to ").append(isDirOutput ? "directoy" : "file");
     QString target = "default_dir\\";
 
     if (!isDirOutput)        
-        target.append(QString::fromStdWString(m_model.entryAt(selection.at(0).row())->filename()));
+        target.append(QString::fromStdWString(selectedFiles.at(0)->filename()));
+
     QFileDialog fd(this, caption, target);
     fd.setFileMode(isDirOutput ? QFileDialog::DirectoryOnly : QFileDialog::AnyFile);
     if (!isDirOutput)
@@ -188,21 +196,21 @@ QQueue<CpyElement> Explorer::selection_extractQueue(bool force_dirOutput)
         return queue;
 
     // Enqueue files to copy
-    for (auto ix : row_ixs)
+    for (auto file : selectedFiles)
     {
         CpyElement el;
-        el.nxFile = m_model.entryAt(selection.at(ix).row());
-        el.source = QString::fromStdWString(el.nxFile->completePath());
+        el.nxFile = file;
+        el.source = QString::fromStdWString(file->completePath());
         el.destination = path;
         if (isDirOutput)
-            el.destination.append("\\" +  QString::fromStdWString(el.nxFile->filename()));
+            el.destination.append("\\" +  QString::fromStdWString(file->filename()));
         queue.enqueue(el);
     }
 }
 
-void Explorer::on_saveButton_clicked()
+void Explorer::save(QList<NxFile*> selectedFiles)
 {
-    auto queue = selection_extractQueue();
+    auto queue = getCopyQueue(selectedFiles);
     if (queue.isEmpty())
         return;
 
@@ -292,6 +300,107 @@ void Explorer::do_copy(QQueue<CpyElement> queue)
     emit workFinished();
 }
 
+void Explorer::do_extractFS(QQueue<CpyElement> queue)
+{
+    if (queue.isEmpty())
+        return;
+
+    // Extract FS => Destination is a directory, the same for each file
+    auto destination = QFileInfo(queue.at(0).destination).path();
+
+    ProgressInfo pi;
+    pi.mode = COPY;
+    pi.bytesCount = 0;
+    pi.bytesTotal  = 0;
+    for (auto entry : queue) {
+        NxSave save(entry.nxFile);
+        for (auto file : save.listFiles())
+            pi.bytesTotal += file.size;
+    }
+    pi.begin_time = std::chrono::system_clock::now();
+    strcpy_s(pi.storage_name, "files");
+    emit sendProgress(pi);
+
+    u32 buff_size = 0x400000; // 4 MB
+    u8* buffer = (u8*)malloc(buff_size); // Allocate buffer
+
+    while (!queue.isEmpty())
+    {
+        auto item = queue.dequeue();
+        NxSave save(item.nxFile);
+
+        for (auto file : save.listFiles())
+        {
+            // Set destination path (destination/titleID or titleName/saveFS path)
+            QString cur_des = destination;
+            QString dir_name = "";
+            if (item.nxFile->hasAdditionalString("title_name"))
+            {
+                dir_name = QString::fromStdString(item.nxFile->getAdditionalString("title_name"));
+                // Normalize title name
+                auto it = std::remove_if(dir_name.begin(), dir_name.end(), [](const QChar& c){return !c.isLetterOrNumber() && c != " ";});
+                dir_name.chop(std::distance(it, dir_name.end()));
+            }
+            if (dir_name.isEmpty())
+                dir_name = item.nxFile->titleIDString().length() ? QString::fromStdString(item.nxFile->titleIDString()) : QString::fromStdWString(item.nxFile->filename());
+            cur_des.append("/" + dir_name + "/" + QString::fromStdString(file.completePath()));
+
+            auto dest_info = QFileInfo(cur_des.toLocal8Bit());
+            // Make destination path
+            if (!QDir(dest_info.path()).exists() && !QDir().mkpath(dest_info.path())) {
+                free(buffer);
+                emit Explorer::error(ERR_CREATE_DIR_FAILED);
+                emit workFinished();
+                return;
+            }
+
+            // Open output file
+            QString cur_file_path = QDir(cur_des).path() + "\\" + QString::fromStdString(file.filename);
+            QFile out_file(dest_info.filePath());
+
+            auto error = [&](int err) {
+                out_file.close();
+                free(buffer);
+                emit Explorer::error(err);
+            };
+
+            if (!out_file.open(QIODevice::WriteOnly))
+                return error(ERR_OUTPUT_HANDLE);
+
+            ProgressInfo spi;
+            spi.isSubProgressInfo = true;
+            spi.mode = COPY;
+            strcpy_s(spi.storage_name, QFileInfo(out_file).fileName().toStdString().c_str());
+            spi.begin_time = std::chrono::system_clock::now();
+            spi.bytesCount = 0;
+            spi.bytesTotal = file.size;
+            emit sendProgress(spi);
+
+            u64 br;
+            while (spi.bytesCount < spi.bytesTotal && (br = save.readSaveFile(file, buffer, 0, buff_size)) > 0)
+            {
+                auto bw = out_file.write((const char*)buffer, (qint64)br);
+                if (bw < 0)
+                    return error(ERR_WHILE_WRITE);
+
+                pi.bytesCount += (u64)bw;
+                emit sendProgress(pi);
+                spi.bytesCount += (u64)bw;
+                emit sendProgress(spi);
+            }
+            if (spi.bytesCount != spi.bytesTotal)
+                return error(ERR_WHILE_WRITE);
+
+            out_file.close();
+        }
+    }
+    if (pi.bytesCount != pi.bytesTotal)
+        emit Explorer::error(ERR_WHILE_WRITE);
+
+    free(buffer);
+    emit workFinished();
+}
+
 void Explorer::hactool_process(QQueue<QStringList> cmds)
 {
     QString hactool = "res/hactool.exe";
@@ -368,30 +477,46 @@ void Explorer::on_selection_changed()
     // Enable/disable buttons
     auto obj_disable = [](QList<QWidget*> o) {for (auto i : o) i->setDisabled(true); };
     obj_disable(QList<QWidget*>() << ui->saveButton << ui->decrypt_button << ui->listFs_button << ui->extractFs_button);
-    if (selection.count())
-    {
-        ui->saveButton->setEnabled(true);
-        if (m_model.viewType() != Generic) {
-            ui->decrypt_button->setEnabled(true);
-            ui->extractFs_button->setEnabled(true);
-            if (selection.count() == 1)
-                ui->listFs_button->setEnabled(true);
-        }
+    if (!selection.count())
+        return;
+
+    auto view = ui->tableView;
+    foreach (QAction *action, view->actions()) {
+        view->removeAction(action);
+        delete action;
     }
+    auto enable_action = [&](QPushButton *obj, QString lbl, const char *slot) {
+        QAction* action = new QAction(obj->icon(), lbl);
+        action->setStatusTip(lbl);
+        connect(action, &QAction::triggered, [=]() {
+            QMetaObject::invokeMethod(this, slot, Q_ARG(QList<NxFile*>, selectedFiles()));
+        });
+        obj->disconnect();
+        connect(obj, &QPushButton::clicked, [=](bool state) {
+            QMetaObject::invokeMethod(this, slot, Q_ARG(QList<NxFile*>, selectedFiles()));
+        });
+        view->addAction(action);
+        obj->setEnabled(true);
+        setAllToolTip(obj, lbl);
+    };
 
-    // Set tool tips
-
-    QString status_tip;
     QString selection_label = isMultipleSelection ? (QString("%1").arg(selection.count()) + " ") : "";
     if (selection.count())
         selection_label.append(isMultipleSelection ? "files " : "selected file ");
 
-    setAllToolTip(ui->saveButton, "Extract " + selection_label);
-    setAllToolTip(ui->decrypt_button, "Extract & decrypt " + selection_label + " (hactool)");
-    setAllToolTip(ui->listFs_button, "List files in " + QString(m_viewtype == UserSave ? "Save" : "RomFS"));
-    setAllToolTip(ui->extractFs_button, "Extract files in " + QString(m_viewtype == UserSave ? "Save" : "RomFS"));
+    enable_action(ui->saveButton, "Extract " + selection_label, "save");
+
+    if (m_model.viewType() == Generic)
+        return;
+    if (m_model.viewType() == Nca)
+        enable_action(ui->decrypt_button, "Extract & decrypt " + selection_label + "(hactool)", "decrypt");
+    if (selection.count() == 1)
+        enable_action(ui->listFs_button, "List files in " + QString(m_model.viewType() == UserSave ? "Save" : "RomFS"), "listFS");
+    enable_action(ui->extractFs_button, "Extract files in " + QString(m_model.viewType() == UserSave ? "Save" : "RomFS"), "extractFS");
 
     /*
+    QString status_tip;
+
     if(selection.count())
         status_tip = QString("%1 file%2 selected (total: %3)").arg(selection.count()).arg(selection.count()>1?"s":"").arg(table->rowCount());
     else
@@ -401,16 +526,6 @@ void Explorer::on_selection_changed()
     ui->tableView->setStatusTip(status_tip);
     m_statusBar->showMessage(status_tip);
     */
-    auto view = ui->tableView;
-    foreach (QAction *action, view->actions()) {
-        view->removeAction(action);
-        delete action;
-    }
-    QAction* action = new QAction(ui->saveButton->icon(), "Extract " + selection_label);
-    action->setStatusTip("Extract " + selection_label);
-    connect(action, SIGNAL(triggered()), this, SLOT(on_saveButton_clicked()));
-    view->addAction(action);
-
 }
 
 void Explorer::on_currentDir_combo_currentIndexChanged(int index)
@@ -440,12 +555,12 @@ void Explorer::on_currentDir_combo_currentIndexChanged(int index)
     //QtConcurrent::run(this, &Explorer::setView);
 }
 
-void Explorer::on_decrypt_button_clicked()
+void Explorer::decrypt(QList<NxFile*> selectedFiles)
 {
     if (!QFile("res/hactool.exe").exists())
         return error(0, "hactool.exe not found!");
 
-    auto cpy_queue = selection_extractQueue(true);
+    auto cpy_queue = getCopyQueue(selectedFiles);
     if (cpy_queue.isEmpty())
         return;
 
@@ -510,13 +625,12 @@ void Explorer::on_decrypt_button_clicked()
     progressDialog.exec();
 }
 
-void Explorer::on_listFs_button_clicked()
+void Explorer::listFS(QList<NxFile*> selectedFiles)
 {
-    auto selection = ui->tableView->selectionModel()->selectedRows();
-    if (!selection.count())
+    if (!selectedFiles.count())
         return;
 
-    auto entry = m_model.entryAt(selection.at(0).row());
+    auto entry = selectedFiles.at(0);
     if (entry->isSAVE())
     {
         NxSave save(entry);
@@ -564,7 +678,7 @@ void Explorer::on_listFs_button_clicked()
         if(QMessageBox::question(nullptr, "Error", "Partition needs to be mounted as virtual disk.\n Click 'Yes' to mount partition.",
                  QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
         {
-            connect(m_partition, &NxPartition::vfs_mounted_signal, this, &Explorer::on_listFs_button_clicked);
+            connect(m_partition, &NxPartition::vfs_mounted_signal, [=]() { listFS(selectedFiles); });
             connect(m_partition, &NxPartition::vfs_callback, [&](long status){
                 if (status == DOKAN_DRIVER_INSTALL_ERROR)
                     emit error(1, "Dokan driver not installed. Please mount from main window to install driver.");
@@ -595,21 +709,27 @@ void Explorer::on_listFs_button_clicked()
     dialog->exec();
 }
 
-void Explorer::on_extractFs_button_clicked()
+
+void Explorer::extractFS(QList<NxFile*> selectedFiles)
 {
-    auto selection = ui->tableView->selectionModel()->selectedRows();
-    if (!selection.count())
+    if (!selectedFiles.count())
         return;
 
-    auto entry = m_model.entryAt(selection.at(0).row());
-    NxSave save(entry);
-    //auto files = save.listFiles();
-    NxSaveFile sfile;
-    if (save.getSaveFile(&sfile, "option.sav"))
-        int i(0);
-    if (save.getSaveFile(&sfile, "/option.sav"))
-        int i(0);
-    int i = 0;
+    auto queue = getCopyQueue(selectedFiles, true);
+    if (queue.isEmpty())
+        return;
+
+    // Init/open progress dialog & start work in a new thread
+    Progress progressDialog(m_parent, m_partition->parent);
+    connect(this, SIGNAL(sendProgress(const ProgressInfo)), &progressDialog, SLOT(updateProgress(const ProgressInfo)));
+    progressDialog.show();
+
+    QFutureWatcher<void> watcher;
+    connect(&watcher, &QFutureWatcher<void>::finished, &progressDialog, &Progress::on_WorkFinished);
+    QFuture<void> future = QtConcurrent::run(this, &Explorer::do_extractFS, queue);
+    watcher.setFuture(future);
+
+    progressDialog.exec();
 }
 
 

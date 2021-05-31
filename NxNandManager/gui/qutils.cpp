@@ -284,7 +284,7 @@ NxUserDB::NxUserDB(NxStorage *nxStorage)
         for (int i(0); i < 0x10; i++) {
             avatar_path.append(QStringLiteral("%1").arg(entry.user_id[i], 2, 16, QLatin1Char('0')));
             if (is_in(i, {3, 5, 7, 9}))
-            avatar_path.append("-");
+                avatar_path.append("-");
         }
         avatar_path.append(".jpg");
         NxSaveFile avatar;

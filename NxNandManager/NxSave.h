@@ -31,6 +31,7 @@ struct NxSaveFile {
     u32 next_sibling = 0;
     u32 next_dir = 0;
     bool is_directory = false;
+    string completePath() { return path.length() ? path + "/" + filename : filename; }
 };
 
 enum ListMode {

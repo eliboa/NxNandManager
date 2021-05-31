@@ -158,10 +158,11 @@ private:
     ExplorerModel m_model;
     NxFILCACHE cache_entries;
 
-    QQueue<CpyElement> selection_extractQueue(bool force_dirOutput = false);
+    QQueue<CpyElement> getCopyQueue(QList<NxFile*> selectedFiles, bool force_dirOutput = false);
     QStringList hactool_fs_list(NxFile *file);
     void getUsersInfo();
     NxUserIdEntry getUserByUserId(u8 *user_id);
+    QList<NxFile*> selectedFiles();
 
 signals:
     void sendProgress(const ProgressInfo pi);
@@ -171,17 +172,19 @@ signals:
     void updateViewSignal();
 
 private slots:
+    void save(QList<NxFile*> selectedFiles);
+    void decrypt(QList<NxFile*> selectedFiles);
+    void listFS(QList<NxFile*> selectedFiles);
+    void extractFS(QList<NxFile*> selectedFiles);
+
     void error(int err, QString label = nullptr);
     void updateView();
     void do_copy(QQueue<CpyElement> queue);
+    void do_extractFS(QQueue<CpyElement> queue);
     void hactool_process(QQueue<QStringList> cmds);
     void readDir(bool isRecursive = true);
     void on_currentDir_combo_currentIndexChanged(int index);
     void on_selection_changed();
-    void on_saveButton_clicked();
-    void on_decrypt_button_clicked();
-    void on_listFs_button_clicked();
-    void on_extractFs_button_clicked();
 
 protected:
   bool event(QEvent *e){

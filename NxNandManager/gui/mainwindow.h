@@ -88,7 +88,7 @@ private:
     QIcon formtIcon;
     QIcon mountIcon;
     QIcon unmountIcon;
-
+    QIcon explorerIcon;
 
     bool bTaskBarSet = FALSE;
     bool bKeyset;
@@ -130,9 +130,10 @@ private slots:
 	void on_partition_table_itemSelectionChanged();
     void on_moreinfo_button_clicked();    
     void on_rawdump_button_clicked();
-    void on_mountParition(int nx_type);
+    void on_mountParition(int nx_type, const wchar_t &mount_point = '\0');
     void launch_vfs(virtual_fs::virtual_fs* fs);
     void restartDebug();
+    void mountContextMenu();
 
 public slots:
 	void inputSet(NxStorage *storage = nullptr);
