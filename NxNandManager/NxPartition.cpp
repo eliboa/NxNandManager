@@ -63,8 +63,14 @@ NxPartition::NxPartition(NxStorage *p, const char* p_name, u32 lba_start, u32 lb
                 int remain = off % NX_BLOCKSIZE; // Block align
                 if (parent->nxHandle->read(off - remain, buff, nullptr, NX_BLOCKSIZE))
                 {
-                    if (!memcmp(&buff[remain], part.magic, strlen(part.magic)))
+                    u8 *blank_buff = new u8[strlen(nxPart_info.magic)];
+                    memset(blank_buff, 0, strlen(nxPart_info.magic));
+                    bool magic_found = !memcmp(&buff[remain], nxPart_info.magic, strlen(nxPart_info.magic));
+                    bool is_blank = !memcmp(&buff[remain], blank_buff, strlen(nxPart_info.magic));
+                    if (magic_found || is_blank)
                         m_isEncrypted = false;
+
+                    delete[] blank_buff;
                 }
             }
         }
@@ -106,33 +112,24 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
     unsigned char first_cluster[CLUSTER_SIZE];
     if (nxPart_info.magic != nullptr && nxHandle->read(first_cluster, nullptr, CLUSTER_SIZE))
     {
+        u8 *blank_buff = new u8[strlen(nxPart_info.magic)];
+        memset(blank_buff, 0, strlen(nxPart_info.magic));
+        bool magic_found = !memcmp(&first_cluster[nxPart_info.magic_off], nxPart_info.magic, strlen(nxPart_info.magic));
+        bool is_blank = !memcmp(&first_cluster[nxPart_info.magic_off], blank_buff, strlen(nxPart_info.magic));
         // Do magic
-        if (memcmp(&first_cluster[nxPart_info.magic_off], nxPart_info.magic, strlen(nxPart_info.magic)))
+        if (!magic_found && !is_blank)
             m_bad_crypto = true;
-        else if(is_in(m_type, {USER, SYSTEM}))
+        else if(!is_blank && is_in(m_type, {USER, SYSTEM}))
         {
             // Save boot sector
             fat32::read_boot_sector(first_cluster, &m_fs);
-            /*
-            fat32::boot_sector *bs = (fat32::boot_sector *)(first_cluster);
-            dbg_printf("PARTITION %s - 1 - bs->sectors_count = %I32d, bs->fat_size = %I32d, bs->rootdir_cluster_num = %I32d, bs->bs_first_copy_sector = %d\n", partitionName().c_str(),
-                       bs->sectors_count, bs->fat_size, bs->rootdir_cluster_num, bs->bs_first_copy_sector);
-
-            bs = (fat32::boot_sector *)(first_cluster + 0xC00);
-            dbg_printf("PARTITION %s - 2 - bs->sectors_count = %I32d, bs->fat_size = %I32d, bs->rootdir_cluster_num = %I32d\n", partitionName().c_str(),
-                       bs->sectors_count, bs->fat_size, bs->rootdir_cluster_num);
-
-            u32 fat_size = fat32::getFatSize(lbaEnd() - lbaStart() + 1);
-            u64 root_addr = (m_fs.reserved_sector_count * m_fs.bytes_per_sector) + (m_fs.num_fats * m_fs.fat_size * m_fs.bytes_per_sector);
-            dbg_printf("PARTITION %s (size in sectors = %I32d, root_addr = %I64d, fat_size = %I32d, real_fat_size = %I32d, reserved = %I32d)\n",
-                       partitionName().c_str(), lbaEnd() - lbaStart() + 1, root_addr, fat_size, m_fs.fat_size, m_fs.reserved_sector_count);
-            */
             m_fsSet = true;
             freeSpace = fat32_getFreeSpace(&freeSpaceRaw, &availableTotSpace);
         }
+        delete[] blank_buff;
     }
 
-    //dbg_printf("NxPartition::setCrypto() ends %s %s\n", partitionName().c_str(), m_bad_crypto ? "BAD CRYPTO" : "GOOD CRYPTO");
+    dbg_printf("NxPartition::setCrypto() ends %s %s\n", partitionName().c_str(), m_bad_crypto ? "BAD CRYPTO" : "GOOD CRYPTO");
     return m_bad_crypto ? false : true;
 }
 
