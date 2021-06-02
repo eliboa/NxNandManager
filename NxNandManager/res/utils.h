@@ -233,26 +233,30 @@ T base_nameW(T const & path, T const & delims = L"/\\")
 template<class T>
 T remove_extension(T const & filename)
 {
+    typename T::size_type const pmin(filename.find_last_of(L"/\\"));
 	typename T::size_type const p(filename.find_last_of('.'));
-	return p > 0 && p != T::npos ? filename.substr(0, p) : filename;
+    return p > 0 && (pmin == T::npos || p > pmin) && p != T::npos ? filename.substr(0, p) : filename;
 }
 template<class T>
 T remove_extensionW(T const & filename)
 {
+    typename T::size_type const pmin(filename.find_last_of(L"/\\"));
 	typename T::size_type const p(filename.find_last_of(L'.'));
-	return p > 0 && p != T::npos ? filename.substr(0, p) : filename;
+    return p > 0 && (pmin == T::npos || p > pmin) && p != T::npos ? filename.substr(0, p) : filename;
 }
 template<class T>
 T get_extension(T const & filename)
 {
+    typename T::size_type const pmin(filename.find_last_of("/\\"));
 	typename T::size_type const p(filename.find_last_of('.'));
-	return p > 0 && p != T::npos ? filename.substr(p, T::npos) : filename;
+    return p > 0 && (pmin == T::npos || p > pmin) && p != T::npos ? filename.substr(p, T::npos) : filename;
 }
 template<class T>
 T get_extensionW(T const & filename)
 {
+    typename T::size_type const pmin(filename.find_last_of(L"/\\"));
 	typename T::size_type const p(filename.find_last_of(L'.'));
-	return p > 0 && p != T::npos ? filename.substr(p, T::npos) : filename;
+    return p > 0 && (pmin == T::npos || p > pmin) && p != T::npos ? filename.substr(p, T::npos) : filename;
 }
 template<class T>
 static bool endsWith(T const & str, T const & suffix)
