@@ -181,7 +181,7 @@ class NxPartition
 public slots:
 #endif
 */
-        int mount_vfs(bool run = true, wchar_t driveLetter = L'\0', void(*clb_func_ptr)(NTSTATUS) = nullptr);
+        int mount_vfs(bool run = true, wchar_t driveLetter = L'\0', bool readOnly = false, void(*clb_func_ptr)(NTSTATUS) = nullptr);
 
 #if defined(ENABLE_GUI)
 signals:

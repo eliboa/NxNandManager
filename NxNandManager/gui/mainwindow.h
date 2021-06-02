@@ -77,7 +77,7 @@ private:
 	int cur_operation = 0;
     QWinTaskbarButton *TaskBarButton = nullptr;
 	QWinTaskbarProgress *TaskBarProgress;
-
+    bool m_isMountOptionReadOnly = true;
 
     QIcon dumpIcon;
     QIcon restoreIcon;

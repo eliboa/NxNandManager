@@ -71,11 +71,12 @@ class virtual_fs
     bool current_session = false;
     bool debug_log = false;
     bool enable_network_unmount = false;
+    bool read_only = false;
     ULONG timeout = 0;
     NxPartition *partition;
 
     void setDriveLetter(const wchar_t letter) { mount_point[0] = letter; }
-
+    void setReadOnly(bool state = true) { read_only = state; }
     void(*callback_func)(NTSTATUS) = nullptr;
     void setCallBackFunction(void(*func_ptr)(NTSTATUS)) {
         callback_func = func_ptr;

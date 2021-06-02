@@ -900,22 +900,19 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 
     // Explorer action
     auto explorer_button = ui->selPartGrp->findChild<QPushButton*>("explorer_button");
-    if (explorer_button && not_in(selected_part->type(), {USER, SYSTEM}))
+    if (explorer_button)
         delete explorer_button;
 
     if(is_in(selected_part->type(), {USER, SYSTEM}))
     {
         QString statusTip(tr("Explore partition (saves & installed titles)"));
-
-        if (!explorer_button) {
-            explorer_button = new QPushButton(this);
-            explorer_button->setObjectName("explorer_button");
-            explorer_button->setFixedSize(30, 30);
-            explorer_button->setIcon(explorerIcon);
-            explorer_button->setStatusTip(statusTip);
-            connect(explorer_button, &QPushButton::clicked, this, &MainWindow::openExplorer);
-            ui->horizontalLayout_2->addWidget(explorer_button);
-        }
+        auto explorer_button = new QPushButton(this);
+        explorer_button->setObjectName("explorer_button");
+        explorer_button->setFixedSize(30, 30);
+        explorer_button->setIcon(explorerIcon);
+        explorer_button->setStatusTip(statusTip);
+        connect(explorer_button, &QPushButton::clicked, this, &MainWindow::openExplorer);
+        ui->horizontalLayout_2->insertWidget(ui->horizontalLayout_2->count()-1, explorer_button);
 
         QAction* explAction = new QAction(explorerIcon, "Explore partition");
         explAction->setStatusTip(statusTip);
@@ -924,24 +921,21 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     }
 
     auto button = ui->selPartGrp->findChild<QPushButton*>("mount_button");
-    if (button && not_in(selected_part->type(), {USER, SYSTEM, SAFE, PRODINFOF}))
+    if (button)
         delete button;
 
     if (is_in(selected_part->type(), {USER, SYSTEM, SAFE, PRODINFOF}))
     {
-        if (!button)
-        {
-            button = new QPushButton(this);
-            button->setObjectName("mount_button");
-            button->setFixedSize(110, 30);
-            connect(button, &QPushButton::clicked, [=]() {
-                if(selected_part->is_vfs_mounted())
-                    on_mountParition(selected_part->type());
-                else
-                    mountContextMenu();
-            });
-            ui->horizontalLayout_2->addWidget(button);
-        }
+        auto button = new QPushButton(this);
+        button->setObjectName("mount_button");
+        button->setFixedSize(110, 30);
+        connect(button, &QPushButton::clicked, [=]() {
+            if(selected_part->is_vfs_mounted())
+                on_mountParition(selected_part->type());
+            else
+                mountContextMenu();
+        });
+        ui->horizontalLayout_2->insertWidget(ui->horizontalLayout_2->count()-1, button);
 
         button->setIcon(selected_part->is_vfs_mounted() ? unmountIcon : mountIcon);
         QString label = selected_part->is_vfs_mounted() ? "Unmount" : "Mount";
@@ -1074,8 +1068,6 @@ void MainWindow::on_partition_table_itemSelectionChanged()
 
     }
     addItem("Description:\n" + info);
-    //ui->properties_table->resizeRowsToContents();
-
 }
 
 void MainWindow::driveSet(QString drive)
@@ -1324,9 +1316,8 @@ void MainWindow::on_mountParition(int nx_type, const wchar_t &mount_point)
     if(nxp->is_vfs_mounted())
         return exit(nxp->unmount_vfs());
 
-    connect(nxp, &NxPartition::vfs_mounted_signal, [&](){
-        emit on_partition_table_itemSelectionChanged();
-    });
+    nxp->disconnect();
+    connect(nxp, &NxPartition::vfs_mounted_signal, this, &MainWindow::on_partition_table_itemSelectionChanged);
     connect(nxp, &NxPartition::vfs_callback, [&](long status){
         if (status == DOKAN_DRIVER_INSTALL_ERROR)
             emit dokanDriver_install_signal();
@@ -1334,9 +1325,10 @@ void MainWindow::on_mountParition(int nx_type, const wchar_t &mount_point)
             emit error((int)status);
         else if (status != DOKAN_SUCCESS)
             emit error(1, QString::fromStdString(dokanNtStatusToStr(status)));
+
         emit on_partition_table_itemSelectionChanged();
     });
-    QtConcurrent::run(nxp, &NxPartition::mount_vfs, true, mount_point, nullptr);
+    QtConcurrent::run(nxp, &NxPartition::mount_vfs, true, mount_point, m_isMountOptionReadOnly, nullptr);
 
 }
 
@@ -1367,6 +1359,14 @@ void MainWindow::mountContextMenu()
         });
         subContextMenu->addAction(subAction);
     }
+    contextMenu.addSeparator();
+    QAction readOnlyAction("Mount as read only", this);
+    readOnlyAction.setCheckable(true);
+    readOnlyAction.setChecked(m_isMountOptionReadOnly);
+    connect(&readOnlyAction, &QAction::triggered, [&]() {
+        m_isMountOptionReadOnly = readOnlyAction.isChecked();
+    });
+    contextMenu.addAction(&readOnlyAction);
     contextMenu.exec(button->mapToGlobal(button->rect().bottomLeft()));
 }
 

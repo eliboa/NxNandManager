@@ -97,6 +97,7 @@ public:
 
     // QAbstratTableModel redefinition
     void setModel(viewTypeEnum viewType, QList<NxFile*> entries);
+
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
     int rowCount(const QModelIndex &parent = QModelIndex()) const override {
         return m_entries.count();
@@ -130,10 +131,15 @@ private:
     viewColumnType getColumnType(int column) const;
 
     void setTitleIconsFromUrl();
-
+    void setTitleIconFromUrl(NxFile* file);
+public slots:
+    void insertEntry(NxFile*);
 signals:
     void viewUpdated();
     void resizeRowToContents(int row);
+    void resizeColumnsToContents();
+    void setRowHeight(int row, int height);
+
 };
 class Explorer : public QDialog
 {
@@ -157,6 +163,8 @@ private:
     QStatusBar *m_statusBar = nullptr;
     ExplorerModel m_model;
     NxFILCACHE cache_entries;
+    QFuture<void> future;
+    QFutureWatcher<void> *watcher;
 
     QQueue<CpyElement> getCopyQueue(QList<NxFile*> selectedFiles, bool force_dirOutput = false);
     QStringList hactool_fs_list(NxFile *file);
@@ -170,6 +178,7 @@ signals:
     void closeLoadingWdgt();
     void consoleWrite(const QString);
     void updateViewSignal();
+    void insertEntry(NxFile*);
 
 private slots:
     void save(QList<NxFile*> selectedFiles);

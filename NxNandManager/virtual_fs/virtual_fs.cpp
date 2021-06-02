@@ -132,7 +132,7 @@ void virtual_fs::run()
     dokan_options.ThreadCount = thread_number;
     dokan_options.Timeout = timeout;
 
-    if (partition->nxHandle->isReadOnly())
+    if (read_only || partition->nxHandle->isReadOnly())
         dokan_options.Options |= DOKAN_OPTION_WRITE_PROTECT;
 
     TCHAR driveLetter;

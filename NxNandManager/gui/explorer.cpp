@@ -28,6 +28,9 @@ Explorer::Explorer(QWidget *parent, NxPartition *partition) :
     // Connect model to view
     ui->tableView->setModel(&m_model);
     connect(&m_model, &ExplorerModel::resizeRowToContents, ui->tableView, &QTableView::resizeRowToContents);
+    connect(&m_model, &ExplorerModel::resizeColumnsToContents, ui->tableView, &QTableView::resizeColumnsToContents);
+    connect(&m_model, &ExplorerModel::setRowHeight, ui->tableView, &QTableView::setRowHeight);
+
     // Selection model
     connect(ui->tableView->selectionModel(), &QItemSelectionModel::selectionChanged, [&](const QItemSelection &selected, const QItemSelection &deselected) {
         on_selection_changed();
@@ -43,6 +46,7 @@ Explorer::Explorer(QWidget *parent, NxPartition *partition) :
     qRegisterMetaType<QList<QPersistentModelIndex>>("QList<QPersistentModelIndex>");
     connect(this, SIGNAL(updateViewSignal()), this, SLOT(updateView()));
     setWindowFlags(Qt::Dialog | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
+    connect(this, &Explorer::insertEntry, &m_model, &ExplorerModel::insertEntry);
 
     // Create status bar
     m_statusBar = new QStatusBar(this);
@@ -52,6 +56,13 @@ Explorer::Explorer(QWidget *parent, NxPartition *partition) :
     if (partition->mount_fs())
         return;
 
+    QMovie *movie = new QMovie(":/images/loading_wheel.gif");
+    movie->setScaledSize(QSize(30, 30));
+    ui->loadingLabel->setMovie(movie);
+    ui->loadingLabel->show();
+    movie->start();
+    ui->loadingLabel->hide();
+
     ui->currentDir_combo->addItem("/save (Saves)", "/save");
     ui->currentDir_combo->addItem("/Contents/registered (Installed titles)", "/Contents/registered");
     ui->currentDir_combo->addItem("/Contents/placehld (Downloaded titles)", "/Contents/placehld");
@@ -59,8 +70,16 @@ Explorer::Explorer(QWidget *parent, NxPartition *partition) :
 
 Explorer::~Explorer()
 {
-    cache_entries.clear();
     delete ui;
+    ui = nullptr;
+    if (future.isRunning()) {
+        watcher->disconnect();
+        future.cancel();
+        future.waitForFinished();
+    }
+    this->disconnect();
+    m_model.disconnect();
+    cache_entries.clear();
 }
 
 void Explorer::error(int err, QString label)
@@ -93,6 +112,9 @@ void Explorer::readDir(bool isRecursive)
     auto cache = cache_entries.at(root_qstr);
     if (cache) {
         current_entries = *cache;
+        for (auto entry : current_entries)
+            emit insertEntry(entry);
+
         return;
     }
 
@@ -137,6 +159,13 @@ void Explorer::readDir(bool isRecursive)
                     if (!fromPrevious) previous_title = title; // Save title
                 }
             }
+
+            // Explorer dialog closed ?
+            if (!ui) {
+                f_closedir(&dp);
+                return;
+            }
+            emit insertEntry(file);
             current_entries << file;
         }
         f_closedir(&dp);
@@ -149,8 +178,7 @@ void Explorer::readDir(bool isRecursive)
 
 void Explorer::updateView()
 {
-    setWindowTitle(" Explorer (" + QString::fromStdString(m_partition->partitionName()) + ":" + m_current_dir + ")");
-    m_model.setModel(m_viewtype, current_entries);
+    //m_model.setModel(m_viewtype, current_entries);
     auto title_ix = m_model.getColumnIx(TitleColumn);
     ui->tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     if (title_ix >= 0)
@@ -530,6 +558,7 @@ void Explorer::on_selection_changed()
 
 void Explorer::on_currentDir_combo_currentIndexChanged(int index)
 {
+    ui->currentDir_combo->setDisabled(true);
     m_viewtype = Generic;
     m_current_dir = ui->currentDir_combo->itemData(index).toString();
     if (m_current_dir.contains("/save"))
@@ -537,22 +566,39 @@ void Explorer::on_currentDir_combo_currentIndexChanged(int index)
     else if (m_current_dir.contains("/Contents"))
         m_viewtype = Nca;
 
+    setWindowTitle(" Explorer (" + QString::fromStdString(m_partition->partitionName()) + ":" + m_current_dir + ")");
+    m_model.setModel(m_viewtype, QList<NxFile*>());
+    auto title_ix = m_model.getColumnIx(TitleColumn);
+    ui->tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    if (title_ix >= 0)
+        ui->tableView->horizontalHeader()->setSectionResizeMode(title_ix, QHeaderView::Stretch);
+
     // Display loading widget
+    /*
     if (m_loadingWdgt)
         delete m_loadingWdgt;
     m_loadingWdgt = new loadingWidget("Loading", this);
     connect(this, SIGNAL(closeLoadingWdgt()), m_loadingWdgt, SLOT(close()));
+    */
+    ui->loadingLabel->show();
+    this->update();
 
-    auto watcher = new QFutureWatcher<void>();
-    connect(watcher, &QFutureWatcher<void>::finished, [=](){
-        emit updateViewSignal();
+    watcher = new QFutureWatcher<void>();
+    connect(watcher, &QFutureWatcher<void>::finished, [&](){
         delete watcher;
+        if (!ui)
+            return;
+
+        ui->loadingLabel->hide();
+        ui->tableView->resizeRowsToContents();
+        ui->currentDir_combo->setEnabled(true);
     });
-    QFuture<void> future = QtConcurrent::run(this, &Explorer::readDir, true);
+    future = QtConcurrent::run(this, &Explorer::readDir, true);
     watcher->setFuture(future);
 
     //    QList<NxFile*> files = readDir();
     //QtConcurrent::run(this, &Explorer::setView);
+
 }
 
 void Explorer::decrypt(QList<NxFile*> selectedFiles)
@@ -687,7 +733,7 @@ void Explorer::listFS(QList<NxFile*> selectedFiles)
                 else if (status != DOKAN_SUCCESS)
                     emit error(1, QString::fromStdString(dokanNtStatusToStr(status)));
             });
-            QtConcurrent::run(m_partition, &NxPartition::mount_vfs, true, '\0', nullptr);
+            QtConcurrent::run(m_partition, &NxPartition::mount_vfs, true, '\0', true, nullptr);
             return;
         }
     }
@@ -778,6 +824,36 @@ ExplorerModel::~ExplorerModel()  {
     //QAbstractTableModel::~QAbstractTableModel();
 };
 
+void ExplorerModel::insertEntry(NxFile* entry) {
+
+    beginInsertRows(index(m_entries.count(),0), 1, 1);
+
+    explorerModelEntry modelEntry;
+    modelEntry.file = entry;
+    bool has_icon = false;
+
+    if (m_view.type == UserSave && m_userDB && entry->hasUserID()) {
+        auto user = m_userDB->getUserByUserId(entry->userID());
+        if (user.avatar_img) {
+            modelEntry.user_icon = new QIcon(QPixmap::fromImage(*user.avatar_img));
+            has_icon = true;
+        }
+    }
+
+    m_entries << modelEntry;
+
+    if (entry->hasAdditionalString("icon_url")) {
+        setTitleIconFromUrl(entry);
+        has_icon = true;
+    }
+    //emit resizeRowToContents(m_entries.count()-1);
+    if (has_icon)
+        emit setRowHeight(m_entries.count()-1, 50);
+    emit resizeColumnsToContents();
+
+    endInsertRows();
+
+}
 
 viewColumnType ExplorerModel::getColumnType(int column) const
 {
@@ -933,6 +1009,61 @@ void ExplorerModel::sort(int column, Qt::SortOrder order)
     emit layoutChanged(QList<QPersistentModelIndex>(), QAbstractItemModel::VerticalSortHint);
 }
 
+void ExplorerModel::setTitleIconFromUrl(NxFile* file)
+{
+    if (!file->hasAdditionalString("icon_url"))
+        return;
+
+    typedef struct { u64 title_id; QString cache_file_path; QUrl icon_url; } iconQueue;
+    auto cache_file_path = "cache/" + QString::fromStdString(file->titleIDString()) + ".jpg";
+    QFile cache_file(cache_file_path);
+    if (cache_file.exists()) {
+        QImage img(cache_file_path, "JPG");
+        if (!img.isNull()) {
+            for (int i(0); i < m_entries.count(); i++)
+                if (!m_entries[i].title_icon && m_entries.at(i).file->titleID() == file->titleID())
+                    m_entries[i].title_icon = new QIcon(QPixmap::fromImage(img));
+        }
+        else cache_file.remove();
+        return;
+    }
+
+    QDir cache_dir("cache");
+    if (!cache_dir.exists() && !QDir().mkdir("cache"))
+        return;
+
+    QNetworkRequest request(QUrl(QString::fromStdString(file->getAdditionalString("icon_url"))));
+    auto reply = m_nm.get(request);
+    if(reply->error())
+        return;
+
+    connect(reply, &QNetworkReply::finished, [=]()
+    {
+        if (reply->error())
+            return;
+
+        auto data = reply->readAll();
+        QFile cache_file(cache_file_path);
+        if (cache_file.open(QIODevice::WriteOnly)) {
+            cache_file.write(data);
+            cache_file.close();
+        }
+
+        for (int i(0); i < m_entries.count(); i++)
+            if (!m_entries.at(i).title_icon && m_entries.at(i).file->titleID() == file->titleID()) {
+                auto entry = m_entries.at(i);
+                QImage img(cache_file_path, "JPG");
+                if (!img.isNull()) {
+                    m_entries[i].title_icon = new QIcon(QPixmap::fromImage(img));
+                    auto m_idx = index(i, getColumnIx(TitleColumn));
+                    emit dataChanged(m_idx, m_idx, {Qt::DecorationRole});
+                    //emit resizeRowToContents(i);
+                }
+            }
+        reply->deleteLater();
+    });
+}
+
 void ExplorerModel::setTitleIconsFromUrl()
 {
     typedef struct { u64 title_id; QString cache_file_path; QUrl icon_url; } iconQueue;
@@ -950,9 +1081,13 @@ void ExplorerModel::setTitleIconsFromUrl()
             }
             cache_file.remove();
         }
-        for (auto queue : icon_queue) if (queue.title_id == entry.file->titleID())
-            continue;
-        icon_queue.append({entry.file->titleID(), cache_file_path, QUrl(QString::fromStdString(entry.file->getAdditionalString("icon_url"))) });
+        bool found = false;
+        for (auto queue : icon_queue) if (queue.title_id == entry.file->titleID()) {
+            found = true;
+            break;
+        }
+        if (found)
+            icon_queue.append({entry.file->titleID(), cache_file_path, QUrl(QString::fromStdString(entry.file->getAdditionalString("icon_url"))) });
     }
 
     if (icon_queue.isEmpty())

@@ -30,5 +30,6 @@
         <file>images/search.png</file>
         <file>images/nsw.png</file>
         <file>images/explorer.png</file>
+        <file>images/loading_wheel.gif</file>
     </qresource>
 </RCC>
