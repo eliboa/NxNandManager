@@ -89,7 +89,7 @@ int installDokanDriver(bool silent)
     bool x64 = IsWow64();
 #endif
 
-    wstring dpinst = parent_path(ExePathW()).append(x64 ? L"\\driver\\dpinst_x64.exe" : L"\\driver\\dpinst_x86.exe");
+    wstring dpinst = parent_path(ExePathW()).append(x64 ? L"\\res\\dokan_driver\\dpinst_x64.exe" : L"\\res\\dokan_driver\\dpinst_x86.exe");
     if (!file_exists(dpinst.c_str()))
         return ERR_DRIVER_FILE_NOT_FOUND;
 
