@@ -71,14 +71,14 @@
      </property>
     </widget>
    </item>
-   <item row="2" column="0" colspan="8">
+   <item row="2" column="0" colspan="9">
     <layout class="QVBoxLayout" name="footerLayout">
      <property name="sizeConstraint">
       <enum>QLayout::SetMaximumSize</enum>
      </property>
     </layout>
    </item>
-   <item row="1" column="0" colspan="8">
+   <item row="1" column="0" colspan="9">
     <widget class="QTableView" name="tableView">
      <property name="contextMenuPolicy">
       <enum>Qt::ActionsContextMenu</enum>
@@ -109,7 +109,14 @@
      </attribute>
     </widget>
    </item>
-   <item row="0" column="7">
+   <item row="0" column="2">
+    <widget class="QLabel" name="loadingLabel">
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="8">
     <spacer name="horizontalSpacer">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -267,10 +274,13 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="2">
-    <widget class="QLabel" name="loadingLabel">
+   <item row="0" column="7">
+    <widget class="QLabel" name="waringLabel">
      <property name="text">
-      <string/>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="textFormat">
+      <enum>Qt::AutoText</enum>
      </property>
     </widget>
    </item>

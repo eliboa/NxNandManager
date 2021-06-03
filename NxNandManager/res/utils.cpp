@@ -515,6 +515,18 @@ std::string GetGenericKey(KeySet* keyset, std::string name)
     return "";
 }
 
+bool HasGenericKey(KeySet* keyset, std::string name)
+{
+    if (!keyset)
+        return false;
+
+    for (auto k : keyset->other_keys) if (k.name == name)
+        return true;
+
+    return false;
+}
+
+
 void app_printf (const char *format, ...)
 {
     va_list args;

@@ -59,7 +59,7 @@ void KeySetDialog::displayKeys()
 
     ui->label_other_keys->setText("");
     if (!m_keyset->other_keys.empty())
-        ui->label_other_keys->setText(QString("+%1 others keys (useful for hactool)").arg(m_keyset->other_keys.size()));
+        ui->label_other_keys->setText(QString("+%1 other keys (useful for explorer and hactool)").arg(m_keyset->other_keys.size()));
 }
 
 void KeySetDialog::on_ImportButton_clicked()

@@ -21,6 +21,7 @@ typedef struct _NxTitle {
     QString filename;
     QString icon_url;
     QString type;
+    QString content_type;
 
     bool operator==(const _NxTitle &a) const {
         return u64_id == a.u64_id;

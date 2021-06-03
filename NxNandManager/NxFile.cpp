@@ -81,6 +81,7 @@ void NxFile::setAdditionalInfo()
 {
     UINT br;
     if ((m_fileType == NX_NCA || endsWith(m_filename, wstring(L".nca"))) && m_size > 0x400) {
+        m_fileType = NX_NCA;
         // Retrieve NCA information
         u8 header[0x200];
         if (this->open() && !this->read(0x200, (void*)header, 0x200,  &br) && br == 0x200)
@@ -91,7 +92,6 @@ void NxFile::setAdditionalInfo()
                 auto header_key = GetGenericKey(&m_nxp->nxStorage()->keyset, "header_key");
                 if (header_key.size() < 64) {
                     this->close();
-                    m_fileType = NX_GENERIC;
                     return;
                 }
                 char crypt[33];
@@ -108,11 +108,9 @@ void NxFile::setAdditionalInfo()
                     return;
                 }
             }
-            m_fileType = NX_NCA;
             this->m_title_id = nca_info->title_id;
             this->m_contentType = (NxContentType)nca_info->content_type;
         }
-        else m_fileType = NX_GENERIC;
     }
 
     if (startsWith(m_filepath, wstring(L"/save")) && m_size > 0x6F0) {
@@ -372,4 +370,34 @@ string NxFile::contentTypeString()
         break;
     }
     return str;
+}
+
+void NxFile::setContentType(string content_type)
+{
+    if (content_type == "Program")
+        m_contentType = Program;
+    else if (content_type == "Meta")
+        m_contentType = Meta;
+    else if (content_type == "Control")
+        m_contentType = Control;
+    else if (content_type == "Manual")
+        m_contentType = Manual;
+    else if (content_type == "Data")
+        m_contentType = Data;
+    else if (content_type == "PublicData")
+        m_contentType = PublicData;
+    else if (content_type == "SystemSaveData")
+        m_contentType = SystemSaveData;
+    else if (content_type == "SaveData")
+        m_contentType = SaveData;
+    else if (content_type == "BcatDeliveryCacheStorage")
+        m_contentType = BcatDeliveryCacheStorage;
+    else if (content_type == "DeviceSaveData")
+        m_contentType = DeviceSaveData;
+    else if (content_type == "TemporaryStorage")
+        m_contentType = TemporaryStorage;
+    else if (content_type == "CacheStorage")
+        m_contentType = CacheStorage;
+    else
+        m_contentType = UnknownType;
 }

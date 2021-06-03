@@ -157,6 +157,8 @@ MainWindow::~MainWindow()
         delete input;
     if (m_titleDB)
         delete m_titleDB;
+    if (m_ncaDB)
+        delete m_ncaDB;
 }
 
 void MainWindow::showEvent(QShowEvent *e)
@@ -1114,7 +1116,7 @@ void MainWindow::error(int err, QString label)
 	{
 		if(label != nullptr)
 		{
-			QMessageBox::critical(nullptr,"Error", label);
+            QMessageBox::critical(nullptr,"Error", label);
 			return;
 		}
 	}
@@ -1122,12 +1124,12 @@ void MainWindow::error(int err, QString label)
 	for (int i=0; i < (int)array_countof(ErrorLabelArr); i++)
 	{
 		if(ErrorLabelArr[i].error == err) {
-			QMessageBox::critical(nullptr,"Error", QString(ErrorLabelArr[i].label));
+            QMessageBox::critical(nullptr,"Error", QString(ErrorLabelArr[i].label));
 			return;
 		}
 	}
 
-	QMessageBox::critical(nullptr,"Error","Error " + QString::number(err));
+    QMessageBox::critical(nullptr,"Error","Error " + QString::number(err));
 }
 
 
@@ -1322,11 +1324,11 @@ void MainWindow::on_mountParition(int nx_type, const wchar_t &mount_point)
         if (status == DOKAN_DRIVER_INSTALL_ERROR)
             emit dokanDriver_install_signal();
         else if (status < -1000)
-            emit error((int)status);
+            emit error_signal((int)status);
         else if (status != DOKAN_SUCCESS)
-            emit error(1, QString::fromStdString(dokanNtStatusToStr(status)));
+            emit error_signal(1, QString::fromStdString(dokanNtStatusToStr(status)));
 
-        emit on_partition_table_itemSelectionChanged();
+        emit this->on_partition_table_itemSelectionChanged();
     });
     QtConcurrent::run(nxp, &NxPartition::mount_vfs, true, mount_point, m_isMountOptionReadOnly, nullptr);
 

@@ -83,16 +83,17 @@ Q_DECLARE_METATYPE(NxFile*)
 
 typedef struct {
     NxFile* file = nullptr;
-    QIcon *title_icon = nullptr;
-    QIcon *user_icon = nullptr;
+    QPixmap title_icon_m;
+    QPixmap user_icon_m;
 } explorerModelEntry;
 
+class Explorer;
 class ExplorerModel : public QAbstractTableModel
 {
     Q_OBJECT
 public:
-    ExplorerModel(QWidget* parent, viewTypeEnum viewType, QList<NxFile*> entries);
-    ExplorerModel(QWidget* parent) : m_parent(parent) { };
+    ExplorerModel(Explorer* parent, viewTypeEnum viewType, QList<NxFile*> entries);
+    ExplorerModel(Explorer* parent) : m_parent(parent) { };
     ~ExplorerModel() override;
 
     // QAbstratTableModel redefinition
@@ -117,7 +118,7 @@ public:
     void setUserDB(NxUserDB* db) { m_userDB = db; }
 
 private:
-    QWidget* m_parent;
+    Explorer* m_parent;
     QVector<explorerModelEntry> m_entries;
     QNetworkAccessManager m_nm;
     struct {
@@ -157,7 +158,6 @@ private:
     NxPartition *m_partition;
     QWidget *m_parent;
     loadingWidget* m_loadingWdgt = nullptr;
-    KeySet keyset;
     QString m_current_dir;
     viewTypeEnum m_viewtype = Generic;
     QStatusBar *m_statusBar = nullptr;
@@ -165,12 +165,15 @@ private:
     NxFILCACHE cache_entries;
     QFuture<void> future;
     QFutureWatcher<void> *watcher;
+    QMovie *m_loading_movie;
 
     QQueue<CpyElement> getCopyQueue(QList<NxFile*> selectedFiles, bool force_dirOutput = false);
     QStringList hactool_fs_list(NxFile *file);
     void getUsersInfo();
     NxUserIdEntry getUserByUserId(u8 *user_id);
     QList<NxFile*> selectedFiles();
+public:
+    QString curDir() { return m_current_dir; }
 
 signals:
     void sendProgress(const ProgressInfo pi);
@@ -179,6 +182,8 @@ signals:
     void consoleWrite(const QString);
     void updateViewSignal();
     void insertEntry(NxFile*);
+    void error_signal(int, QString);
+    void listFS_signal(QList<NxFile*>);
 
 private slots:
     void save(QList<NxFile*> selectedFiles);

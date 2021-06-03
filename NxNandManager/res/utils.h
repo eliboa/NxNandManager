@@ -187,6 +187,7 @@ struct KeySet {
     std::vector<GenericKey> other_keys;
 };
 std::string GetGenericKey(KeySet* keyset, std::string name);
+bool HasGenericKey(KeySet* keyset, std::string name);
 
 void dbg_printf (const char *format, ...);
 void dbg_wprintf (const wchar_t *format, ...);

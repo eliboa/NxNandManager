@@ -207,13 +207,15 @@ void NxNcaDB::populate_titles()
         if (title.contains("type"))
             nx_title.type = title["type"].toString();
         if (title.contains("nca_filename"))
-            nx_title.filename = title["nca_filename"].toString();
+            nx_title.filename.append(title["nca_filename"].toString());
+        if (title.contains("type"))
+            nx_title.content_type = title["type"].toString();
 
         if (nx_title.u64_id)
             m_titles.append(nx_title);
     }
     if (json.contains("timestamp") && json["timestamp"].toInt())
-        checkUpdate(json["timestamp"].toInt());
+        checkUpdate(json["timestamp"].toInt());    
 }
 
 NxTitle* NxNcaDB::findTitleByFileName(QString filename)

@@ -737,22 +737,27 @@ void NxPartition::clearHandles()
 
 int NxPartition::mount_fs()
 {
+    int res = SUCCESS;
+    FRESULT fres = FR_OK;
     if (is_mounted())
-        return SUCCESS;
+        ;
 
-    if (!is_in(type(), {PRODINFOF, SAFE, USER, SYSTEM}))
-        return ERR_PARTITION_NO_FATFS;
+    else if (!is_in(type(), {PRODINFOF, SAFE, USER, SYSTEM}))
+        res = ERR_PARTITION_NO_FATFS;
 
-    if (isEncryptedPartition() && nxCrypto == nullptr || badCrypto())
-        return ERR_BAD_CRYPTO;
+    else if (isEncryptedPartition() && nxCrypto == nullptr || badCrypto())
+        res = ERR_BAD_CRYPTO;
 
-    if (nxfs_initialize(this, &m_fatfs) != RES_OK)
-        return ERR_FAILED_TO_MOUNT_FS;
+    else if (nxfs_initialize(this, &m_fatfs) != SUCCESS)
+        res = ERR_FAILED_TO_MOUNT_FS;
 
-    if(f_mount(&m_fatfs, fs_prefix().c_str(), 1))
-        return ERR_FAILED_TO_MOUNT_FS;
+    else if((fres = f_mount(&m_fatfs, fs_prefix().c_str(), 1)))
+        res = ERR_FAILED_TO_MOUNT_FS;
 
-    return SUCCESS;
+    if (res && isdebug)
+        dbg_printf("NxPartition::mount_fs() FAILED part=%s, res=%d, f_mount res=%d", partitionName().c_str(), res, fres);
+
+    return res;
 }
 int NxPartition::unmount_fs()
 {
@@ -774,9 +779,12 @@ int NxPartition::mount_vfs(bool run, wchar_t driveLetter, bool readOnly, void(*c
     if (is_vfs_mounted())
         return res;
 
-    if ((res = mount_fs()))
+    if ((res = mount_fs())) {
+#if defined(ENABLE_GUI)
+        emit vfs_callback(res);
+#endif
         return res;
-
+    }
     m_vfs = new virtual_fs::virtual_fs(this);
 
     if (driveLetter)
@@ -786,9 +794,12 @@ int NxPartition::mount_vfs(bool run, wchar_t driveLetter, bool readOnly, void(*c
         m_vfs->setReadOnly();
 
     int ent = m_vfs->populate();
-    if(ent < 0)
+    if(ent < 0) {
         res = ERR_FAILED_TO_POPULATE_VFS;
-
+#if defined(ENABLE_GUI)
+        emit vfs_callback(res);
+#endif
+    }
     if (!res && clb_func_ptr)
         m_vfs->setCallBackFunction(clb_func_ptr);
 
@@ -801,6 +812,7 @@ int NxPartition::mount_vfs(bool run, wchar_t driveLetter, bool readOnly, void(*c
 #endif
         m_vfs->run(); // Will pause current thread execution until error or unmount
     }
+
     return res;
 }
 

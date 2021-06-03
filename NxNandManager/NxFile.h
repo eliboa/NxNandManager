@@ -225,8 +225,10 @@ public:
 
     // Setters
     void setAdditionalString(const string &key, const string &value);
+    void setTitleID(u64 tid) { m_title_id = tid; }
+    void setContentType(string content_type);
 
-    // Methods
+    // Member functions
     bool open(BYTE mode = FA_READ);
     bool close();
     bool seek(u64 offset);
