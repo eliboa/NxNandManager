@@ -294,9 +294,12 @@ int NxFile::write(u64 offset, const void* buff, UINT btw, UINT* bw)
 string NxFile::titleIDString() {
     if (!m_title_id)
         return string();
+
     u8 buff[8];
-    memcpy(buff, &m_title_id, 8);
+    u64 tid = __builtin_bswap64(m_title_id);
+    memcpy(buff, &tid, 8);
     return hexStr(buff, 8);
+
 }
 string NxFile::userIDString() {
     return hexStr((u8*)m_user_id, 16);

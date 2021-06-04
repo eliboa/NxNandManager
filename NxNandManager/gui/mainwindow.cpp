@@ -1103,7 +1103,7 @@ void MainWindow::openExplorer()
         return;
 
     ExplorerDialog = new Explorer(this, curPartition);
-    ExplorerDialog->setWindowTitle("Explorer");
+    //ExplorerDialog->setWindowTitle("Explorer");
     ExplorerDialog->show();
     ExplorerDialog->exec();
     delete ExplorerDialog;

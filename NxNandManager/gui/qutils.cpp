@@ -3,6 +3,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QtConcurrent/QtConcurrent>
+#include <QMessageBox>
 #include "../NxSave.h"
 QString FileDialog(QWidget *parent, fdMode mode, const QString& defaultName, const QString& filters)
 {
@@ -248,7 +249,7 @@ NxUserDB::NxUserDB(NxStorage *nxStorage)
     }
 
     NxSaveFile profiles;
-    if (!accounts->getSaveFile(&profiles, "su/avators/profiles.dat")) {
+    if (!accounts->getSaveFile(&profiles, "/su/avators/profiles.dat")) {
         delete accounts;
         return;
     }
@@ -282,7 +283,7 @@ NxUserDB::NxUserDB(NxStorage *nxStorage)
         memcpy(user.user_id, &uid, 0x10);
         user.nickname = QString::fromStdString(entry.nickname);
 
-        QString avatar_path = "su/avators/";
+        QString avatar_path = "/su/avators/";
         for (int i(0); i < 0x10; i++) {
             avatar_path.append(QStringLiteral("%1").arg(entry.user_id[i], 2, 16, QLatin1Char('0')));
             if (is_in(i, {3, 5, 7, 9}))
@@ -311,4 +312,21 @@ NxUserIdEntry NxUserDB::getUserByUserId(u8 user_id[0x10])
             return user;
 
     return NxUserIdEntry();
+}
+void VfsMountRunner::run(NxPartition *p, const QString &YesNoQuestion)
+{
+    if (YesNoQuestion.length() && QMessageBox::question(nullptr, "Mount partition",
+                                        YesNoQuestion, QMessageBox::Yes | QMessageBox::No) == QMessageBox::No)
+        return;
+
+    connect(p, &NxPartition::vfs_mounted_signal, this, &VfsMountRunner::mounted);
+    connect(p, &NxPartition::vfs_callback, [&](long status){
+        if (status == DOKAN_DRIVER_INSTALL_ERROR)
+            emit error(1, "Dokan driver not installed. Please mount from main window to install driver.");
+        else if (status < -1000)
+            emit error((int)status, nullptr);
+        else if (status != DOKAN_SUCCESS)
+            emit error(1, QString::fromStdString(dokanNtStatusToStr(status)));
+    });
+    QtConcurrent::run(p, &NxPartition::mount_vfs, true, '\0', true, nullptr);
 }

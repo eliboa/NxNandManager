@@ -17,6 +17,44 @@
    <bool>true</bool>
   </property>
   <layout class="QGridLayout" name="gridLayout">
+   <item row="1" column="0" colspan="12">
+    <widget class="QTableView" name="tableView">
+     <property name="contextMenuPolicy">
+      <enum>Qt::ActionsContextMenu</enum>
+     </property>
+     <property name="locale">
+      <locale language="English" country="UnitedStates"/>
+     </property>
+     <property name="editTriggers">
+      <set>QAbstractItemView::NoEditTriggers</set>
+     </property>
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <property name="iconSize">
+      <size>
+       <width>50</width>
+       <height>50</height>
+      </size>
+     </property>
+     <property name="sortingEnabled">
+      <bool>true</bool>
+     </property>
+     <attribute name="verticalHeaderVisible">
+      <bool>false</bool>
+     </attribute>
+    </widget>
+   </item>
+   <item row="0" column="10">
+    <widget class="QLabel" name="loadingLabel">
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+   </item>
    <item row="0" column="1">
     <widget class="QComboBox" name="currentDir_combo">
      <property name="minimumSize">
@@ -61,58 +99,13 @@
      </property>
      <property name="icon">
       <iconset resource="application.qrc">
-       <normaloff>:/images/export.png</normaloff>:/images/export.png</iconset>
+       <normaloff>:/images/unbox.png</normaloff>:/images/unbox.png</iconset>
      </property>
      <property name="iconSize">
       <size>
        <width>22</width>
        <height>22</height>
       </size>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="0" colspan="9">
-    <layout class="QVBoxLayout" name="footerLayout">
-     <property name="sizeConstraint">
-      <enum>QLayout::SetMaximumSize</enum>
-     </property>
-    </layout>
-   </item>
-   <item row="1" column="0" colspan="9">
-    <widget class="QTableView" name="tableView">
-     <property name="contextMenuPolicy">
-      <enum>Qt::ActionsContextMenu</enum>
-     </property>
-     <property name="locale">
-      <locale language="English" country="UnitedStates"/>
-     </property>
-     <property name="editTriggers">
-      <set>QAbstractItemView::NoEditTriggers</set>
-     </property>
-     <property name="alternatingRowColors">
-      <bool>true</bool>
-     </property>
-     <property name="selectionBehavior">
-      <enum>QAbstractItemView::SelectRows</enum>
-     </property>
-     <property name="iconSize">
-      <size>
-       <width>50</width>
-       <height>50</height>
-      </size>
-     </property>
-     <property name="sortingEnabled">
-      <bool>true</bool>
-     </property>
-     <attribute name="verticalHeaderVisible">
-      <bool>false</bool>
-     </attribute>
-    </widget>
-   </item>
-   <item row="0" column="2">
-    <widget class="QLabel" name="loadingLabel">
-     <property name="text">
-      <string/>
      </property>
     </widget>
    </item>
@@ -128,6 +121,13 @@
       </size>
      </property>
     </spacer>
+   </item>
+   <item row="2" column="0" colspan="12">
+    <layout class="QVBoxLayout" name="footerLayout">
+     <property name="sizeConstraint">
+      <enum>QLayout::SetMaximumSize</enum>
+     </property>
+    </layout>
    </item>
    <item row="0" column="5">
     <widget class="QPushButton" name="listFs_button">
@@ -163,7 +163,7 @@
      </property>
      <property name="icon">
       <iconset resource="application.qrc">
-       <normaloff>:/images/search.png</normaloff>:/images/search.png</iconset>
+       <normaloff>:/images/magnifying_glass.png</normaloff>:/images/magnifying_glass.png</iconset>
      </property>
      <property name="iconSize">
       <size>
@@ -183,50 +183,6 @@
      </property>
      <property name="text">
       <string>Directory:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="3">
-    <widget class="QPushButton" name="saveButton">
-     <property name="enabled">
-      <bool>false</bool>
-     </property>
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="minimumSize">
-      <size>
-       <width>30</width>
-       <height>30</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>30</width>
-       <height>30</height>
-      </size>
-     </property>
-     <property name="sizeIncrement">
-      <size>
-       <width>20</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="text">
-      <string/>
-     </property>
-     <property name="icon">
-      <iconset resource="application.qrc">
-       <normaloff>:/images/save.png</normaloff>:/images/save.png</iconset>
-     </property>
-     <property name="iconSize">
-      <size>
-       <width>22</width>
-       <height>22</height>
-      </size>
      </property>
     </widget>
    </item>
@@ -264,7 +220,51 @@
      </property>
      <property name="icon">
       <iconset resource="application.qrc">
-       <normaloff>:/images/extract_decrypt.png</normaloff>:/images/extract_decrypt.png</iconset>
+       <normaloff>:/images/unlock_file.png</normaloff>:/images/unlock_file.png</iconset>
+     </property>
+     <property name="iconSize">
+      <size>
+       <width>22</width>
+       <height>22</height>
+      </size>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="3">
+    <widget class="QPushButton" name="saveButton">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>30</width>
+       <height>30</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>30</width>
+       <height>30</height>
+      </size>
+     </property>
+     <property name="sizeIncrement">
+      <size>
+       <width>20</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="icon">
+      <iconset resource="application.qrc">
+       <normaloff>:/images/save2.png</normaloff>:/images/save2.png</iconset>
      </property>
      <property name="iconSize">
       <size>
@@ -275,7 +275,7 @@
     </widget>
    </item>
    <item row="0" column="7">
-    <widget class="QLabel" name="waringLabel">
+    <widget class="QLabel" name="warningLabel">
      <property name="text">
       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>

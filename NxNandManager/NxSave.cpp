@@ -1063,7 +1063,7 @@ int NxSave::visit_save_dir(uint32_t dir_index, vector<NxSaveFile> &entries, cons
     u32 *cur_idx = new u32(dir_index);
     string *cur_path = new string(parent_path);
     if (strlen(entry.name)) {
-        if (cur_path->size())
+        if (!endsWith(*cur_path, string("/")))
             cur_path->append("/");
         cur_path->append(entry.name);
     }

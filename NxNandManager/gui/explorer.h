@@ -166,12 +166,15 @@ private:
     QFuture<void> future;
     QFutureWatcher<void> *watcher;
     QMovie *m_loading_movie;
+    VfsMountRunner m_vfsRunner;
 
     QQueue<CpyElement> getCopyQueue(QList<NxFile*> selectedFiles, bool force_dirOutput = false);
     QStringList hactool_fs_list(NxFile *file);
     void getUsersInfo();
     NxUserIdEntry getUserByUserId(u8 *user_id);
     QList<NxFile*> selectedFiles();
+    void loadingWdgtSetVisible(bool visible);
+
 public:
     QString curDir() { return m_current_dir; }
 
@@ -184,6 +187,7 @@ signals:
     void insertEntry(NxFile*);
     void error_signal(int, QString);
     void listFS_signal(QList<NxFile*>);
+    void loadingWdgtSetVisibleSignal(bool visible);
 
 private slots:
     void save(QList<NxFile*> selectedFiles);

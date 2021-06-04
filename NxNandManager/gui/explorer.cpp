@@ -53,6 +53,8 @@ Explorer::Explorer(QWidget *parent, NxPartition *partition) :
     connect(this, SIGNAL(updateViewSignal()), this, SLOT(updateView()));
     connect(this, &Explorer::error_signal, this, &Explorer::error);
     connect(this, &Explorer::listFS_signal, this, &Explorer::listFS);
+    connect(this, &Explorer::loadingWdgtSetVisibleSignal, this, &Explorer::loadingWdgtSetVisible);
+    connect(&m_vfsRunner, &VfsMountRunner::error, this, &Explorer::error);
 
     setWindowFlags(Qt::Dialog | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
     connect(this, &Explorer::insertEntry, &m_model, &ExplorerModel::insertEntry);
@@ -110,6 +112,11 @@ void Explorer::error(int err, QString label)
     QMessageBox::critical(nullptr,"Error","Error " + QString::number(err));
 }
 
+void Explorer::loadingWdgtSetVisible(bool visible)
+{
+    visible ? ui->loadingLabel->show() : ui->loadingLabel->hide();
+    this->update();
+}
 /*
  * Scan all files inside a directory (default mode is recursive)
  */
@@ -117,6 +124,8 @@ void Explorer::readDir(bool isRecursive)
 {
     auto root_qstr = m_current_dir;
     current_entries.clear();
+
+    if (isdebug) dbg_wprintf(L"Explorer::readDir() %ls\n", m_current_dir.toStdWString().c_str());
 
     // Read from cache
     auto cache = cache_entries.at(root_qstr);
@@ -132,12 +141,13 @@ void Explorer::readDir(bool isRecursive)
     QQueue<wstring> queue;
     NxTitle *title = nullptr, *previous_title = nullptr;
 
-    queue.enqueue(root.c_str());
+    queue.enqueue(root);
     while (!queue.empty())
     {
         DIR dp;
         FILINFO fno;
         auto cur_dir = queue.dequeue();
+        if (isdebug) dbg_wprintf(L"Explorer::readDir() dequeue %ls\n", cur_dir.c_str());
 
         // Open directory
         auto open = m_partition->f_opendir(&dp, cur_dir.c_str()) == FR_OK;
@@ -220,6 +230,8 @@ QQueue<CpyElement> Explorer::getCopyQueue(QList<NxFile*> selectedFiles, bool for
     if (!selectedFiles.count())
         return queue;
 
+    if (isdebug) dbg_printf("Explorer::getCopyQueue() selection count: %d\n", selectedFiles.count());
+
     bool isDirOutput = selectedFiles.count()>1 || force_dirOutput;
     QList<int> row_ixs;
 
@@ -250,7 +262,9 @@ QQueue<CpyElement> Explorer::getCopyQueue(QList<NxFile*> selectedFiles, bool for
         if (isDirOutput)
             el.destination.append("\\" +  QString::fromStdWString(file->filename()));
         queue.enqueue(el);
+        if (isdebug) dbg_wprintf(L"Explorer::getCopyQueue() enqueue %ls \n", file->completePath().c_str());
     }
+    return queue;
 }
 
 void Explorer::save(QList<NxFile*> selectedFiles)
@@ -258,6 +272,8 @@ void Explorer::save(QList<NxFile*> selectedFiles)
     auto queue = getCopyQueue(selectedFiles);
     if (queue.isEmpty())
         return;
+
+    if (isdebug) dbg_printf("Explorer::save() queue count: %d\n", queue.count());
 
     // Init/open progress dialog & start work in a new thread
     Progress progressDialog(m_parent, m_partition->parent);
@@ -269,7 +285,7 @@ void Explorer::save(QList<NxFile*> selectedFiles)
     connect(&watcher, &QFutureWatcher<void>::finished, &progressDialog, &Progress::on_WorkFinished);
     QFuture<void> future = QtConcurrent::run(this, &Explorer::do_copy, queue);
     watcher.setFuture(future);
-
+    if (isdebug) dbg_printf("Explorer::save() selection count: %d, exec progress dialog\n", selectedFiles.count());
     progressDialog.exec();
 }
 
@@ -296,9 +312,11 @@ void Explorer::do_copy(QQueue<CpyElement> queue)
     {
         auto item = queue.dequeue();
         auto source = item.source.toStdWString();
+        dbg_wprintf(L"Explorer::do_copy() dequeue %ls\n", source.c_str());
 
         QFile out_file(item.destination);
         auto error = [&](int err) {
+            dbg_printf("Explorer::do_copy() error %d\n", err);
             out_file.close();
             item.nxFile->close();
             free(buffer);
@@ -357,13 +375,16 @@ void Explorer::do_extractFS(QQueue<CpyElement> queue)
     pi.mode = COPY;
     pi.bytesCount = 0;
     pi.bytesTotal  = 0;
+    int file_count = 0;
     for (auto entry : queue) {
         NxSave save(entry.nxFile);
-        for (auto file : save.listFiles())
+        for (auto file : save.listFiles()) {
             pi.bytesTotal += file.size;
+            file_count++;
+        }
     }
     pi.begin_time = std::chrono::system_clock::now();
-    strcpy_s(pi.storage_name, "files");
+    sprintf(pi.storage_name, "%d files", file_count);
     emit sendProgress(pi);
 
     u32 buff_size = 0x400000; // 4 MB
@@ -373,6 +394,7 @@ void Explorer::do_extractFS(QQueue<CpyElement> queue)
     {
         auto item = queue.dequeue();
         NxSave save(item.nxFile);
+        if (isdebug) dbg_wprintf(L"Explorer::do_extractFS() dequeue save %ls\n", save.completePath().c_str());
 
         for (auto file : save.listFiles())
         {
@@ -390,11 +412,12 @@ void Explorer::do_extractFS(QQueue<CpyElement> queue)
                 dir_name = item.nxFile->titleIDString().length() ? QString::fromStdString(item.nxFile->titleIDString()) : QString::fromStdWString(item.nxFile->filename());
             cur_des.append("/" + dir_name + "/" + QString::fromStdString(file.completePath()));
 
-            auto dest_info = QFileInfo(cur_des.toLocal8Bit());
+            auto dest_info = QFileInfo(cur_des);
             // Make destination path
             if (!QDir(dest_info.path()).exists() && !QDir().mkpath(dest_info.path())) {
                 free(buffer);
-                emit Explorer::error(ERR_CREATE_DIR_FAILED);
+                dbg_wprintf(L"Explorer::do_extractFS() failed to create dir %ls\n", dest_info.path().toStdWString().c_str());
+                emit error_signal(ERR_CREATE_DIR_FAILED, nullptr);
                 emit workFinished();
                 return;
             }
@@ -406,7 +429,7 @@ void Explorer::do_extractFS(QQueue<CpyElement> queue)
             auto error = [&](int err) {
                 out_file.close();
                 free(buffer);
-                emit Explorer::error(err);
+                emit error_signal(err, nullptr);
             };
 
             if (!out_file.open(QIODevice::WriteOnly))
@@ -422,7 +445,7 @@ void Explorer::do_extractFS(QQueue<CpyElement> queue)
             emit sendProgress(spi);
 
             u64 br;
-            while (spi.bytesCount < spi.bytesTotal && (br = save.readSaveFile(file, buffer, 0, buff_size)) > 0)
+            while (spi.bytesCount < spi.bytesTotal && (br = save.readSaveFile(file, buffer, spi.bytesCount, buff_size)) > 0)
             {
                 auto bw = out_file.write((const char*)buffer, (qint64)br);
                 if (bw < 0)
@@ -440,7 +463,7 @@ void Explorer::do_extractFS(QQueue<CpyElement> queue)
         }
     }
     if (pi.bytesCount != pi.bytesTotal)
-        emit Explorer::error(ERR_WHILE_WRITE);
+        emit error_signal(ERR_WHILE_WRITE, nullptr);
 
     free(buffer);
     emit workFinished();
@@ -545,19 +568,17 @@ void Explorer::on_selection_changed()
         setAllToolTip(obj, lbl);
     };
 
-    QString selection_label = isMultipleSelection ? (QString("%1").arg(selection.count()) + " ") : "";
-    if (selection.count())
-        selection_label.append(isMultipleSelection ? "files " : "selected file ");
+    QString selection_label = isMultipleSelection ? (QString("[%1 files]").arg(selection.count())) : "";
 
-    enable_action(ui->saveButton, "Extract " + selection_label, "save");
+    enable_action(ui->saveButton, "Save as... " + selection_label, "save");
 
     if (m_model.viewType() == Generic)
         return;
     if (m_model.viewType() == Nca)
-        enable_action(ui->decrypt_button, "Extract & decrypt " + selection_label + "(hactool)", "decrypt");
+        enable_action(ui->decrypt_button, "Decrypt and save as... (hactool) " + selection_label, "decrypt");
     if (selection.count() == 1)
-        enable_action(ui->listFs_button, "List files in " + QString(m_model.viewType() == UserSave ? "Save" : "RomFS"), "listFS");
-    enable_action(ui->extractFs_button, "Extract files in " + QString(m_model.viewType() == UserSave ? "Save" : "RomFS"), "extractFS");
+        enable_action(ui->listFs_button, "List files (from " + QString(m_model.viewType() == UserSave ? "saveFS" : "romFS") + ") " + selection_label, "listFS");
+    enable_action(ui->extractFs_button, "Extract files (from " + QString(m_model.viewType() == UserSave ? "saveFS" : "romFS") + ") " + selection_label, "extractFS");
 
     /*
     QString status_tip;
@@ -585,15 +606,15 @@ void Explorer::on_currentDir_combo_currentIndexChanged(int index)
 
     setWindowTitle(" Explorer (" + QString::fromStdString(m_partition->partitionName()) + ":" + m_current_dir + ")");
 
-    ui->waringLabel->setText("");
-    ui->waringLabel->setToolTip("");
-    ui->waringLabel->setStatusTip("");
+    ui->warningLabel->setText("");
+    ui->warningLabel->setToolTip("");
+    ui->warningLabel->setStatusTip("");
     if (m_partition->type() == USER && m_viewtype == Nca && !HasGenericKey(&m_partition->nxStorage()->keyset, "header_key")) {
-        ui->waringLabel->setText("Warning: header_key missing in keys.dat");
+        ui->warningLabel->setText("Warning: header_key missing in keys.dat");
         QString tip = "Please re-import keys from prod.keys (generated by Lockpick RCM) => Options > Configure keyset";
-        ui->waringLabel->setToolTip(tip);
-        ui->waringLabel->setStatusTip(tip);
-        ui->waringLabel->setStyleSheet("QLabel { color : red; }");
+        ui->warningLabel->setToolTip(tip);
+        ui->warningLabel->setStatusTip(tip);
+        ui->warningLabel->setStyleSheet("QLabel { color : red; }");
     }
 
     m_model.setModel(m_viewtype, QList<NxFile*>());
@@ -603,13 +624,6 @@ void Explorer::on_currentDir_combo_currentIndexChanged(int index)
         ui->tableView->horizontalHeader()->setSectionResizeMode(title_ix, QHeaderView::Stretch);
     }
 
-    // Display loading widget
-    /*
-    if (m_loadingWdgt)
-        delete m_loadingWdgt;
-    m_loadingWdgt = new loadingWidget("Loading", this);
-    connect(this, SIGNAL(closeLoadingWdgt()), m_loadingWdgt, SLOT(close()));
-    */
     ui->loadingLabel->show();
     this->update();
 
@@ -625,7 +639,6 @@ void Explorer::on_currentDir_combo_currentIndexChanged(int index)
     });
     future = QtConcurrent::run(this, &Explorer::readDir, true);
     watcher->setFuture(future);
-
 }
 
 void Explorer::decrypt(QList<NxFile*> selectedFiles)
@@ -717,6 +730,13 @@ void Explorer::listFS(QList<NxFile*> selectedFiles)
             return;
         }
         auto dialog = new QDialog(this, Qt::Dialog | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
+        QString title = QString::fromStdString(entry->hasAdditionalString("title_name") ? entry->getAdditionalString("title_name")
+                                                                                        : entry->titleIDString());
+        if (entry->hasUserID()) {
+            auto user = userDB ? userDB->getUserByUserId(entry->userID()) : NxUserIdEntry();
+            title.append(" (" + (user.nickname.isEmpty() ? QString::fromStdString(entry->userIDString()) : user.nickname) + ")");
+        }
+        dialog->setWindowTitle(title);
         auto layout = new QVBoxLayout();
         dialog->setLayout(layout);
         auto listWdgt = new QTableWidget(dialog);
@@ -748,21 +768,13 @@ void Explorer::listFS(QList<NxFile*> selectedFiles)
     QStringList files;
     if (!m_partition->is_vfs_mounted())
     {
-        if(QMessageBox::question(nullptr, "Error", "Partition needs to be mounted as virtual disk.\n Click 'Yes' to mount partition.",
-                 QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
-        {
-            connect(m_partition, &NxPartition::vfs_mounted_signal, [=]() { emit listFS_signal(selectedFiles); });
-            connect(m_partition, &NxPartition::vfs_callback, [&](long status){
-                if (status == DOKAN_DRIVER_INSTALL_ERROR)
-                    emit error_signal(1, "Dokan driver not installed. Please mount from main window to install driver.");
-                else if (status < -1000)
-                    emit error_signal((int)status, nullptr);
-                else if (status != DOKAN_SUCCESS)
-                    emit error_signal(1, QString::fromStdString(dokanNtStatusToStr(status)));
-            });
-            QtConcurrent::run(m_partition, &NxPartition::mount_vfs, true, '\0', true, nullptr);
-            return;
-        }
+        connect(&m_vfsRunner, &VfsMountRunner::mounted, [=](){
+            emit loadingWdgtSetVisible(false);
+            emit listFS_signal(selectedFiles);
+        });
+        emit loadingWdgtSetVisible(true);
+        m_vfsRunner.run(m_partition, "Partition needs to be mounted as virtual disk.\n Click 'Yes' to mount partition.");
+        return;
     }
     else files = hactool_fs_list(entry);
     if (files.isEmpty())
@@ -781,7 +793,6 @@ void Explorer::listFS(QList<NxFile*> selectedFiles)
 
     dialog->exec();
 }
-
 
 void Explorer::extractFS(QList<NxFile*> selectedFiles)
 {

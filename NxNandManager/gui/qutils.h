@@ -126,4 +126,14 @@ private:
     QVector<NxUserIdEntry> m_users;
 };
 
+class VfsMountRunner : public QObject
+{
+     Q_OBJECT
+public:
+    void run(NxPartition *p, const QString &YesNoQuestion = nullptr);
+signals:
+    void error(int, QString);
+    void mounted();
+};
+
 #endif // QUTILS_H
