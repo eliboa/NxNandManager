@@ -297,27 +297,6 @@ void NxStorage::constructor(const wstring &storage)
     // Look for emuMMC partition
     if (type == UNKNOWN)
     {        
-        /*
-        nxHandle->initHandle();
-        mbr_t mbr2;
-        if (nxHandle->read(&mbr2, &bytesRead, NX_BLOCKSIZE))
-        {
-            dbg_printf("MBR2 =\n%s\n", hexStr((u8*)&mbr2, NX_BLOCKSIZE).c_str());
-            dbg_printf("MBR2.bootstrap =\n%s\n", hexStr((u8*)mbr2.bootstrap_area, 0x1BE).c_str());     
-            dbg_printf("MBR2.part1 = %s\n", hexStr(reinterpret_cast<unsigned char *>(&mbr2.parts[0]), 0x10).c_str());
-            u32 sector_start = u32_val(mbr2.parts[0].lba_start);
-            u64 size = (u64)u32_val(mbr2.parts[0].lba_count) * NX_BLOCKSIZE;
-            dbg_printf("MBR2.part1 sector_start = %I32d, size = %s\n", sector_start, GetReadableSize(size).c_str());
-            dbg_printf("MBR2.part2 = %s\n", hexStr(reinterpret_cast<unsigned char *>(&mbr2.parts[1]), 0x10).c_str());
-            dbg_printf("MBR2.part3 = %s\n", hexStr(reinterpret_cast<unsigned char *>(&mbr2.parts[2]), 0x10).c_str());
-            dbg_printf("MBR2.part4 = %s\n", hexStr(reinterpret_cast<unsigned char *>(&mbr2.parts[3]), 0x10).c_str());
-            dbg_printf("MBR SIGNATURE = %s\n", hexStr(mbr2.signature, 2).c_str());
-            dbg_printf("MBR2 mbr_t size %I32d, mbr_part_t size %I32d, bootstrap_area size %I32d, signature size %I32d \n", 
-                sizeof(mbr_t), sizeof(mbr_part_t), sizeof(mbr2.bootstrap_area), sizeof(mbr2.signature)); 
-            
-        }
-        */
-
         nxHandle->initHandle();
         mbr_t mbr;
         WCHAR  volumeName[MAX_PATH] = L"";
@@ -446,13 +425,13 @@ void NxStorage::constructor(const wstring &storage)
             
 
             // Iterate GPP 
-            for (int i = 0; i < hdr->num_part_ents; i++)
+            for (u32 i = 0; i < hdr->num_part_ents; i++)
             {                                
                 // Get GPT entry
                 GptEntry *ent = (GptEntry *)(buff + (hdr->part_ent_lba - 1) * NX_BLOCKSIZE + i * sizeof(GptEntry));
 
                 s8 part_name[37] = { 0 };
-                for (int i = 0; i < 36; i++) { part_name[i] = ent->name[i]; }
+                for (int j = 0; j < 36; j++) { part_name[j] = ent->name[j]; }
 
                 // First partition should be PRODINFO
                 if (!cal0_found && !strcmp(part_name, "PRODINFO"))
@@ -474,18 +453,17 @@ void NxStorage::constructor(const wstring &storage)
 
                 if (lba_start + ent->lba_end > last_sector)
                     last_sector = lba_start + ent->lba_end;
+
+                continue;
             }
             
             if (cal0_found)
-            {
-                
+            {                
                 // Look for backup GPT                
-                //u64 off = m_size - NX_BLOCKSIZE;
                 u64 off = (u64)hdr->alt_lba * NX_BLOCKSIZE;
                 dbg_printf("Offset from hdr->alt_lba is %s\n", n2hexstr(off, 12).c_str());
                 if (type == RAWMMC)
                     off += 0x4000 * NX_BLOCKSIZE;
-                m_size = off + NX_BLOCKSIZE;
                
                 nxHandle->initHandle();
 
@@ -493,6 +471,7 @@ void NxStorage::constructor(const wstring &storage)
                 if (nxHandle->read(off, buff, &bytesRead, 0x200) && !memcmp(&buff[0], "EFI PART", 8))
                 {
                     m_backupGPT = off;
+                    m_size = off + NX_BLOCKSIZE;
                     dbg_printf("NxStorage::NxStorage() - backup GPT found at offset %s\n", n2hexstr(m_backupGPT, 10).c_str());
                     if (type == EMMC_PART) type = RAWMMC;
                 }
@@ -510,10 +489,16 @@ void NxStorage::constructor(const wstring &storage)
         }
     }
 
+    bool only_backupGPT_missing = false;
+    if (type == RAWNAND && !m_backupGPT) {
+        auto user = getNxPartition(USER);
+        if (user && m_size >= (user->lbaEnd()+1) * NX_BLOCKSIZE)
+            only_backupGPT_missing = true;
+    }
 
     dbg_printf("NxStorage::NxStorage() - TYPE IS %s\n", getNxTypeAsStr());
     // Look for splitted dump
-    if (type == RAWNAND && !m_backupGPT && !nxHandle->isDrive()) 
+    if (type == RAWNAND && !m_backupGPT && !only_backupGPT_missing && !nxHandle->isDrive())
     {        
         type = UNKNOWN;
         if (nxHandle->detectSplittedStorage())
