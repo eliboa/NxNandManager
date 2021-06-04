@@ -746,156 +746,136 @@ void NxStorage::setStorageInfo(int partition)
     BYTE buff[CLUSTER_SIZE];
     DWORD bytesRead;
 
-    if (partition == PRODINFO || !partition)
+    NxPartition *cur_part;
+
+    if ((!partition || partition == PRODINFO) && (cur_part = getNxPartition(PRODINFO)) && cur_part->isGood())
     {
-        NxPartition *cal0 = getNxPartition(PRODINFO);
-        if (nullptr != cal0 && !cal0->badCrypto() && (!cal0->isEncryptedPartition() || nullptr != cal0->crypto()))
+        nxHandle->initHandle(cur_part->isEncryptedPartition() ? DECRYPT : NO_CRYPTO, cur_part);
+        if (nxHandle->read(buff, nullptr, CLUSTER_SIZE))
         {
-            nxHandle->initHandle(cal0->isEncryptedPartition() ? DECRYPT : NO_CRYPTO, cal0);
-            if (nxHandle->read(buff, nullptr, CLUSTER_SIZE))
-            {
-                // Copy serial number and device id
-                memcpy(&serial_number, &buff[0x250], 18);
-                memset(&deviceId, 0x00, 21);
-                memcpy(&deviceId, &buff[0x544], 18);
+            // Copy serial number and device id
+            memcpy(&serial_number, &buff[0x250], 18);
+            memset(&deviceId, 0x00, 21);
+            memcpy(&deviceId, &buff[0x544], 18);
 
-                // Copy wlan mac address
-                s8 t_wlanMacAddress[7] = { 0 };
-                macAddress = "";
-                memcpy(&t_wlanMacAddress, &buff[0x210], 6);
-                std::string t_macAddress = hexStr(reinterpret_cast<unsigned char*>(t_wlanMacAddress), 6);
-                for (std::string::size_type i = 0; i < t_macAddress.size(); i++) {
-                    macAddress += t_macAddress[i];
-                    if (i & 1 && i != t_macAddress.size() - 1)
-                        macAddress.append("-");
-                }
-
+            // Copy wlan mac address
+            s8 t_wlanMacAddress[7] = { 0 };
+            macAddress = "";
+            memcpy(&t_wlanMacAddress, &buff[0x210], 6);
+            std::string t_macAddress = hexStr(reinterpret_cast<unsigned char*>(t_wlanMacAddress), 6);
+            for (std::string::size_type i = 0; i < t_macAddress.size(); i++) {
+                macAddress += t_macAddress[i];
+                if (i & 1 && i != t_macAddress.size() - 1)
+                    macAddress.append("-");
             }
         }
     }
-    
-    if (partition == SYSTEM || !partition)
+
+    if ((!partition || partition == SYSTEM) && (cur_part = getNxPartition(SYSTEM)) && cur_part->isGood())
     {
-        NxPartition *system = getNxPartition(SYSTEM);
-        if (nullptr != system && !system->badCrypto() && (!system->isEncryptedPartition() || nullptr != system->crypto()))
+        std::vector<fat32::dir_entry> dir_entries;
+        unsigned char buff[CLUSTER_SIZE];
+
+        // Retrieve fw version & exFat driver from NCA in /Contents/registered
+        if (cur_part->fat32_dir(&dir_entries, "/Contents/registered"))
         {
-            //dbg_printf("Get Storage information for SYSTEM\n");
-            std::vector<fat32::dir_entry> dir_entries;
-            unsigned char buff[CLUSTER_SIZE];
-
-            // Retrieve fw version & exFat driver from NCA in /Contents/registered
-            if (system->fat32_dir(&dir_entries, "/Contents/registered"))
+            for (fat32::dir_entry nca : dir_entries)
             {
-                for (fat32::dir_entry nca : dir_entries)
+                for (auto title : systemTitlesArr) if (!nca.filename.compare(std::string(title.nca_filename)))
                 {
-                    //dbg_printf("Found NCA %s\n", nca.filename.c_str());
-                    for (NxSystemTitles title : systemTitlesArr)
-                    {
-                        if (!nca.filename.compare(std::string(title.nca_filename)))
-                        {
-                            dbg_printf("Found NCA for fw %s\n", title.fw_version);
-                            memcpy(fw_version, title.fw_version, strlen(title.fw_version));
-                            setFirmwareVersion(&firmware_version, title.fw_version);
-                            break;
-                        }
-                    }
+                    dbg_printf("Found NCA for fw %s\n", title.fw_version);
+                    memcpy(fw_version, title.fw_version, strlen(title.fw_version));
+                    setFirmwareVersion(&firmware_version, title.fw_version);
+                    break;
+                }
 
-                    for (NxSystemTitles title : exFatTitlesArr)
-                    {
-                        if (!nca.filename.compare(std::string(title.nca_filename)))
-                        {
-                            exFat_driver = true;
-                            break;
-                        }
-                    }
+                for (auto title : exFatTitlesArr) if (!nca.filename.compare(std::string(title.nca_filename)))
+                {
+                    exFat_driver = true;
+                    break;
                 }
             }
-
-            // Read journal report => /save/80000000000000d1
-            if (system->fat32_dir(&dir_entries, "/save/80000000000000d1"))
-            {
-                dbg_printf("NxStorage::setStorageInfo(%s) - Reading journal report (/save/80000000000000d1)", getNxTypeAsStr(partition));
-                fat32::dir_entry *journal = &dir_entries[0];
-                u64 cur_off = journal->data_offset;
-                u64 max_off = cur_off + journal->entry.file_size;
-                s8 fwv[10] = { 0 };
-
-                // Read all journal data --> Let's just assume file is not fragmented in SYSTEM (TODO : Scan FAT for fragmentation)
-                while (cur_off < max_off && nxHandle->read(cur_off, buff, &bytesRead, CLUSTER_SIZE))
-                {
-                    std::string haystack(buff, buff + CLUSTER_SIZE);
-
-                    // Find needle (firmware version) in haystack
-                    std::size_t n = haystack.find("OsVersion");
-                    if (n != std::string::npos)
-                    {
-                        strcpy(fwv, haystack.substr(n + 10, 10).c_str());
-                        char *buf;
-                        if ((buf = strtok(fwv, "\xb0")) != nullptr) // 0xB0 terminated value (msgpack)
-                        {
-                            firmware_version_t fwv_tmp;
-                            setFirmwareVersion(&fwv_tmp, buf);
-                            //dbg_printf("Reading /save/80000000000000d1 - OsVersion %s\n", getFirmwareVersion(&fwv_tmp).c_str());
-
-                            if (fwv_cmp(fwv_tmp, firmware_version) > 0)
-                            {
-                                dbg_printf("%s is greater than %s\n", getFirmwareVersion(&fwv_tmp).c_str(), getFirmwareVersion().c_str());
-                                firmware_version = fwv_tmp;
-                            }
-                        }
-                    }
-
-                    // Find needle (serial number) in haystack
-                    n = haystack.find("\xACSerialNumber");
-                    if (!strlen(serial_number) && n != std::string::npos)
-                        strcpy(serial_number, haystack.substr(n + 14, 14).c_str());
-
-                    cur_off += bytesRead;
-                }
-            }
-            
-            // Read play report => /save/80000000000000a1 --> Let's just assume file is not fragmented in SYSTEM (TODO : Scan FAT for fragmentation)
-            if (system->fat32_dir(&dir_entries, "/save/80000000000000a1"))
-            {                
-                dbg_printf("NxStorage::setStorageInfo(%s) - Reading play report (/save/80000000000000a1)", getNxTypeAsStr(partition));
-                fat32::dir_entry *play_report = &dir_entries[0];
-                u64 cur_off = play_report->data_offset;
-                u64 max_off = cur_off + play_report->entry.file_size;
-                s8 fwv[10] = { 0 };
-
-                //dbg_printf("FOUND %s, off %s, first lba is %I32d\n", play_report->filename.c_str(), n2hexstr(cur_off, 10).c_str(), play_report->data_first_lba); 
-                // Read all play report data
-                while (cur_off < max_off && nxHandle->read(cur_off, buff, &bytesRead, CLUSTER_SIZE))
-                {
-                    //dbg_printf("Reading /save/80000000000000a1\n"); 
-                    std::string haystack(buff, buff + CLUSTER_SIZE);
-                    
-                    // Find needle (firmware version) in haystack
-                    std::size_t n = haystack.find("os_version");
-                    if (n != std::string::npos)
-                    {
-                        strcpy(fwv, haystack.substr(n + 11, 10).c_str());
-                        char *buf;
-                        if ((buf = strtok(fwv, "\xb1")) != nullptr) // 0xB1 terminated value (msgpack)
-                        {
-                            firmware_version_t fwv_tmp;
-                            setFirmwareVersion(&fwv_tmp, buf);
-
-                            if (fwv_cmp(fwv_tmp, firmware_version) > 0)
-                            {
-                                firmware_version = fwv_tmp;
-                            }
-                        }
-                    }
-                    cur_off += bytesRead;
-                }
-            }
-
-            // overwrite fw version if value found in journal/play report is greater than fw version in 
-            // package1ldr (trick for downgraded NAND, only works for FULL NAND)
-            if(firmware_version_boot0.major > 0 && firmware_version_boot0.major < firmware_version.major)
-                firmware_version = firmware_version_boot0;
         }
+
+        // Read journal report => /save/80000000000000d1
+        if (cur_part->fat32_dir(&dir_entries, "/save/80000000000000d1"))
+        {
+            dbg_printf("NxStorage::setStorageInfo(%s) - Reading journal report (/save/80000000000000d1)", getNxTypeAsStr(partition));
+            fat32::dir_entry *journal = &dir_entries[0];
+            u64 cur_off = journal->data_offset;
+            u64 max_off = cur_off + journal->entry.file_size;
+            s8 fwv[10] = { 0 };
+
+            // Read all journal data --> Let's just assume file is not fragmented in SYSTEM (TODO : Scan FAT for fragmentation)
+            while (cur_off < max_off && nxHandle->read(cur_off, buff, &bytesRead, CLUSTER_SIZE))
+            {
+                std::string haystack(buff, buff + CLUSTER_SIZE);
+                // Find needle (firmware version) in haystack
+                std::size_t n = haystack.find("OsVersion");
+                if (n != std::string::npos)
+                {
+                    strcpy(fwv, haystack.substr(n + 10, 10).c_str());
+                    char *buf;
+                    if ((buf = strtok(fwv, "\xb0"))) // 0xB0 terminated value (msgpack)
+                    {
+                        firmware_version_t fwv_tmp;
+                        setFirmwareVersion(&fwv_tmp, buf);
+
+                        if (fwv_cmp(fwv_tmp, firmware_version) > 0)
+                        {
+                            dbg_printf("%s is greater than %s\n", getFirmwareVersion(&fwv_tmp).c_str(), getFirmwareVersion().c_str());
+                            firmware_version = fwv_tmp;
+                        }
+                    }
+                }
+
+                // Find needle (serial number) in haystack
+                n = haystack.find("\xACSerialNumber");
+                if (!strlen(serial_number) && n != std::string::npos)
+                    strcpy(serial_number, haystack.substr(n + 14, 14).c_str());
+
+                cur_off += bytesRead;
+            }
+        }
+
+        // Read play report => /save/80000000000000a1 --> Let's just assume file is not fragmented in SYSTEM (TODO : Scan FAT for fragmentation)
+        if (cur_part->fat32_dir(&dir_entries, "/save/80000000000000a1"))
+        {
+            dbg_printf("NxStorage::setStorageInfo(%s) - Reading play report (/save/80000000000000a1)", getNxTypeAsStr(partition));
+            fat32::dir_entry *play_report = &dir_entries[0];
+            u64 cur_off = play_report->data_offset;
+            u64 max_off = cur_off + play_report->entry.file_size;
+            s8 fwv[10] = { 0 };
+
+            // Read all play report data
+            while (cur_off < max_off && nxHandle->read(cur_off, buff, &bytesRead, CLUSTER_SIZE))
+            {
+                std::string haystack(buff, buff + CLUSTER_SIZE);
+                // Find needle (firmware version) in haystack
+                std::size_t n = haystack.find("os_version");
+                if (n != std::string::npos)
+                {
+                    strcpy(fwv, haystack.substr(n + 11, 10).c_str());
+                    char *buf;
+                    if ((buf = strtok(fwv, "\xb1")) != nullptr) // 0xB1 terminated value (msgpack)
+                    {
+                        firmware_version_t fwv_tmp;
+                        setFirmwareVersion(&fwv_tmp, buf);
+
+                        if (fwv_cmp(fwv_tmp, firmware_version) > 0)
+                        {
+                            firmware_version = fwv_tmp;
+                        }
+                    }
+                }
+                cur_off += bytesRead;
+            }
+        }
+
+        // overwrite fw version if value found in journal/play report is greater than fw version in
+        // package1ldr (trick for downgraded NAND, only works for FULL NAND)
+        if(firmware_version_boot0.major > 0 && firmware_version_boot0.major < firmware_version.major)
+            firmware_version = firmware_version_boot0;
     }
 }
 
@@ -1649,49 +1629,42 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
 const char* NxStorage::getNxTypeAsStr(int a_type)
 {
     int cur_type = a_type ? a_type : type;
-    for (NxStorageType t : NxTypesArr)
-    {
-        if (cur_type == t.type)
-            return t.name;
-    }
+    for (auto t : NxTypesArr) if (cur_type == t.type)
+        return t.name;
+
     return "UNKNOWN";
 }
 
 int NxStorage::getNxTypeAsInt(const char* type)
 {
-    if (nullptr == type)
+    if (!type)
         return this->type;
 
-    for (NxStorageType t : NxTypesArr)
-    {
-        if (!strncmp(t.name, type, strlen(type)))
-            return t.type;
-    }
+    for (auto t : NxTypesArr) if (!strncmp(t.name, type, strlen(type)))
+        return t.type;
+
     return UNKNOWN;
 }
 
 bool NxStorage::badCrypto()
 {
-    for (NxPartition *p : partitions)
-        if (p->badCrypto())
-            return true;
+    for (auto *p : partitions) if (p->badCrypto())
+        return true;
 
     return false;
 }
 bool NxStorage::is_vfs_mounted()
 {
-    for (NxPartition *p : partitions)
-        if (p->is_vfs_mounted())
-            return true;
+    for (auto *p : partitions) if (p->is_vfs_mounted())
+        return true;
 
     return false;
 }
 
 bool NxStorage::isEncrypted()
 {
-    for (NxPartition *p : partitions)
-        if (p->isEncryptedPartition())
-            return true;
+    for (auto *p : partitions) if (p->isEncryptedPartition())
+        return true;
 
     return false;
 }
@@ -1701,19 +1674,12 @@ bool NxStorage::isSinglePartType(int part_type)
     if (!part_type)
         part_type = type;
 
-    if (is_in(part_type, { BOOT0 , BOOT1 , PRODINFO, PRODINFOF, BCPKG21, BCPKG22, BCPKG23, BCPKG24, BCPKG25, BCPKG26, SAFE, SYSTEM, USER }))
-        return true;
-
-    return false;
+    return is_in(part_type, { BOOT0 , BOOT1 , PRODINFO, PRODINFOF, BCPKG21, BCPKG22, BCPKG23, BCPKG24, BCPKG25, BCPKG26, SAFE, SYSTEM, USER });
 }
 
 bool NxStorage::isNxStorage()
 {
-    if (!is_in(type, { RAWNAND, RAWMMC, BOOT0 , BOOT1 , PRODINFO, PRODINFOF, BCPKG21, BCPKG22, BCPKG23, BCPKG24, BCPKG25, BCPKG26, SAFE, SYSTEM, USER }))
-    //if (type == UNKNOWN || type == INVALID)
-        return false;
-
-    return true;
+    return is_in(type, { RAWNAND, RAWMMC, BOOT0 , BOOT1 , PRODINFO, PRODINFOF, BCPKG21, BCPKG22, BCPKG23, BCPKG24, BCPKG25, BCPKG26, SAFE, SYSTEM, USER });
 }
 
 NxPartition* NxStorage::getNxPartition()
@@ -1726,12 +1692,9 @@ NxPartition* NxStorage::getNxPartition(int part_type)
     if (!part_type || partitions.size() == 0)
         return nullptr;
 
+    for (auto *p : partitions) if (p->type() == part_type)
+        return p;
 
-    for (NxPartition *cur_part : partitions)
-    {
-        if (cur_part->type() == part_type)
-            return cur_part;
-    }
     return nullptr;
 }
 
@@ -1759,16 +1722,10 @@ bool NxStorage::isDrive() { return nxHandle->isDrive(); }
 
 bool NxStorage::partitionExists(const char* partition_name)
 {
-    bool found = false;
-    for (NxPartition *part : partitions)
-    {
-        if (!part->partitionName().compare(partition_name))
-        {
-            found = true;
-            break;
-        }
-    }
-    return found;
+    for (auto p : partitions) if (!p->partitionName().compare(partition_name))
+        return true;
+
+    return false;
 }
 
 bool NxStorage::setAutoRcm(bool enable)
@@ -2731,7 +2688,7 @@ std::string ListPhysicalDrives()
         std::string compatibleDrives_tmp;
         for (volumeDescriptor volume : disk.volumes)
         {
-            NxStorage storage(std::string(volume.volumeName.begin(), volume.volumeName.end()).c_str());
+            NxStorage storage(volume.volumeName);
             if (storage.isNxStorage())
                 compatibleDrives_tmp.append("  ").append(std::string(volume.volumeName.begin(), volume.volumeName.end()).c_str()).append(" [" + GetReadableSize(storage.size()) + " - " + storage.getNxTypeAsStr() + "]\n");
         }

@@ -19,22 +19,15 @@
 
 // Constructor
 NxPartition::NxPartition(NxStorage *p, const char* p_name, u32 lba_start, u32 lba_end, u64 attrs)
+    : parent(p), m_lba_start(lba_start), m_lba_end(lba_end), m_attrs(attrs), nxHandle(p->nxHandle)
 {
     dbg_printf("NxPartition::NxPartition(parent, %s, lba_start=%I32d, lba_end=%I32d)\n", p_name, lba_start, lba_end);
-    parent = p;
-    nxHandle = parent->nxHandle;
-    m_fatfs.fs_type = 0;
-    m_fatfs.pdrv = 0;
-
-    // Get partition name length
-    int name_len = strlen(p_name) + 1;
 
     // Init member variables
-    for (int i = 0; i < 37 || i < strlen(p_name) - 1; i++)
+    m_fatfs.fs_type = 0;
+    m_fatfs.pdrv = 0;
+    for (int i = 0; i < 37 || i < (int)strlen(p_name)-1; i++)
         m_name[i] = p_name[i];
-    m_lba_start = lba_start;
-    m_lba_end = lba_end;
-    m_attrs = attrs;
     m_isEncrypted = false;
     m_bad_crypto = false;
     m_isValidPartition = false;
@@ -48,38 +41,35 @@ NxPartition::NxPartition(NxStorage *p, const char* p_name, u32 lba_start, u32 lb
         std::string sp_name = part.name;
         std::transform(sp_name.begin(), sp_name.end(), sp_name.begin(), ::toupper);
 
-        if(!sm_name.compare(sp_name))
+        if(sm_name.compare(sp_name))
+            continue;
+
+        m_isValidPartition = true;
+        m_isEncrypted = part.isEncrypted;
+        m_type = part.type;
+        nxPart_info = part;
+
+        // Look for decrypted partition
+        if (parent && m_isEncrypted)
         {
-            m_isValidPartition = true;
-            m_isEncrypted = part.isEncrypted;
-            m_type = part.type;            
-            nxPart_info = part;
-
-            // Look for decrypted partition
-            if (parent != nullptr && m_isEncrypted)
+            u8 buff[NX_BLOCKSIZE];
+            u64 off = lba_start * NX_BLOCKSIZE + part.magic_off;
+            int remain = off % NX_BLOCKSIZE; // Block align
+            if (parent->nxHandle->read(off - (u64)remain, buff, nullptr, NX_BLOCKSIZE))
             {
-                u8 buff[NX_BLOCKSIZE];
-                u64 off = lba_start * NX_BLOCKSIZE + part.magic_off;                
-                int remain = off % NX_BLOCKSIZE; // Block align
-                if (parent->nxHandle->read(off - remain, buff, nullptr, NX_BLOCKSIZE))
-                {
-                    u8 *blank_buff = new u8[strlen(nxPart_info.magic)];
-                    memset(blank_buff, 0, strlen(nxPart_info.magic));
-                    bool magic_found = !memcmp(&buff[remain], nxPart_info.magic, strlen(nxPart_info.magic));
-                    bool is_blank = !memcmp(&buff[remain], blank_buff, strlen(nxPart_info.magic));
-                    if (magic_found || is_blank)
-                        m_isEncrypted = false;
-
-                    delete[] blank_buff;
-                }
+                u8 *blank_buff = new u8[strlen(nxPart_info.magic)];
+                memset(blank_buff, 0, strlen(nxPart_info.magic));
+                bool magic_found = !memcmp(&buff[remain], nxPart_info.magic, strlen(nxPart_info.magic));
+                bool is_blank = !memcmp(&buff[remain], blank_buff, strlen(nxPart_info.magic));
+                if (magic_found || is_blank)
+                    m_isEncrypted = false;
+                delete[] blank_buff;
             }
         }
+        break;
     }
-
-    if (parent != nullptr)
-    {
-        parent->partitions.push_back(this);        
-    }
+    if (parent)
+        parent->partitions.push_back(this);
 }
 
 NxPartition::~NxPartition()
@@ -99,10 +89,8 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
     if (!nxPart_info.isEncrypted)
         return false;
 
-    if (nullptr != nxCrypto)
+    if (nxCrypto)
         delete nxCrypto;
-
-    //dbg_printf("NxPartition::setCrypto() for %s\n", partitionName().c_str());
     
     m_bad_crypto = false;
     nxCrypto = new NxCrypto(crypto, tweak);   
@@ -110,7 +98,7 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
 
     // Validate first cluster
     unsigned char first_cluster[CLUSTER_SIZE];
-    if (nxPart_info.magic != nullptr && nxHandle->read(first_cluster, nullptr, CLUSTER_SIZE))
+    if (nxPart_info.magic && nxHandle->read(first_cluster, nullptr, CLUSTER_SIZE))
     {
         u8 *blank_buff = new u8[strlen(nxPart_info.magic)];
         memset(blank_buff, 0, strlen(nxPart_info.magic));
@@ -119,8 +107,7 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
         // Do magic
         if (!magic_found && !is_blank)
             m_bad_crypto = true;
-        else if(!is_blank && is_in(m_type, {USER, SYSTEM}))
-        {
+        else if(!is_blank && is_in(m_type, {USER, SYSTEM})) {
             // Save boot sector
             fat32::read_boot_sector(first_cluster, &m_fs);
             m_fsSet = true;
@@ -130,7 +117,7 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
     }
 
     dbg_printf("NxPartition::setCrypto() ends %s %s\n", partitionName().c_str(), m_bad_crypto ? "BAD CRYPTO" : "GOOD CRYPTO");
-    return m_bad_crypto ? false : true;
+    return !m_bad_crypto;
 }
 
 std::string NxPartition::partitionName()
@@ -150,10 +137,7 @@ u32 NxPartition::lbaEnd()
 
 u64 NxPartition::size() 
 {
-    if(m_lba_end - m_lba_start > 0)
-        return (u64)(m_lba_end - m_lba_start + 1) * NX_BLOCKSIZE;
-    else 
-        return 0;
+    return m_lba_end - m_lba_start > 0 ? (u64)(m_lba_end - m_lba_start + 1) * NX_BLOCKSIZE : 0;
 }
 
 bool NxPartition::isValidPartition()
@@ -164,6 +148,11 @@ bool NxPartition::isValidPartition()
 bool NxPartition::isEncryptedPartition() 
 {    
     return m_isEncrypted;
+}
+
+bool NxPartition::isGood()
+{
+    return m_isValidPartition && (!m_isEncrypted || (crypto() && !badCrypto()));
 }
 
 int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgress)(ProgressInfo))
@@ -222,7 +211,7 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
     if (sendProgress)
     {
         pi.mode = COPY;
-        sprintf(pi.storage_name, partitionName().c_str());
+        strcpy_s(pi.storage_name, m_name);
         pi.begin_time = std::chrono::system_clock::now();        
         if (par.isSubParam) pi.isSubProgressInfo = true;
         updateProgress(pi);
@@ -330,7 +319,7 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
 
         pi.mode = ZIP;
         pi.bytesCount = 0;
-        sprintf(pi.storage_name, base_name(zip_path).c_str());
+        strcpy_s(pi.storage_name, base_name(zip_path).c_str());
         if (sendProgress) updateProgress(pi);
 
         do
@@ -411,7 +400,7 @@ int NxPartition::restore(NxStorage* input, part_params_t par, void(*updateProgre
     // Set new buffer
     int buff_size = input->nxHandle->getDefaultBuffSize();
     BYTE* buffer = new BYTE[buff_size];
-    memset(buffer, 0, buff_size);
+    memset(buffer, 0, (size_t)buff_size);
     DWORD bytesRead = 0, bytesWrite = 0;
 
     // Init progress info
@@ -420,13 +409,13 @@ int NxPartition::restore(NxStorage* input, part_params_t par, void(*updateProgre
     if(sendProgress)
     {
         pi.mode = RESTORE;
-        sprintf(pi.storage_name, partitionName().c_str());
+        strcpy_s(pi.storage_name, m_name);
         pi.begin_time = std::chrono::system_clock::now();
         if (par.isSubParam) pi.isSubProgressInfo = true;
         updateProgress(pi);
     }
 
-    while(input->nxHandle->read(buffer, &bytesRead, buff_size))
+    while(input->nxHandle->read(buffer, &bytesRead, (DWORD)buff_size))
     {
         if(parent->stopWork) return userAbort();
 
@@ -482,9 +471,9 @@ int NxPartition::formatPartition(void(*updateProgress)(ProgressInfo))
 
     ProgressInfo pi;
     pi.mode = FORMAT;
-    sprintf(pi.storage_name, partitionName().c_str());
+    strcpy_s(pi.storage_name, m_name);
     pi.begin_time = std::chrono::system_clock::now();
-    pi.bytesTotal = num_fats * fat_size_in_cluster * CLUSTER_SIZE + CLUSTER_SIZE;
+    pi.bytesTotal = (u32)num_fats * fat_size_in_cluster * CLUSTER_SIZE + CLUSTER_SIZE;
     if (sendProgress) updateProgress(pi);
 
     // For each FAT
@@ -745,7 +734,7 @@ int NxPartition::mount_fs()
     else if (!is_in(type(), {PRODINFOF, SAFE, USER, SYSTEM}))
         res = ERR_PARTITION_NO_FATFS;
 
-    else if (isEncryptedPartition() && nxCrypto == nullptr || badCrypto())
+    else if (isEncryptedPartition() && (nxCrypto == nullptr || badCrypto()))
         res = ERR_BAD_CRYPTO;
 
     else if (nxfs_initialize(this, &m_fatfs) != SUCCESS)
@@ -759,6 +748,7 @@ int NxPartition::mount_fs()
 
     return res;
 }
+
 int NxPartition::unmount_fs()
 {
     if (!is_mounted())
@@ -845,6 +835,7 @@ void NxPartition::setVolumeMountPoint(WCHAR *mountPoint)
     emit mountPoint ? vfs_mounted_signal() : vfs_unmounted_signal();
 #endif
 }
+
 wstring NxPartition::getVolumeMountPoint()
 {
     if (!m_mount_point[0] || !m_is_vfs_mounted)
@@ -852,6 +843,7 @@ wstring NxPartition::getVolumeMountPoint()
 
     return wstring(m_mount_point);
 }
+
 void NxPartition::getVolumeMountPoint(WCHAR *mountPoint)
 {
     if (!mountPoint || !m_is_vfs_mounted)

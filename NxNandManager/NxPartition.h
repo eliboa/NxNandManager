@@ -74,7 +74,6 @@ class NxPartition
     : public QObject
 {
     Q_OBJECT
-
 #else
 {
 #endif
@@ -84,9 +83,7 @@ class NxPartition
         ~NxPartition();
         NxStorage *parent;
     
-    // Member variables
     private:
-
         u32 m_lba_start = 0;
         u32 m_lba_end = 0;
         u64 m_attrs = 0;
@@ -115,9 +112,6 @@ class NxPartition
         u64 freeSpace = 0;
         u64 freeSpaceRaw = 0;
         u64 availableTotSpace = 0;
-
-    // Member methods
-    public:
         NxHandle *nxHandle;
         bool stopWork = false;
         NxPart nxPart_info;
@@ -127,7 +121,6 @@ class NxPartition
         u32 lbaStart();
         u32 lbaEnd();
         u64 size();
-        bool badCrypto() { return m_bad_crypto; }
         int type() { return m_type; }
         NxCrypto* crypto() { return nxCrypto; }
         FATFS *fs() { return &m_fatfs; }
@@ -142,20 +135,19 @@ class NxPartition
 
         // Boolean    
         bool isValidPartition();
-        bool isEncryptedPartition();  
+        bool isEncryptedPartition();
+        bool isGood();
+        bool badCrypto() { return m_bad_crypto; }
 
-        // Methods
+        // Member function
         bool fat32_dir(std::vector<fat32::dir_entry> *entries, const char *dir);
         u64 fat32_getFreeSpace(u64* contiguous = nullptr, u64* available = nullptr);
         bool fat32_isFreeCluster(u32 cluster_num, u32 *clus_count = nullptr);
-
         bool setCrypto(char* crypto, char* tweak);
         int compare(NxPartition *partition);
-        ProgressInfo pi;
         int dump(NxHandle *outHandle, part_params_t params, void(*updateProgress)(ProgressInfo) = nullptr);
         int restore(NxStorage* input, part_params_t params, void(*updateProgress)(ProgressInfo) = nullptr);
         int formatPartition(void(*updateProgress)(ProgressInfo) = nullptr);
-
         void clearHandles();
         int userAbort(){stopWork = false; return ERR_USER_ABORT;}
 
@@ -166,6 +158,7 @@ class NxPartition
         int unmount_vfs();
         bool is_mounted() { return m_fatfs.fs_type > 0; }
         bool is_vfs_mounted() { return m_is_vfs_mounted; }
+        int mount_vfs(bool run = true, wchar_t driveLetter = L'\0', bool readOnly = false, void(*clb_func_ptr)(NTSTATUS) = nullptr);
 
         FRESULT f_open (FIL* fp, const TCHAR* path, BYTE mode);				/* Open or create a file */
         FRESULT f_opendir (DIR* dp, const TCHAR* path);						/* Open a directory */
@@ -176,12 +169,6 @@ class NxPartition
         FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask);			/* Change attribute of a file/dir */
         FRESULT f_utime (const TCHAR* path, const FILINFO* fno);			/* Change timestamp of a file/dir */
         FRESULT f_getfree (const TCHAR* path, DWORD* nclst, FATFS** fatfs);	/* Get number of free clusters on the drive */
-        /*
-#if defined(ENABLE_GUI)
-public slots:
-#endif
-*/
-        int mount_vfs(bool run = true, wchar_t driveLetter = L'\0', bool readOnly = false, void(*clb_func_ptr)(NTSTATUS) = nullptr);
 
 #if defined(ENABLE_GUI)
 signals:
@@ -190,5 +177,4 @@ signals:
         void vfs_callback(long status);
 #endif
 };
-
 #endif
