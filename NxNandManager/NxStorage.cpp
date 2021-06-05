@@ -250,7 +250,8 @@ void NxStorage::constructor(const wstring &storage)
     if (isSinglePartType())
     {
         // Add new Nxpartition
-        NxPartition *part = new NxPartition(this, getNxTypeAsStr(), (u32)0, (u32)m_size / NX_BLOCKSIZE - 1);
+        u64 lba_end = m_size / NX_BLOCKSIZE - 1;
+        NxPartition *part = new NxPartition(this, getNxTypeAsStr(), (u32)0, (u32)lba_end);
     }
 
     // Identify single partition file (comparing file name & file size)
@@ -285,7 +286,8 @@ void NxStorage::constructor(const wstring &storage)
                 {
                     type = getNxTypeAsInt(part.name);
                     // Add new Nxpartition
-                    NxPartition *part = new NxPartition(this, basename.c_str(), (u32)0, (u32)m_size / NX_BLOCKSIZE - 1);
+                    u64 lba_end = m_size / NX_BLOCKSIZE - 1;
+                    NxPartition *part = new NxPartition(this, basename.c_str(), (u32)0, (u32)lba_end);
                     break;
                 }
             }
