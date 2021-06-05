@@ -5,6 +5,54 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QMessageBox>
 #include "../NxSave.h"
+
+bool EnsureOutputDir(const QString &dir_path)
+{
+    QString dir(dir_path);
+    return EnsureOutputDir(dir, ExistingOK);
+}
+bool EnsureOutputDir(QString &dir_path, DirOutputMode mode)
+{
+    QFileInfo dir(dir_path);
+    auto path = dir.absoluteFilePath();
+
+    if (!QDir(path).exists()) {
+        if (QDir().mkpath(path)) {
+            dir_path = path;
+            return true;
+        }
+        return false;
+    }
+
+    if (mode == CreateAlways) {
+        for (int i(0); i < 99; i++) {
+            auto cur_path = path + "_" + QStringLiteral("%1").arg(i, 2, 10, QLatin1Char('0'));
+            if (!QDir(cur_path).exists() && QDir().mkpath(cur_path)) {
+                dir_path = cur_path;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    dir_path = path;
+    return true;
+}
+
+QString NxFilePath2VfsPath(NxPartition *nxp, NxFile *file)
+{
+    QString path;
+    if (!nxp->is_vfs_mounted())
+        return path;
+
+    path = QString::fromStdWString(nxp->getVolumeMountPoint()
+           + file->completePath().substr(1, file->completePath().length() -1));
+    if (file->isNXA())
+        path.append("/00");
+
+    return QFileInfo(path).absoluteFilePath();
+}
+
 QString FileDialog(QWidget *parent, fdMode mode, const QString& defaultName, const QString& filters)
 {
     QFileDialog fd(parent);

@@ -169,7 +169,7 @@ protected:
     NxFileType m_fileType = NX_GENERIC;
 
 private:
-    // Method
+    // Member functions
     void setAdditionalInfo();
 
     // Helpers
@@ -206,6 +206,7 @@ public:
     u64 titleID() { return m_title_id; }
     u8* userID() { return m_user_id; }
     string titleIDString();
+    string normalizedTitleLabel();
     string userIDString();
     NxContentType contentType() { return m_contentType; }
     string contentTypeString();

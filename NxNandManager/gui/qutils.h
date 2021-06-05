@@ -7,11 +7,16 @@
 #include <QSettings>
 #include <QtNetwork>
 #include "../res/utils.h"
-#include "../NxStorage.h"
+#include "../NxFile.h"
 #include <mutex>
 
-enum fdMode { open_file, save_as };
+enum DirOutputMode { CreateAlways, ExistingOK };
+bool EnsureOutputDir(QString &dir_path, DirOutputMode mode = ExistingOK);
+bool EnsureOutputDir(const QString &dir_path);
 
+QString NxFilePath2VfsPath(NxPartition *nxp, NxFile *file);
+
+enum fdMode { open_file, save_as };
 QString FileDialog(QWidget *parent, fdMode mode, const QString& defaultName = "", const QString& filters = "");
 
 typedef struct _NxTitle {

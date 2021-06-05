@@ -16,6 +16,7 @@
 
 #include "ui_properties.h"
 #include "properties.h"
+#include "../NxSave.h"
 
 Properties::Properties(NxStorage *in) :
     ui(new Ui::DialogProperties)
@@ -153,6 +154,26 @@ Properties::Properties(NxStorage *in) :
             ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem("NOT FOUND"));
         i++;
     }
+
+    auto system = input->getNxPartition(SYSTEM);
+    if (!system || system->mount_fs() != SUCCESS)
+        return;
+    NxSave settings(system, L"/save/8000000000000050");
+    if (!settings.exists() || !settings.open())
+        return;
+
+    NxSaveFile file;
+    if (!settings.getSaveFile(&file, "/file"))
+        return;
+
+    u8 device_nickname[0x16];
+    if (settings.readSaveFile(file, device_nickname, 0x2A950, 0x16) == 0x16) {
+        ui->PropertiesTable->setRowCount(i+1);
+        ui->PropertiesTable->setItem(i, 0, new QTableWidgetItem("Device nickname"));
+        ui->PropertiesTable->setItem(i, 1, new QTableWidgetItem((const char*)device_nickname));
+        i++;
+    }
+
 }
 
 Properties::~Properties()

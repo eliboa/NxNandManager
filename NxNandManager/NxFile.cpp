@@ -206,7 +206,9 @@ bool NxFile::seek(u64 offset)
     if (isNXA() && !ensure_nxa_file(offset))
         return false;
 
-    return f_lseek(&m_fp, relativeOffset(offset)) == FR_OK;
+    auto ofs = relativeOffset(offset);
+    auto res = f_lseek(&m_fp, ofs);
+    return res == FR_OK;
 }
 int NxFile::read(void* buff, UINT btr, UINT* br)
 {
@@ -403,4 +405,16 @@ void NxFile::setContentType(string content_type)
         m_contentType = CacheStorage;
     else
         m_contentType = UnknownType;
+}
+
+string NxFile::normalizedTitleLabel()
+{
+    if (!hasAdditionalString("title_name"))
+        return titleIDString();
+
+    auto label = getAdditionalString("title_name");
+    label.erase(std::remove_if(label.begin(), label.end(), [](const u8 & c){
+        return !std::isalpha(c) && !std::isspace(c) && !std::isdigit(c);
+    }), label.end());
+    return label;
 }

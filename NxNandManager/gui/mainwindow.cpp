@@ -585,6 +585,8 @@ void MainWindow::beforeInputSet()
     // Delete mount_button(s)
     for (auto b : ui->selPartGrp->findChildren<QPushButton*>("mount_button"))
         b->deleteLater();
+    for (auto b : ui->selPartGrp->findChildren<QPushButton*>("explorer_button"))
+        b->deleteLater();
 }
 
 void MainWindow::inputSet(NxStorage *storage)

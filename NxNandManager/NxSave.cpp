@@ -612,15 +612,9 @@ initialize:
 
 bool NxSave::getSaveFile(NxSaveFile *file, const string &path)
 {
-    for (auto entry : listFiles(ListAllFiles)) {
-        string cur_path = entry.path;
-        if (cur_path.size())
-            cur_path.append("/");
-        cur_path.append(entry.filename);
-        if (cur_path == path) {
-            *file = entry;
-            return true;
-        }
+    for (auto entry : listFiles(ListAllFiles)) if (entry.completePath() == path) {
+        *file = entry;
+        return true;
     }
     return false;
 }

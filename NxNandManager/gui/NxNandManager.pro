@@ -54,6 +54,7 @@ SOURCES += \
     ../virtual_fs/virtual_fs_operations.cpp \
     emunand.cpp \
     explorer.cpp \
+    hactoolnet.cpp \
     keyset.cpp \
     loading_widget.cpp \
     mainwindow.cpp \
@@ -96,6 +97,7 @@ HEADERS += \
     ../virtual_fs/virtual_fs_operations.h \
     explorer.h \
     gui.h \
+    hactoolnet.h \
     keyset.h \
     loading_widget.h \
     mainwindow.h \
