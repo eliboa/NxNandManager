@@ -19,11 +19,11 @@
 
 static MagicOffsets mgkOffArr[] =
 {
-    // { offset, magic, size, type, firwmare }
+    // { offset, magic, size, type, firmware }
     { 0, "43414C30", 4, PRODINFO}, // PRODINFO ("CAL0" at offset 0x0)
     { 0x680, "434552544946", 6, PRODINFOF}, // PRODINFOF ("CERTIF at offset 0x680")
     { 0x200, "4546492050415254", 8, RAWNAND, 0 }, // RAWNAND ("EFI PART" at offset 0x200)
-    //{ 0x200, "54584E414E44", 6, TXNAND, 0}, // TX hidden paritition ("TXNAND" at offset 0x200)
+    //{ 0x200, "54584E414E44", 6, TXNAND, 0}, // TX hidden partition ("TXNAND" at offset 0x200)
     { 0x800200, "4546492050415254", 8, RAWMMC, 0}, // RAWMMC ("EFI PART" at offset 0x80000, i.e after 2 x 0x40000 for each BOOT)
     { 0x1800200, "4546492050415254", 8, EMMC_PART, 0}, // RAWMMC
     { 0x0530, "010021000E00000009000000", 12, BOOT0, 0}, // BOOT0 (boot_data_version + block_size_log2 + page_size_log2 at offset 0x530)
@@ -36,8 +36,8 @@ static MagicOffsets mgkOffArr[] =
     { 0x12F0, "504B3131", 4, BOOT1, 6},
     { 0x40AF8,"504B3131", 4, BOOT1, 7},
     { 0x40ADC,"504B3131", 4, BOOT1, 8},
-    { 0x40ACC,"504B3131", 4, BOOT1, 8.1},
-    { 0x40AC0,"504B3131", 4, BOOT1, 9} /* 9 -> 10.0.4 */
+    { 0x40ACC,"504B3131", 4, BOOT1, 8.1}, /* 8.1.0 -> 13.1.0 */
+    { 0x40AC0,"504B3131", 4, BOOT1, 9} /* unknown */
 };
 
 
