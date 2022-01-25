@@ -96,6 +96,15 @@ fs_filenodes::fs_filenodes() {
     _filenodes[L"\\"] = fileNode;
     _directoryPaths.emplace(L"\\", std::set<std::shared_ptr<filenode>>());
 }
+fs_filenodes::~fs_filenodes() {
+}
+
+void fs_filenodes::deleteNxFiles()
+{
+    std::lock_guard<std::recursive_mutex> lock(_filesnodes_mutex);
+    for (auto f : _filenodes)
+        f.second->delete_nxfile();
+}
 
 NTSTATUS fs_filenodes::add(const std::shared_ptr<filenode>& f) {
   std::lock_guard<std::recursive_mutex> lock(_filesnodes_mutex);

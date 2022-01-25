@@ -31,7 +31,7 @@ THE SOFTWARE.
 
 #include <Windows.h>
 #include <string>
-#include "../NxPartition.h"
+#include "../NxFile.h"
 
 std::wstring parent_path(const std::wstring & path);
 std::wstring base_name(const std::wstring & path);

@@ -39,8 +39,8 @@ LONGLONG virtual_fs::filetimes::get_currenttime() {
 namespace virtual_fs {
 filenode::filenode(const std::wstring& filename, bool is_directory,
                    DWORD file_attr,
-                   const PDOKAN_IO_SECURITY_CONTEXT security_context)
-    : is_directory(is_directory), attributes(file_attr), _fileName(filename) {
+                   const PDOKAN_IO_SECURITY_CONTEXT security_context, NxFile* nxfile)
+    : is_directory(is_directory), attributes(file_attr), _fileName(filename), _nxfile(nxfile) {
   // No lock need, FileNode is still not in a directory
   times.reset();
 
@@ -48,6 +48,15 @@ filenode::filenode(const std::wstring& filename, bool is_directory,
     dbg_wprintf(L"%s : Attach SecurityDescriptor\n", filename.c_str());
     security.SetDescriptor(security_context->AccessState.SecurityDescriptor);
   }
+}
+filenode::~filenode()
+{
+    delete_nxfile();
+}
+
+void filenode::delete_nxfile() {
+    if (_nxfile)
+        delete _nxfile;
 }
 
 DWORD filenode::read(LPVOID buffer, DWORD bufferlength, LONGLONG offset) {
@@ -78,11 +87,8 @@ DWORD filenode::write(LPCVOID buffer, DWORD number_of_bytes_to_write,
 }
 
 const LONGLONG filenode::get_filesize() {
-  /*
   std::lock_guard<std::mutex> lock(_data_mutex);
-  return static_cast<LONGLONG>(_data.size());
-  */
-    return size;
+  return size;
 }
 
 void filenode::set_endoffile(const LONGLONG& byte_offset) {

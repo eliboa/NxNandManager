@@ -612,6 +612,9 @@ initialize:
 
 bool NxSave::getSaveFile(NxSaveFile *file, const string &path)
 {
+    if (!isSAVE())
+        return false;
+
     for (auto entry : listFiles(ListAllFiles)) if (entry.completePath() == path) {
         *file = entry;
         return true;
@@ -622,6 +625,9 @@ bool NxSave::getSaveFile(NxSaveFile *file, const string &path)
 
 u64 NxSave::readSaveFile(NxSaveFile &file, void *buf, u64 ofs, u64 btr)
 {
+    if (!isSAVE())
+        return 0;
+
     bool openClose = !NxFile::isOpen();
     if (openClose && !NxFile::open())
         return 0;
@@ -646,6 +652,9 @@ vector<NxSaveFile> NxSave::listFiles(ListMode mode)
 {
 
     vector<NxSaveFile> files, r_files;
+    if (!isSAVE())
+        return files;
+
     bool openClose = !NxFile::isOpen();
     if (openClose && !NxFile::open())
         return files;
@@ -1019,6 +1028,7 @@ int NxSave::visit_save_file(uint32_t file_index, vector<NxSaveFile> &entries, co
     }
 
     NxSaveFile file;
+    file.parent = this;
     file.idx = file_index;
     file.filename = string(entry.name);
     file.path = dir_path;
@@ -1046,6 +1056,7 @@ int NxSave::visit_save_dir(uint32_t dir_index, vector<NxSaveFile> &entries, cons
     }
 
     NxSaveFile dir;
+    dir.parent = this;
     dir.idx = dir_index;
     dir.filename = string(entry.name);
     dir.path = parent_path;

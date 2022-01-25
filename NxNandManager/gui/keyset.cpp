@@ -16,6 +16,27 @@
 
 #include "ui_keyset.h"
 #include "keyset.h"
+#include <QMessageBox>
+
+QList<KeyEntry> QParseKeyFile(const QString &keyFile)
+{
+    QList<KeyEntry> keys;
+    QFile file(keyFile);
+    if (!file.open(QIODevice::ReadOnly))
+        return keys;
+
+    QTextStream stream(file.readAll());
+    QString line;
+    int pos;
+
+    while (stream.readLineInto(&line)) if ((pos = line.indexOf("=")) >= 0) {
+        KeyEntry e;
+        e.key = line.left(pos++).trimmed();
+        e.value = line.right(line.length() - pos).trimmed();
+        keys << e;
+    }
+    return keys;
+}
 
 KeySetDialog::KeySetDialog(QWidget *parent) :
     QDialog(parent),
@@ -26,14 +47,25 @@ KeySetDialog::KeySetDialog(QWidget *parent) :
     connect(this, SIGNAL(finished()), parent, SLOT(keySetSet()));
     this->parent = parent;
 
+    auto table = ui->keysTable;
+    table->setContextMenuPolicy(Qt::ActionsContextMenu);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    auto deleteAction = new QAction(QIcon(":/images/close-window-32.ico"), "Remove selected key(s)");
+    connect(deleteAction, &QAction::triggered, [&](){
+        auto selection = ui->keysTable->selectionModel()->selectedRows();
+        QList<int> idxs;
+        for (auto row : selection)
+            idxs << ui->keysTable->item(row.row(), 0)->data(Qt::UserRole).value<int>();
 
-    QFile file("keys.dat");
-    if (file.exists())
-    {
-        m_keyset = new KeySet;
-        if(parseKeySetFile("keys.dat", m_keyset))
-            displayKeys();
-    }
+        std::sort(idxs.begin(), idxs.end(), [](int a, int b) { return a > b; });
+        for (auto ix : idxs)
+            m_keys.removeAt(ix);
+
+        displayKeys();
+    });
+    table->addAction(deleteAction);
+    m_keys = QParseKeyFile("keys.dat");
+    displayKeys();
 }
 
 KeySetDialog::~KeySetDialog()
@@ -45,21 +77,28 @@ KeySetDialog::~KeySetDialog()
 
 void KeySetDialog::displayKeys()
 {
-    if (!m_keyset)
-        return;
+    auto table = ui->keysTable;
+    table->horizontalHeader()->hide();
+    table->setColumnCount(2);
 
-    ui->key0_crypt_edit->setText(QString(m_keyset->crypt0));
-    ui->key0_tweak_edit->setText(QString(m_keyset->tweak0));
-    ui->key1_crypt_edit->setText(QString(m_keyset->crypt1));
-    ui->key1_tweak_edit->setText(QString(m_keyset->tweak1));
-    ui->key2_crypt_edit->setText(QString(m_keyset->crypt2));
-    ui->key2_tweak_edit->setText(QString(m_keyset->tweak2));
-    ui->key3_crypt_edit->setText(QString(m_keyset->crypt3));
-    ui->key3_tweak_edit->setText(QString(m_keyset->tweak3));
+    table->setRowCount(0);
+    for (int i(0); i < m_keys.count(); i++) {
+        auto k = m_keys.at(i);
+        auto idx = table->rowCount();
+        table->insertRow(idx);
+        table->setRowHeight(idx, 25);
+        auto it1 = new QTableWidgetItem(k.key);
+        it1->setFlags(it1->flags() ^ Qt::ItemIsEditable);
+        it1->setData(Qt::UserRole, i);
+        table->setItem(idx, 0, it1);
+        auto it2 = new QTableWidgetItem(k.value);
+        it2->setFlags(it1->flags());
+        table->setItem(idx, 1, it2);
+    }
+    table->resizeColumnsToContents();    
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
 
-    ui->label_other_keys->setText("");
-    if (!m_keyset->other_keys.empty())
-        ui->label_other_keys->setText(QString("+%1 other keys (useful for explorer and hactool)").arg(m_keyset->other_keys.size()));
+    ui->clearKeysButton->setDisabled(m_keys.isEmpty());
 }
 
 void KeySetDialog::on_ImportButton_clicked()
@@ -69,17 +108,32 @@ void KeySetDialog::on_ImportButton_clicked()
     if (fileName.isEmpty())
         return;
 
-    if (m_keyset)
-        delete m_keyset;
-    m_keyset = new KeySet;
+    auto keys = QParseKeyFile(fileName);
+    int new_count = 0, upd_count = 0;
 
-    if (!parseKeySetFile(fileName.toUtf8(), m_keyset))
-    {
-        QMessageBox::critical(nullptr,"Error", QString("Error while parsing keyset file"));
-        return;
+    for (auto k : keys) {
+        bool found = false;
+        for (int i(0); i < m_keys.count(); i++) if (m_keys[i].key == k.key){
+            found = true;
+            if (m_keys[i].value != k.value) {
+                m_keys[i].value = k.value;
+                upd_count++;
+            }
+            break;
+        }
+        if (!found) {
+            m_keys << k;
+            new_count++;
+        }
     }
 
-    displayKeys();
+    if (new_count + upd_count)
+        displayKeys();
+
+    QMessageBox::information(this, "Key import", QString("%1 key%2 imported (new: %3, updated: %4)")
+                                                    .arg(new_count + upd_count)
+                                                    .arg(new_count + upd_count > 1 ? "s" : "")
+                                                    .arg(new_count).arg(upd_count));
 }
 
 void KeySetDialog::on_buttonBox_accepted()
@@ -90,23 +144,18 @@ void KeySetDialog::on_buttonBox_accepted()
         file.remove();
 
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-    {
-        QMessageBox::critical(nullptr,"Error", QString("Cannot open/create keys.dat"));
-        return;
-    }
-    QTextStream out(&file);
-    if(ui->key0_crypt_edit->text().length() >= 32 && ui->key0_tweak_edit->text().length() >= 32)
-        out << "bis_key_00 = " << ui->key0_crypt_edit->text() << ui->key0_tweak_edit->text() << "\n";
-    if(ui->key1_crypt_edit->text().length() >= 32 && ui->key1_tweak_edit->text().length() >= 32)
-        out << "bis_key_01 = " << ui->key1_crypt_edit->text() << ui->key1_tweak_edit->text() << "\n";
-    if(ui->key2_crypt_edit->text().length() >= 32 && ui->key2_tweak_edit->text().length() >= 32)
-        out << "bis_key_02 = " << ui->key2_crypt_edit->text() << ui->key2_tweak_edit->text() << "\n";
-    if(ui->key3_crypt_edit->text().length() >= 32 && ui->key3_tweak_edit->text().length() >= 32)
-        out << "bis_key_03 = " << ui->key3_crypt_edit->text() << ui->key3_tweak_edit->text() << "\n";
+       return (void) QMessageBox::critical(nullptr,"Error", QString("Failed to open/create keys.dat"));
 
-    if (m_keyset && !m_keyset->other_keys.empty()) for (auto k : m_keyset->other_keys)
-        out << QString::fromStdString(k.name) << " = " << QString::fromStdString(k.key) << "\n";
+    QTextStream out(&file);
+    for (auto k : m_keys)
+        out << k.key << " = " << k.value << "\n";
 
     file.close();
     emit finished();
+}
+
+void KeySetDialog::on_clearKeysButton_clicked()
+{
+    m_keys.clear();
+    displayKeys();
 }

@@ -225,6 +225,9 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
         if (parent->stopWork)
             return error(userAbort());
 
+        if (!bytesRead)
+            break;
+
         if (par.passThroughZero)
         {
             if (!cl_count)
@@ -238,8 +241,10 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
         if (!outHandle->write(buffer, &bytesWrite, bytesRead))
             break;
 
-        if(!bytesWrite)
-            break;
+        if (bytesWrite != bytesRead) {
+            dbg_printf("NxPartition::dump() bytesWrite (%I32d) != bytesRead (%I32d) \n", bytesWrite, bytesRead);
+            return error(ERR_WHILE_COPY);
+        }
 
         pi.bytesCount += bytesWrite;
 
@@ -826,11 +831,12 @@ wstring NxPartition::fs_prefix(const wchar_t* path) {
 void NxPartition::setVolumeMountPoint(WCHAR *mountPoint)
 {
     m_is_vfs_mounted = mountPoint;
-    if (!m_is_vfs_mounted)
-        return;
 
-    m_mount_point[0] = mountPoint[0];
-
+    if (mountPoint)
+        m_mount_point[0] = mountPoint[0];
+    else {
+        m_vfs->fs_filenodes.get()->deleteNxFiles();
+    }
 #if defined(ENABLE_GUI)
     emit mountPoint ? vfs_mounted_signal() : vfs_unmounted_signal();
 #endif

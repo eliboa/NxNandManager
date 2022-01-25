@@ -20,7 +20,10 @@
 #include "res/hactool/ivfc.h"
 #include "res/hactool/save.h"
 
+class NxSave;
+
 struct NxSaveFile {
+    NxSave *parent;
     u32 idx = 0;
     string filename = "";
     string path = "";
@@ -44,8 +47,8 @@ void save_free_contexts(save_ctx_t *ctx);
 class NxSave : public NxFile
 {
 public:
-    NxSave(NxPartition* nxp, const wstring &name) : NxFile(nxp, name) { save_init(); }
-    NxSave(NxFile* f) : NxFile(f->nxp(), f->completePath()) { save_init(); }
+    NxSave(NxPartition* nxp, const wstring &name) : NxFile(nxp, name, true) { save_init(); }
+    NxSave(NxFile* f) : NxFile(f->nxp(), f->completePath(), true) { save_init(); }
     ~NxSave() { if (init_done) save_free_contexts(&ctx); }
 
     vector<NxSaveFile> listFiles(ListMode mode = ListFilesOnly);

@@ -310,6 +310,17 @@ void MainWindow::openDumpDialog(int partition)
     //DumpDialog->exec();
 }
 
+void MainWindow::openMountDialog()
+{
+    if (!selected_part)
+        return;
+
+    mountDialog = new MountDialog(this, selected_part);
+    mountDialog->exec();
+    delete mountDialog;
+    on_partition_table_itemSelectionChanged();
+}
+
 void MainWindow::openDebugDialog()
 {
     if(DebugDialog != nullptr)
@@ -793,12 +804,8 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     ui->partition_table->setContextMenuPolicy(Qt::ActionsContextMenu);
 
     QString cur_partition(ui->partition_table->selectedItems().at(0)->text());
-    NxPartition *t_selected_part = input->getNxPartition(cur_partition.toLocal8Bit().constData());
-
-    if (nullptr == t_selected_part)
+    if (!(selected_part = input->getNxPartition(cur_partition.toLocal8Bit().constData())))
         return;
-
-    selected_part = t_selected_part;
 
     // Set buttons visibility
     ui->partQDumpBtn->setVisible(true);
@@ -910,20 +917,29 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     if(is_in(selected_part->type(), {USER, SYSTEM}))
     {
         QString statusTip(tr("Explore partition (saves & installed titles)"));
+        if (!selected_part->isGood())
+            statusTip.append(selected_part->crypto() ? " CRYPTO FAILED! WRONG KEYS" : " KEYSET MISSING! CTRL+K TO CONFIGURE KEYSET");
+
         auto explorer_button = new QPushButton(this);
         explorer_button->setObjectName("explorer_button");
         explorer_button->setFixedSize(30, 30);
         explorer_button->setIcon(explorerIcon);
         explorer_button->setStatusTip(statusTip);
-        connect(explorer_button, &QPushButton::clicked, this, &MainWindow::openExplorer);
+        if (selected_part->isGood())
+            connect(explorer_button, &QPushButton::clicked, this, &MainWindow::openExplorer);
+        else
+            explorer_button->setDisabled(true);
         ui->horizontalLayout_2->insertWidget(ui->horizontalLayout_2->count()-1, explorer_button);
 
         QAction* explAction = new QAction(explorerIcon, "Explore partition");
         explAction->setStatusTip(statusTip);
         ui->partition_table->connect(explAction, &QAction::triggered, this, &MainWindow::openExplorer);
         ui->partition_table->addAction(explAction);
+        if (!selected_part->isGood())
+            explAction->setDisabled(true);
     }
 
+    // Mount action
     auto button = ui->selPartGrp->findChild<QPushButton*>("mount_button");
     if (button)
         delete button;
@@ -937,7 +953,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
             if(selected_part->is_vfs_mounted())
                 on_mountParition(selected_part->type());
             else
-                mountContextMenu();
+                openMountDialog(); //mountContextMenu();
         });
         ui->horizontalLayout_2->insertWidget(ui->horizontalLayout_2->count()-1, button);
 
@@ -962,15 +978,15 @@ void MainWindow::on_partition_table_itemSelectionChanged()
             QAction* mountAction = new QAction(selected_part->is_vfs_mounted() ? unmountIcon : mountIcon, label);
             mountAction->setStatusTip(statusTip);
             ui->partition_table->connect(mountAction, &QAction::triggered, [=]() {
-                on_mountParition(selected_part->type());
+                if (selected_part->is_vfs_mounted())
+                    on_mountParition(selected_part->type());
+                else openMountDialog();
             });
             ui->partition_table->addAction(mountAction);
         }
         button->setStatusTip(statusTip);
         button->setToolTip(statusTip);
         button->setText(label);
-
-
     }
 
     // Clear properties table
@@ -988,11 +1004,13 @@ void MainWindow::on_partition_table_itemSelectionChanged()
         if (!value.length())
         {
             ui->properties_table->setSpan(ix, 0, 1, 2);
+            ui->properties_table->resizeRowToContents(ix);
             return;
         }
         auto wdg_2 = new QTableWidgetItem(value);
         wdg_2->setTextAlignment(Qt::AlignmentFlag::AlignTop | Qt::AlignmentFlag::AlignLeft);
         ui->properties_table->setItem(ix, 1, wdg_2);
+        ui->properties_table->setRowHeight(ix, 20);
 
     };
     // Fill properties table

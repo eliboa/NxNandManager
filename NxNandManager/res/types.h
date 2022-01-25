@@ -55,6 +55,7 @@
 #define CREATE        8
 #define ZIP           9
 #define FORMAT        10
+#define EXTRACT       11
 
 #define RAW     0
 #define FAT12   1

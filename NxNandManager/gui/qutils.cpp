@@ -47,8 +47,6 @@ QString NxFilePath2VfsPath(NxPartition *nxp, NxFile *file)
 
     path = QString::fromStdWString(nxp->getVolumeMountPoint()
            + file->completePath().substr(1, file->completePath().length() -1));
-    if (file->isNXA())
-        path.append("/00");
 
     return QFileInfo(path).absoluteFilePath();
 }
@@ -290,22 +288,17 @@ NxUserDB::NxUserDB(NxStorage *nxStorage)
     if (!system || system->mount_fs() != SUCCESS)
         return;
 
-    auto accounts = new NxSave(system, L"/save/8000000000000010");
-    if (!accounts->exists() || !accounts->open()) {
-        delete accounts;
+    NxSave accounts(system, L"/save/8000000000000010");
+    if (!accounts.exists() || !accounts.open())
         return;
-    }
 
     NxSaveFile profiles;
-    if (!accounts->getSaveFile(&profiles, "/su/avators/profiles.dat")) {
-        delete accounts;
+    if (!accounts.getSaveFile(&profiles, "/su/avators/profiles.dat"))
         return;
-    }
 
     u8 *buffer = new u8[profiles.size];
-    if (accounts->readSaveFile(profiles, buffer, 0, profiles.size) != profiles.size) {
+    if (accounts.readSaveFile(profiles, buffer, 0, profiles.size) != profiles.size) {
         delete[] buffer;
-        delete accounts;
         return;
     }
 
@@ -339,9 +332,9 @@ NxUserDB::NxUserDB(NxStorage *nxStorage)
         }
         avatar_path.append(".jpg");
         NxSaveFile avatar;
-        if (accounts->getSaveFile(&avatar, avatar_path.toStdString().c_str()) && avatar.size) {
+        if (accounts.getSaveFile(&avatar, avatar_path.toStdString().c_str()) && avatar.size) {
             u8* img_buf = new u8[avatar.size];
-            if (accounts->readSaveFile(avatar, img_buf, 0, avatar.size) == avatar.size) {
+            if (accounts.readSaveFile(avatar, img_buf, 0, avatar.size) == avatar.size) {
                 user.avatar_img = new QImage();
                 user.avatar_img->loadFromData(img_buf, (int)avatar.size);
             }
@@ -350,7 +343,6 @@ NxUserDB::NxUserDB(NxStorage *nxStorage)
         m_users << user;
     }
     delete[] buffer;
-    delete accounts;
 }
 
 NxUserIdEntry NxUserDB::getUserByUserId(u8 user_id[0x10])
@@ -377,4 +369,13 @@ void VfsMountRunner::run(NxPartition *p, const QString &YesNoQuestion)
             emit error(1, QString::fromStdString(dokanNtStatusToStr(status)));
     });
     QtConcurrent::run(p, &NxPartition::mount_vfs, true, '\0', true, nullptr);
+}
+QString rtrimmed(const QString& str) {
+  int n = str.size() - 1;
+  for (; n >= 0; --n) {
+    if (!str.at(n).isSpace()) {
+      return str.left(n + 1);
+    }
+  }
+  return "";
 }

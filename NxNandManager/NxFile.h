@@ -81,7 +81,8 @@ typedef struct {
 } save_extra_data_t;
 
 typedef enum {
-    NX_VALID,
+    NX_FILE,
+    NX_NO_FILE,
     NX_INVALID,
     NX_NO_FILESYSTEM,
     NX_INVALID_PART,
@@ -100,6 +101,11 @@ typedef enum {
     NX_NCA,
     NX_SAVE,
 } NxFileType;
+
+typedef enum {
+    NX_READONLY,
+    NX_READ_WRITE,
+} NxAccessMode;
 
 typedef enum : uint8_t {
     Program, // 1->6: Nca content type
@@ -121,7 +127,7 @@ struct NxSplitOff {
     u64 off_start;
     u32 size;
     wstring file;
-    u64 off_end() { return off_start + (u64)size; }
+    u64 off_end() { return off_start + (u64)size - 1; }
 };
 
 struct AdditionalString {
@@ -135,17 +141,20 @@ struct AdditionalString {
     }
 };
 
+void openModeString(BYTE mode, wstring &open_str);
+
 class NxFile
 {
 public:
-    NxFile(NxPartition* nxp, const wstring &name);
+    NxFile(NxPartition* nxp, const wstring &name, bool setAdditionalInfo = true);
+    ~NxFile();
 
 private:
     NxPartition * m_nxp;
     wstring m_filename;
     wstring m_filepath;
     NxOpenStatus m_openStatus = NX_CLOSED;
-    BYTE m_openMode;
+    BYTE m_openMode = FA_READ;
     FIL m_fp;
 
     u64  	m_size = 0;		/* File size */
@@ -171,28 +180,29 @@ protected:
 private:
     // Member functions
     void setAdditionalInfo();
+    int resize(u64 size, bool set_cursor_for_write = false);
 
     // Helpers
     NxSplitOff curFile() { return m_files.at(m_cur_file); }
     NxSplitOff nextFile() { return m_files.at(m_cur_file+1); }
-    bool ensure_nxa_file(u64 offset);
+    bool ensure_nxa_file(u64 offset, NxAccessMode mode = NX_READ_WRITE);
     size_t getFileIxByOffset(u64 offset);
     int getAddStringIxByKey(const string &key);
     bool is_valid_nxp();
+    bool isOpenAndValid();
+    bool isValidOffset(u64 ofs);
+    NxAccessMode accessMode() {return m_openMode & FA_WRITE ? NX_READ_WRITE : NX_READONLY; } // Current access mode
 
     // NXA
     // Relative offset from u64 offset
     u32 relativeOffset(u64 offset) {
         return !isNXA() ? (u32)offset : (u32)(offset - (u64)m_files.at(getFileIxByOffset(offset)).off_start);}
     // Relative current offset
-    u32 relativeOffset() {
-        return isNXA() ? (u32)(m_fp.fptr - curFile().off_start) : (u32)m_fp.fptr; }
+    u32 relativeOffset() { return (u32)m_fp.fptr; }
     // Absolute offset for a give u32 offset inside current file
-    u64 absoluteOffset(u32 offset) {
-        return isNXA() ? curFile().off_start + offset : (u64)offset; }
+    u64 absoluteOffset(u32 offset) { return isNXA() ? curFile().off_start + offset : (u64)offset; }
     // Absolute current offset
-    u64 absoluteOffset() {
-        return isNXA() ? curFile().off_start + m_fp.fptr : (u64)m_fp.fptr; }
+    u64 absoluteOffset() { return isNXA() ? curFile().off_start + m_fp.fptr : (u64)m_fp.fptr; }
 
 public:
     // Getters
@@ -215,7 +225,8 @@ public:
 
 
     // Boolean
-    bool exists() { return m_fileStatus == NX_VALID; }
+    bool exists() { return m_fileStatus == NX_FILE; }
+    bool isGood() { return m_fileStatus == NX_FILE; }
     bool isOpen() { return m_openStatus == NX_OPENED; }
     bool isNXA()  { return m_fattrib == FILE_ATTRIBUTE_NX_ARCHIVE; }
     bool isNCA()  { return m_fileType == NX_NCA; }
@@ -228,15 +239,21 @@ public:
     void setAdditionalString(const string &key, const string &value);
     void setTitleID(u64 tid) { m_title_id = tid; }
     void setContentType(string content_type);
+    bool setFileTime(const FILETIME* time);
+    bool setFileAttr(const BYTE fattr);
+    void setCompletePath(const wstring &path);
 
     // Member functions
     bool open(BYTE mode = FA_READ);
     bool close();
     bool seek(u64 offset);
+    int truncate();
     int read(void* buff, UINT btr, UINT* br);
     int read(u64 offset, void* buff, UINT btr, UINT* br);
     int write(const void* buff, UINT btw, UINT* bw);
     int write(u64 offset, const void* buff, UINT btw, UINT* bw);
+    int remove();
+    int rename(const wstring &new_name);
 };
 
 #endif // NXFILE_H

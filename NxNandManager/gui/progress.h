@@ -45,6 +45,7 @@ private:
     QWinTaskbarButton *TaskBarButton;
     QWinTaskbarProgress *TaskBarProgress;
     QPlainTextEdit* console = nullptr;
+    QLabel* console_progress_line = nullptr;
     bool bTaskBarSet = false;
     // Member variables
     bool m_workerSet = false;
@@ -57,6 +58,7 @@ private:
     u64 m_bytesProcessedPerSecond = 0;
     std::vector<u64> m_l_bytesProcessedPerSecond;
     bool b_done = false;
+    bool b_simpleProgress;
     // Methods
     void setProgressBarStyle(QProgressBar* progressBar, QString color);
 };

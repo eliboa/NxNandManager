@@ -81,7 +81,12 @@ typedef struct {
     QNetworkAccessManager* nm;
 } nm_t;
 
+typedef QQueue<CpyElement> CpyQueue;
+typedef QList<NxFile*> NxFileList;
+
 Q_DECLARE_METATYPE(NxFile*)
+Q_DECLARE_METATYPE(NxSaveFile)
+Q_DECLARE_METATYPE(CpyElement)
 
 typedef struct {
     NxFile* file = nullptr;
@@ -144,8 +149,6 @@ signals:
     void setRowHeight(int row, int height);
 };
 
-typedef QQueue<CpyElement> CpyQueue;
-typedef QList<NxFile*> NxFileList;
 
 class Explorer : public QDialog
 {
@@ -171,7 +174,7 @@ private:
     NxFILCACHE cache_entries;
     QFuture<void> future;
     QFutureWatcher<void> *watcher;
-    QMovie *m_loading_movie;
+    QMovie *m_loading_movie = nullptr;
     VfsMountRunner m_vfsRunner;
     HacToolNet m_hactool;
 
@@ -181,6 +184,9 @@ private:
     NxUserIdEntry getUserByUserId(u8 *user_id);
     QList<NxFile*> selectedFiles();
     void loadingWdgtSetVisible(bool visible);
+
+    // Helpers
+    void concurrentSlotWithProgressDlg(void (Explorer::*functor)(CpyQueue), CpyQueue queue);
 
 public:
     // Getters
@@ -215,6 +221,7 @@ private slots:
     void do_copy(CpyQueue queue);
     void do_extractFS(CpyQueue queue);
     void do_extractFS_Hactool(CpyQueue queue);
+    void do_decryptNCA_Hactool(CpyQueue queue);
 
 protected:
   bool event(QEvent *e){

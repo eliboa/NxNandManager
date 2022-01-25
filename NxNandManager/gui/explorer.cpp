@@ -380,12 +380,13 @@ Explorer::Explorer(QWidget *parent, NxPartition *partition) :
     });
 
     // Signal connections
-    qRegisterMetaType<CpyQueue>("CpyQueue");
+    qRegisterMetaType<QQueue<CpyElement>>("QQueue<CpyElement>");
     qRegisterMetaType<ProgressInfo>("ProgressInfo");
+    qRegisterMetaType<NxSaveFile>("NxSaveFile");
     qRegisterMetaType<Qt::Orientation>("Qt::Orientation");
     qRegisterMetaType<QVector<int>>("QVector<int>");
-    qRegisterMetaType<QQueue<NxFile*>>("QQueue<NxFile*>");
-    qRegisterMetaType<NxFileList>("NxFileList");
+    qRegisterMetaType<NxFile*>("NxFile*");
+    qRegisterMetaType<QList<NxFile*>>("QList<NxFile*>");
     qRegisterMetaType<QList<QPersistentModelIndex>>("QList<QPersistentModelIndex>");
     connect(this, SIGNAL(updateViewSignal()), this, SLOT(updateView()));
     connect(this, &Explorer::error_signal, this, &Explorer::error);
@@ -393,7 +394,7 @@ Explorer::Explorer(QWidget *parent, NxPartition *partition) :
     connect(this, &Explorer::extractFS_signal, this, &Explorer::extractFS);
     connect(this, &Explorer::loadingWdgtSetVisibleSignal, this, &Explorer::loadingWdgtSetVisible);
     connect(&m_vfsRunner, &VfsMountRunner::error, this, &Explorer::error);
-    connect(&m_hactool, &HacToolNet::error, [&](QString e){ error(1, e); });
+    connect(&m_hactool, &HacToolNet::error, [&](QString e){ emit error_signal(1, e); });
 
     setWindowFlags(Qt::Dialog | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
     connect(this, &Explorer::insertEntry, &m_model, &ExplorerModel::insertEntry);
@@ -430,7 +431,8 @@ Explorer::~Explorer()
     }
     delete userDB;
     cache_entries.clear();
-    delete m_loading_movie;
+    if (m_loading_movie)
+        delete m_loading_movie;
 }
 
 void Explorer::error(int err, QString label)
@@ -460,7 +462,7 @@ void Explorer::loadingWdgtSetVisible(bool visible)
 
 void Explorer::askForVfsMount(std::function<void()> callback, const QString &question)
 {
-    connect(&m_vfsRunner, &VfsMountRunner::mounted, [&](){
+    connect(&m_vfsRunner, &VfsMountRunner::mounted, [=](){
         emit loadingWdgtSetVisible(false);
         if (callback)
             callback();
@@ -596,7 +598,7 @@ CpyQueue Explorer::getCopyQueue(NxFileList selectedFiles, bool force_dirOutput)
     if (!isDirOutput)        
         target.append(QString::fromStdWString(selectedFiles.at(0)->filename()));
 
-    QFileDialog fd(this, caption, target);
+    QFileDialog fd(this, caption, target);    
     fd.setFileMode(isDirOutput ? QFileDialog::DirectoryOnly : QFileDialog::AnyFile);
     if (!isDirOutput)
         fd.setAcceptMode(QFileDialog::AcceptSave);
@@ -680,6 +682,7 @@ void Explorer::do_copy(CpyQueue queue)
     }
     exit();
 }
+
 void Explorer::do_extractFS_Hactool(CpyQueue queue)
 {
     if (queue.isEmpty()) return; // prevent nullptr exception
@@ -688,15 +691,12 @@ void Explorer::do_extractFS_Hactool(CpyQueue queue)
         emit workFinished();
     };
 
-    auto destination = queue.at(0).destination; // destination is a directory, the same for each file
+    auto destination = QFileInfo(queue.at(0).destination).path(); // destination is a directory, the same for each file
     ProgressInfo pi;
-    pi.mode = COPY;
-    pi.bytesTotal = (pi.bytesCount = 0) + (u64)queue.count();
+    pi.mode = EXTRACT;
+    pi.percent = -1; // Force simple progress
+    pi.bytesTotal = (u64)queue.count();
     pi.begin_time = chrono::system_clock::now();
-    if (queue.count() == 1)
-        strcpy_s(pi.storage_name, QString::fromStdWString(queue.at(0).nxFile->filename()).toStdString().c_str());
-    else sprintf(pi.storage_name, "%d files", queue.count());
-    emit sendProgress(pi);
 
     if (!pi.bytesTotal)
         return exit("No file to extract");
@@ -707,26 +707,31 @@ void Explorer::do_extractFS_Hactool(CpyQueue queue)
         auto file = entry.nxFile;
         auto cur_des = destination + "/" + (file->titleID() ? QString::fromStdString(file->normalizedTitleLabel())
                                                             : QString::fromStdWString(file->filename()));
-        ProgressInfo spi;
-        spi.isSubProgressInfo = true;
-        spi.mode = COPY;
-        strcpy_s(spi.storage_name, QString::fromStdWString(file->filename()).toStdString().c_str());
-        spi.begin_time = chrono::system_clock::now();
-        spi.bytesTotal = (spi.bytesCount = 0)++;
-        if (pi.bytesTotal>1) emit sendProgress(spi);
+
+        strcpy_s(pi.storage_name, QString::fromStdWString(file->filename()).toStdString().c_str());
+        emit sendProgress(pi);
 
         if (!EnsureOutputDir(cur_des, CreateAlways))
             return exit(QString("Failed to create dir %1").arg(cur_des));
 
+        connect(&m_hactool, &HacToolNet::updateProgress, [&](const ProgressInfo spi){
+            emit sendProgress(spi);
+        });
+
         if (!m_hactool.extractFiles(entry.source, file->isNCA() ? HacToolNet::Nca : HacToolNet::Save, cur_des))
             return exit( m_hactool.lastError().isEmpty() ? "Hactoolnet : failed to extract file " + entry.source
                                                          :  m_hactool.lastError());
-        spi.bytesCount++ && pi.bytesCount++;
-        if (pi.bytesTotal>1) emit sendProgress(spi);
+        pi.bytesCount++;
+        emit sendProgress(pi);
+    }
+
+    if (pi.bytesTotal > 1) {
+        sprintf(pi.storage_name, "%d files", (u32)pi.bytesTotal);
         emit sendProgress(pi);
     }
     exit();
 }
+
 void Explorer::do_extractFS(CpyQueue queue)
 {
     if (queue.isEmpty()) return; // prevent nullptr exception
@@ -739,9 +744,9 @@ void Explorer::do_extractFS(CpyQueue queue)
         emit workFinished();
     };
 
-    auto destination = queue.at(0).destination; // destination is a directory, the same for each file
+    auto destination = QFileInfo(queue.at(0).destination).path(); // destination is a directory, the same for each file
     ProgressInfo pi;
-    pi.mode = COPY;
+    pi.mode = EXTRACT;
     int file_count = 0;
     for (auto entry : queue) for (auto file : NxSave(entry.nxFile).listFiles()) {
         pi.bytesTotal += file.size;
@@ -769,7 +774,7 @@ void Explorer::do_extractFS(CpyQueue queue)
                 return exit(QString("Failed to open file for writing: %1").arg(cur_dest));
 
             ProgressInfo spi;
-            spi.mode = COPY;
+            spi.mode = EXTRACT;
             spi.bytesTotal = file.size;
             spi.isSubProgressInfo = true;
             spi.begin_time = chrono::system_clock::now();
@@ -796,6 +801,45 @@ void Explorer::do_extractFS(CpyQueue queue)
     exit();
 }
 
+void Explorer::do_decryptNCA_Hactool(CpyQueue queue)
+{
+    if (queue.isEmpty()) return; // prevent nullptr exception
+    auto exit = [&](const QString &err = "") { // exit lamda
+        if (!err.isEmpty()) emit error_signal(1, err);
+        emit workFinished();
+    };
+
+    ProgressInfo pi;
+    pi.mode = DECRYPT;
+    pi.percent = -1; // Force simple progress
+    pi.bytesTotal = (u64)queue.count();
+    pi.begin_time = chrono::system_clock::now();
+
+    if (!pi.bytesTotal)
+        return exit("No file to extract");
+
+    while (!queue.isEmpty()) // Process queue
+    {
+        auto entry = queue.dequeue();
+        auto file = entry.nxFile;
+
+        strcpy_s(pi.storage_name, QString::fromStdWString(file->filename()).toStdString().c_str());
+        emit sendProgress(pi);
+
+        if (!m_hactool.plaintextNCA(entry.source, entry.destination))
+            return exit(m_hactool.lastError().isEmpty() ? "Hactoolnet : failed to decrypt NCA " + entry.source
+                                                        :  m_hactool.lastError());
+        pi.bytesCount++;
+        emit sendProgress(pi);
+    }
+
+    if (pi.bytesTotal > 1) {
+        sprintf(pi.storage_name, "%d files", (u32)pi.bytesTotal);
+        emit sendProgress(pi);
+    }
+    exit();
+}
+
 void Explorer::hactool_process(QQueue<QStringList> cmds)
 {
     QString hactool = "res/hactool.exe";
@@ -815,47 +859,59 @@ void Explorer::hactool_process(QQueue<QStringList> cmds)
     }
 }
 
+void Explorer::concurrentSlotWithProgressDlg(void (Explorer::*functor)(CpyQueue), CpyQueue queue)
+{
+    Progress progressDialog(m_parent, m_partition->parent);
+    connect(this, &Explorer::sendProgress, &progressDialog, &Progress::updateProgress);
+    connect(this, &Explorer::workFinished, &progressDialog, &Progress::on_WorkFinished);
+    connect(&m_hactool, &HacToolNet::consoleWrite, &progressDialog, &Progress::consoleWrite);
+    QtConcurrent::run(this, functor, queue);
+    progressDialog.exec();
+    disconnect(&m_hactool, &HacToolNet::consoleWrite, &progressDialog, &Progress::consoleWrite);
+}
+
 void Explorer::on_selection_changed()
 {
-    auto selection = ui->tableView->selectionModel()->selectedRows();
+    auto selection = selectedFiles();
 
     bool isMultipleSelection = selection.count()>1;
     auto view = ui->tableView;
-    auto setAllToolTip = [&](QWidget *it, const QString &s) { it->setStatusTip(s); it->setToolTip(s); };
 
-    // Dsable buttons
-    for (auto o : QList<QWidget*>() << ui->saveButton << ui->decrypt_button << ui->listFs_button << ui->extractFs_button)
-        o->setDisabled(true);
-
-    // Disable actions
+    // Disable buttons & actions
+    auto buttons =  QList<QWidget*>() << ui->saveButton << ui->decrypt_button << ui->listFs_button << ui->extractFs_button;
+    for (auto b : buttons) { b->setDisabled(true); b->disconnect(); }
     for (auto a : view->actions()) {view->removeAction(a); delete a; }
 
-    if (!selection.count())
-        return;
+    auto enable_action = [=](QPushButton *obj, QString lbl, void(Explorer::*functor)(QList<NxFile*>), bool enable = true)
+    {
+        obj->setEnabled(enable);
+        obj->setStatusTip(lbl);
+        obj->setToolTip(lbl);
+        if (!enable)
+            return;
 
-    auto enable_action = [&](QPushButton *obj, QString lbl, const char *slot) {
+        connect(obj, &QPushButton::clicked, [=](bool) {
+            (this->*functor)(selectedFiles());
+        });
         QAction* action = new QAction(obj->icon(), lbl);
         action->setStatusTip(lbl);
-        connect(action, &QAction::triggered, [=]() { QMetaObject::invokeMethod(this, slot, Q_ARG(NxFileList, selectedFiles()));});
-        connect(obj, &QPushButton::clicked, [=](bool) { QMetaObject::invokeMethod(this, slot, Q_ARG(NxFileList, selectedFiles()));});
+        connect(action, &QAction::triggered, [=]() {
+            (this->*functor)(selectedFiles());
+        });
         view->addAction(action);
-        obj->setEnabled(true);
-        setAllToolTip(obj, lbl);
     };
 
-    QString selection_label = isMultipleSelection ? (QString("[%1 files]").arg(selection.count())) : "";
+    QString selection_label = isMultipleSelection ? QString("[%1 files]").arg(selection.count()) : "";
 
     // Enable buttons & actions
-    auto fs_str = QString(m_model.viewType() == UserSave ? "saveFS" : "romFS");
-    enable_action(ui->saveButton, "Save as... " + selection_label, "save");
-    if (m_model.viewType() == Generic)
-        return;
-    if (m_model.viewType() == Nca)
-        enable_action(ui->decrypt_button, "Decrypt and save as... " + selection_label, "decrypt");
-    if (selection.count() == 1)
-        enable_action(ui->listFs_button, "List files (from " + fs_str + ") " + selection_label, "listFS");
-    enable_action(ui->extractFs_button, "Extract files (from " + fs_str + ") to directory..." + selection_label, "extractFS");
-
+    QString fs_str(m_model.viewType() == UserSave ? "saveFS" : "romFS");
+    enable_action(ui->saveButton, QString("Save as... %1").arg(selection_label), &Explorer::save, selection.count());
+    enable_action(ui->decrypt_button, QString("Decrypt and save as... %1").arg(selection_label),
+                  &Explorer::decrypt, m_model.viewType() == Nca && selection.count());
+    enable_action(ui->listFs_button, QString("List files (from %1) %2").arg(fs_str).arg(selection_label),
+                  &Explorer::listFS, selection.count() == 1 && m_model.viewType() != Generic);
+    enable_action(ui->extractFs_button, QString("Extract files (from %1) to directory... %2").arg(fs_str).arg(selection_label),
+              &Explorer::extractFS, m_model.viewType() != Generic && selection.count());
 }
 
 void Explorer::on_currentDir_combo_currentIndexChanged(int index)
@@ -873,12 +929,24 @@ void Explorer::on_currentDir_combo_currentIndexChanged(int index)
     ui->warningLabel->setText("");
     ui->warningLabel->setToolTip("");
     ui->warningLabel->setStatusTip("");
-    if (m_partition->type() == USER && m_viewtype == Nca && !HasGenericKey(&m_partition->nxStorage()->keyset, "header_key")) {
-        ui->warningLabel->setText("Warning: header_key missing in keys.dat");
-        QString tip = "Please re-import keys from prod.keys (generated by Lockpick RCM) => Options > Configure keyset";
-        ui->warningLabel->setToolTip(tip);
-        ui->warningLabel->setStatusTip(tip);
+    QString warning_txt;
+    QString warning_tip;
+    if (!m_hactool.exists()) {
+        warning_txt = "hactoolnet.exe not found!";
+        warning_tip = "Program path should be: " + m_hactool.pgm_path();
+    }
+    else if (m_partition->type() == USER && m_viewtype == Nca && !HasGenericKey(&m_partition->nxStorage()->keyset, "header_key")) {
+        warning_txt = "Warning: header_key missing in keys.dat";
+        warning_tip = "Please re-import keys from prod.keys (generated by Lockpick RCM) => Options > Configure keyset";
+
+    }
+    if (!warning_txt.isEmpty()) {
+        ui->warningLabel->setText(warning_txt);
         ui->warningLabel->setStyleSheet("QLabel { color : red; }");
+    }
+    if (!warning_tip.isEmpty()) {
+        ui->warningLabel->setToolTip(warning_tip);
+        ui->warningLabel->setStatusTip(warning_tip);
     }
 
     m_model.setModel(m_viewtype, NxFileList());
@@ -889,6 +957,7 @@ void Explorer::on_currentDir_combo_currentIndexChanged(int index)
     }
 
     ui->loadingLabel->show();
+    on_selection_changed();
     this->update();
 
     watcher = new QFutureWatcher<void>();
@@ -899,7 +968,7 @@ void Explorer::on_currentDir_combo_currentIndexChanged(int index)
 
         ui->loadingLabel->hide();
         ui->tableView->resizeRowsToContents();
-        ui->currentDir_combo->setEnabled(true);
+        ui->currentDir_combo->setEnabled(true);        
     });
     future = QtConcurrent::run(this, &Explorer::readDir, true);
     watcher->setFuture(future);
@@ -929,72 +998,23 @@ void Explorer::save(NxFileList selectedFiles)
 
 void Explorer::decrypt(NxFileList selectedFiles)
 {
-    if (!QFile("res/hactool.exe").exists())
-        return error(0, "hactool.exe not found!");
-
-    auto cpy_queue = getCopyQueue(selectedFiles);
-    if (cpy_queue.isEmpty())
+    if (!selectedFiles.count())
         return;
 
-    Progress progressDialog(m_parent, m_partition->parent);
-    connect(this, SIGNAL(sendProgress(const ProgressInfo)), &progressDialog, SLOT(updateProgress(const ProgressInfo)));    
-    connect(this, SIGNAL(workFinished()), &progressDialog, SLOT(on_WorkFinished()));
-    connect(this, SIGNAL(consoleWrite(const QString)), &progressDialog, SLOT(consoleWrite(const QString)));
-    progressDialog.show();
+    if (!m_hactool.exists())
+        return error(0, "hactoolnet.exe not found!");
 
-    QFutureWatcher<void> watcher;
-    // After copy lambda
-    connect(&watcher, &QFutureWatcher<void>::finished, [&](){
-        QQueue<QStringList> cmd_queue;
-        for (auto el : cpy_queue)
-        {
-            QFileInfo dinfo(el.destination);
-            if (!dinfo.exists())
-                continue;
+    if (!m_partition->is_vfs_mounted())
+        return askForVfsMount([=]() { decrypt(selectedFiles); });
 
-            auto new_dir_path = dinfo.dir().absolutePath();
-            QStringList args;
-            if (el.nxFile->isSAVE())
-            {
-                QString dir_name = "";
-                if (el.nxFile->hasAdditionalString("title_name"))
-                {
-                    dir_name = QString::fromStdString(el.nxFile->getAdditionalString("title_name"));
-                    auto it = std::remove_if(dir_name.begin(), dir_name.end(), [](const QChar& c){
-                        return !c.isLetterOrNumber() && c != " ";
-                    });
-                    dir_name.chop(std::distance(it, dir_name.end()));
-                }
-                if (dir_name.isEmpty())
-                    dir_name = el.nxFile->titleIDString().length() ? QString::fromStdString(el.nxFile->titleIDString()) : QString::fromStdWString(el.nxFile->filename());
+    auto queue = getCopyQueue(selectedFiles);
+    if (queue.isEmpty())
+        return;
 
-                new_dir_path.append("/" + dir_name);
+    for (int i(0); i < queue.count(); i++) // vfs prefix source pathes in queue
+        queue[i].source = NxFilePath2VfsPath(m_partition, queue[i].nxFile);
 
-                int i(0);
-                while(QFileInfo(new_dir_path).exists() && i < 100)
-                {
-                    if (!i) new_dir_path.append("_");
-                    else new_dir_path.chop(1);
-                    new_dir_path.append(QString::number(i++));
-                }
-                args << "-t" << "save" << "--outdir=" + new_dir_path << el.destination;
-            }
-            else if (el.nxFile->isNCA())
-                args << "-t" << "nca" << "--plaintext=" + el.destination + ".decrypted" << el.destination;
-            else
-                continue;
-            cmd_queue.enqueue(args);
-        }
-
-        QFutureWatcher<void> f_watcher;
-        connect(&f_watcher, &QFutureWatcher<void>::finished, &progressDialog, &Progress::on_WorkFinished);
-        QFuture<void> f = QtConcurrent::run(this, &Explorer::hactool_process, cmd_queue);
-        f_watcher.setFuture(f);
-    });
-    QFuture<void> future = QtConcurrent::run(this, &Explorer::do_copy, cpy_queue);
-    watcher.setFuture(future);
-
-    progressDialog.exec();
+    concurrentSlotWithProgressDlg(&Explorer::do_decryptNCA_Hactool, queue);
 }
 
 void Explorer::listFS(NxFileList selectedFiles)
@@ -1028,17 +1048,61 @@ void Explorer::listFS(NxFileList selectedFiles)
         auto listWdgt = new QTableWidget(dialog);
         layout->addWidget(listWdgt);
         listWdgt->setColumnCount(2);
+        listWdgt->setSelectionBehavior(QAbstractItemView::SelectRows);
+        listWdgt->setSelectionMode(QAbstractItemView::SingleSelection);
         listWdgt->setEditTriggers(QAbstractItemView::NoEditTriggers);
         listWdgt->setHorizontalHeaderLabels(QStringList() << "File" << "Size");
         u64 total_size = 0;
         for (auto file : files) {
             auto ix = listWdgt->rowCount();
             listWdgt->insertRow(ix);
-            listWdgt->setItem(ix, 0, new QTableWidgetItem(QString::fromStdString(file.path + "/" + file.filename)));
+            auto it = new QTableWidgetItem(QString::fromStdString(file.path + "/" + file.filename));
+            it->setData(Qt::UserRole, QVariant::fromValue(file));
+            listWdgt->setItem(ix, 0, it);
             listWdgt->setItem(ix, 1, new QTableWidgetItem(QString::fromStdString(GetReadableSize(file.size))));
             total_size += file.size;
         }
         listWdgt->resizeColumnsToContents();
+        listWdgt->setContextMenuPolicy(Qt::ActionsContextMenu);
+        QAction* saveAction = new QAction(QIcon(":images/save2.png"), "Save file as...");
+        saveAction->setStatusTip("Extract file from save");
+        connect(saveAction, &QAction::triggered, [=]() {
+            auto file = listWdgt->selectedItems().at(0)->data(Qt::UserRole).value<NxSaveFile>();
+
+            QFileDialog fd(this, "Save file as...", "default_dir\\" + QString::fromStdString(file.filename));
+            fd.setFileMode(QFileDialog::AnyFile);
+            fd.setAcceptMode(QFileDialog::AcceptSave);
+            if (!fd.exec())
+                return;
+
+            QFile output(fd.selectedFiles().at(0));
+            if (output.exists())
+                output.remove();
+
+            if(!output.open(QIODevice::WriteOnly))
+                emit error(1, QString("Failed to open %s for writing").arg(output.fileName()));
+
+            u32 buff_size = 0x400000; // 4 MB
+            u8* buffer = (u8*)malloc(buff_size); // Allocate buffer
+            u64 offset = 0, br = 0;
+            s64 bw = 0;
+            while ((br = file.parent->readSaveFile(file, (void*)buffer, offset, buff_size)) > 0)
+            {
+                if ((bw = output.write((const char*)buffer, (qint64)br)) != (s64)br)
+                    break;
+                offset += br;
+            }
+            output.close();
+
+            if (offset != file.size) {
+                output.remove();
+                emit error(1, QString("Failed to write %s").arg(output.fileName()));
+            }
+            else QMessageBox::information(this, "Success", "File saved.");
+            free(buffer);
+        });
+        listWdgt->addAction(saveAction);
+
         layout->addWidget(new QLabel(QString("%1 file%2 (%3)").arg(files.size()).arg(files.size()>1?"s":"")
                                      .arg(QString::fromStdString(GetReadableSize(total_size)))));
         auto size_hint = listWdgt->columnWidth(0) + listWdgt->columnWidth(1) + 80;
@@ -1057,21 +1121,29 @@ void Explorer::listFS(NxFileList selectedFiles)
     else files = m_hactool.listFiles(NxFilePath2VfsPath(m_partition, entry), entry->isNCA() ? HacToolNet::Nca : HacToolNet::Save);
 
     if (files.isEmpty())
-        return (void) QMessageBox::information(this, "Information", "No file found");
+        return m_hactool.lastError().isEmpty() ? (void) QMessageBox::information(this, "Information", "No file found") : (void)0;
 
     // filelist dialog
     auto dialog = new QDialog(this, Qt::Dialog | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
     auto layout = new QHBoxLayout();
     dialog->setLayout(layout);
-    auto listWdgt = new QListWidget(dialog);
+    auto listWdgt = new QTableWidget(dialog);
+    listWdgt->setColumnCount(1);
+    listWdgt->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    listWdgt->setHorizontalHeaderLabels(QStringList() << "File");
     layout->addWidget(listWdgt);
-    for (auto file : files)
-        listWdgt->insertItem(listWdgt->count(), new QListWidgetItem(file));
+    for (auto file : files) {
+        auto ix = listWdgt->rowCount();
+        listWdgt->insertRow(ix);
+        listWdgt->setItem(ix, 0, new QTableWidgetItem(file));
+    }
+    listWdgt->resizeColumnsToContents();
+    auto size_hint = listWdgt->columnWidth(0) + 80;
+    dialog->resize(QSize(size_hint < this->width() ? size_hint : this->width(), files.size() > 5 ? 350 : 200));
     dialog->exec();
 }
 
-
-void Explorer::extractFS(NxFileList selectedFiles)
+void Explorer::extractFS(QList<NxFile*> selectedFiles)
 {
     if (!selectedFiles.count())
         return;
@@ -1080,32 +1152,19 @@ void Explorer::extractFS(NxFileList selectedFiles)
         return error(1, "hactoolnet.exe not found!");
 
     if (m_viewtype == Nca && !m_partition->is_vfs_mounted())
-        return askForVfsMount([=]() { emit extractFS_signal(selectedFiles); });
+        return askForVfsMount([=]() {
+            emit extractFS_signal(selectedFiles);
+        });
 
     auto queue = getCopyQueue(selectedFiles, true);
     if (queue.isEmpty())
         return;
 
     if (m_viewtype == Nca) {
-        // vfs prefix source path for each queued entry
-        CpyQueue new_queue;
-        for (auto entry : queue) {
-            entry.source = NxFilePath2VfsPath(m_partition, entry.nxFile);
-            new_queue << entry;
-        }
-        queue = new_queue;
+        for (int i(0); i < queue.count(); i++) // vfs prefix source pathes in queue
+            queue[i].source = NxFilePath2VfsPath(m_partition, queue[i].nxFile);
     }
 
-    // Init/open progress dialog & start work in a new thread
-    Progress progressDialog(m_parent, m_partition->parent);
-    connect(this, SIGNAL(sendProgress(const ProgressInfo)), &progressDialog, SLOT(updateProgress(const ProgressInfo)));
-    progressDialog.show();
-    QFutureWatcher<void> watcher;
-    connect(&watcher, &QFutureWatcher<void>::finished, &progressDialog, &Progress::on_WorkFinished);
-    QFuture<void> future = QtConcurrent::run(this, m_viewtype == Nca ? &Explorer::do_extractFS_Hactool
-                                                                     : &Explorer::do_extractFS
-                                                                     , queue);
-    watcher.setFuture(future);
-    progressDialog.exec();
+    concurrentSlotWithProgressDlg(m_viewtype == Nca ? &Explorer::do_extractFS_Hactool : &Explorer::do_extractFS, queue);
 }
 

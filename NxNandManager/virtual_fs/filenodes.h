@@ -47,6 +47,7 @@ class filenode;
 class fs_filenodes {
  public:
   fs_filenodes();
+  ~fs_filenodes();
 
   // Add a new filenode to the filesystem hierarchy.
   // The file will directly be visible on the filesystem.
@@ -76,6 +77,8 @@ class fs_filenodes {
   // If the filename do not contain an alternated stream, second is empty.
   static std::pair<std::wstring, std::wstring> get_stream_names(
       std::wstring real_filename);
+
+  void deleteNxFiles();
 
   NxPartition* nx_part;
   DWORD volumeSerial;

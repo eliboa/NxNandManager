@@ -629,7 +629,7 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
         u8* u8_buff = reinterpret_cast<u8*>(buffer);
         if (!WriteFile(m_h, &u8_buff[bytesCount], bytesToWrite, &bytesWrite, nullptr))
         {
-            dbg_printf("NxHandle::read ReadFile error %s\n", GetLastErrorAsString().c_str());
+            dbg_printf("NxHandle::wrtie WriteFile error %s\n", GetLastErrorAsString().c_str());
             return false;
         }
         if (!bytesWrite)
@@ -640,7 +640,7 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     }
 
 
-    if (bw) *bw = bytesWrite;
+    if (bw) *bw = bytesCount;
     return true;
 }
 

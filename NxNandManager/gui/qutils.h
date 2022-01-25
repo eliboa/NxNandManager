@@ -140,5 +140,5 @@ signals:
     void error(int, QString);
     void mounted();
 };
-
+QString rtrimmed(const QString& str);
 #endif // QUTILS_H

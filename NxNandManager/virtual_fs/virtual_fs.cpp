@@ -62,26 +62,34 @@ int virtual_fs::populate()
         queue.erase(queue.begin());
 
         // Open & scan dir
-        auto open = f_opendir(&dp, virtual_path_to_nx_path(dir.c_str(), partition).c_str()) == FR_OK;
+        auto open = partition->f_opendir(&dp, dir.c_str()) == FR_OK;
         while(open && f_readdir(&dp, &fno) == FR_OK)
         {
             if (fno.fname[0] == '\0')
                 break;
 
             bool isDir = fno.fattrib == FILE_ATTRIBUTE_DIRECTORY;
-            if (fno.fattrib == 0x30) // nx archive attribute
-                isDir = true;
+            auto filename = wstring(dir).append(dir.back() != L'\\' ? L"\\" : L"").append(fno.fname);
+
+            NxFile *nxFile = isDir ? nullptr : new NxFile(partition, filename, false /* Skip setAdditionalData */);
+            if (nxFile && !nxFile->exists()) {
+                delete nxFile;
+                continue;
+            }
+
+            DWORD fattr = fno.fattrib;
+            if (fno.fattrib == FILE_ATTRIBUTE_NX_ARCHIVE)
+                fattr = FILE_ATTRIBUTE_VIRTUAL;
 
             // File or direcory, create a node
-            auto filename = wstring(dir).append(dir.back() != L'\\' ? L"\\" : L"").append(fno.fname);
-            auto fileNode = make_shared<filenode>(filename.c_str(), isDir, fno.fattrib, nullptr);
+            auto fileNode = make_shared<filenode>(filename.c_str(), isDir, fattr, nullptr, nxFile);
 
             // Set additional information
             FILETIME ft;
             DosDateTimeToFileTime(fno.fdate, fno.ftime, &ft);
             auto time = virtual_fs_helper::DDwLowHighToLlong(ft.dwLowDateTime, ft.dwHighDateTime);
             fileNode->times.set(time, time, time);
-            fileNode->size = fno.fsize;
+            fileNode->size = nxFile ? nxFile->size() : fno.fsize;
 
             // Add node
             fs_filenodes->add(fileNode);

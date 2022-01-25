@@ -30,6 +30,13 @@ namespace Ui {
     class DialogKeySet;
 }
 
+typedef struct {
+    QString key = "";
+    QString value = "";
+} KeyEntry;
+QList<KeyEntry> QParseKeyFile(const QString &keyFile);
+
+
 class KeySetDialog : public QDialog
 {
     Q_OBJECT
@@ -42,6 +49,7 @@ public:
 private:
     QWidget *parent;
     KeySet* m_keyset = nullptr;
+    QList<KeyEntry> m_keys;
     void displayKeys();
 
 signals:
@@ -51,6 +59,7 @@ public slots:
 private slots:
     void on_ImportButton_clicked();
     void on_buttonBox_accepted();
+    void on_clearKeysButton_clicked();
 };
 
 #endif // KEYSET_H

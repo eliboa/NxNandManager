@@ -1088,7 +1088,6 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         memcpy(gpt_header_backup, &hdr[0], 0x200);
     }
 
-
     // Write UserDataRoot
     if(!outHandle->write(buffer, &bytesCount, 0x4400))
         return error(ERR_WHILE_COPY);

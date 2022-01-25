@@ -1,26 +1,10 @@
 #include "NxFile.h"
 
-NxFile::NxFile(NxPartition* nxp, const wstring &name)
+NxFile::NxFile(NxPartition* nxp, const wstring &name, bool b_setAdditionalInfo)
  : m_nxp(nxp)
 {
     memset(m_user_id, 0, 0x10);
-    if (name.length())
-    {
-        wstring tmp_name = name;
-        // Remove trailing backslash
-        size_t pos = tmp_name.find_last_of(L"/");
-        if(pos == tmp_name.length()-1)
-            tmp_name.erase(tmp_name.length()-1);
-
-        // Get filename & filepath
-        std::wstring basename = base_nameW(tmp_name);
-        m_filename = !basename.length() ? name : basename;
-        if (basename.length()) {
-            size_t pos = tmp_name.find_last_of(m_filename) - m_filename.length();
-            if (pos>0) tmp_name.erase(tmp_name.begin() + (int)pos, tmp_name.end());
-            m_filepath = tmp_name.length() ? tmp_name : L"/";
-        } else m_filepath = L"/";
-    }
+    setCompletePath(name);
 
     // Controls
     FILINFO fno;
@@ -33,13 +17,13 @@ NxFile::NxFile(NxPartition* nxp, const wstring &name)
     else if (!m_nxp->is_mounted())
         m_fileStatus = NX_NO_FILESYSTEM;
     else if (m_nxp->f_stat(this->completePath().c_str(), &fno)) // fs access
-        m_fileStatus = NX_INVALID_PATH;
+        m_fileStatus = NX_NO_FILE;
     else if (fno.fattrib == FILE_ATTRIBUTE_DIRECTORY)
         m_fileStatus = NX_IS_DIRECTORY;
     else
-        m_fileStatus = NX_VALID;
+        m_fileStatus = NX_FILE;
 
-    if (m_fileStatus != NX_VALID)
+    if (m_fileStatus != NX_FILE)
         return;
 
     m_size = (u64) fno.fsize;
@@ -56,7 +40,7 @@ NxFile::NxFile(NxPartition* nxp, const wstring &name)
         DIR dp;
         FILINFO sub_fno;
         if (m_nxp->f_opendir(&dp, this->completePath().c_str())) {
-            m_fileStatus = NX_INVALID_PATH;
+            m_fileStatus = NX_NO_FILE;
             return;
         }
         while (!f_readdir(&dp, &sub_fno) && sub_fno.fname[0]) {
@@ -69,12 +53,50 @@ NxFile::NxFile(NxPartition* nxp, const wstring &name)
         }
         f_closedir(&dp);
 
-        if (!m_size) {
-            m_fileStatus = NX_INVALID_PATH;
+        if (!m_size)
             return;
-        }
+
     }
-    setAdditionalInfo();
+    if (b_setAdditionalInfo)
+        setAdditionalInfo();
+
+    if (isdebug) {
+        auto nxpt = string(m_nxp->nxStorage()->getNxTypeAsStr(m_nxp->type()));
+        dbg_wprintf(L"NxFile::NxFile(%ls, %ls) %ls size: %I64d\n", wstring(nxpt.begin(), nxpt.end()).c_str(),
+                    completePath().c_str(), exists() ? L"VALID" : L"INVALID", m_size);
+    }
+}
+
+NxFile::~NxFile()
+{
+    if (isOpen())
+        close();
+
+    if (isdebug)
+        dbg_wprintf(L"NxFile::~NxFile() for %ls\n", completePath().c_str());
+}
+
+void NxFile::setCompletePath(const wstring &name)
+{
+    if (!name.length())
+        return;
+
+    wstring tmp_name = name;
+    // Unix style path
+    std::replace(tmp_name.begin(), tmp_name.end(), '\\', '/');
+    // Remove trailing backslash
+    size_t pos = tmp_name.find_last_of(L"/");
+    if(pos == tmp_name.length()-1)
+        tmp_name.erase(tmp_name.length()-1);
+
+    // Get filename & filepath
+    std::wstring basename = base_nameW(tmp_name);
+    m_filename = !basename.length() ? name : basename;
+    if (basename.length()) {
+        size_t pos = tmp_name.find_last_of(m_filename) - m_filename.length();
+        if (pos>0) tmp_name.erase(tmp_name.begin() + (int)pos, tmp_name.end());
+        m_filepath = tmp_name.length() ? tmp_name : L"/";
+    } else m_filepath = L"/";
 }
 
 void NxFile::setAdditionalInfo()
@@ -136,14 +158,154 @@ void NxFile::setAdditionalInfo()
     this->close();
 }
 
+// Resize NxFile (NXA compatible)
+// This function will : - allocate or truncate file in filesystem
+//                      - set current pointer to EOF
+int NxFile::resize(u64 new_size, bool set_cursor_for_write)
+{
+    auto exit = [&](int res) {
+        if (isdebug) dbg_wprintf(L"NxFile::resize(%I64d) for %ls (%ls rc: %d, new_size: %I64d) [this=%I64d]\n", new_size,
+                                 completePath().c_str(), res == FR_OK ? L"SUCCESS" : L"FAIL", res, m_size, (u64)this);
+        return res;
+    };
+
+
+    if (m_size == new_size && (!isNXA() || !set_cursor_for_write)) // Size unchanged
+        return exit(FR_OK);
+
+    if (!isOpenAndValid())
+        return exit(FR_NOT_READY);
+
+    int res;
+    auto previous_size = m_size;
+
+    /// STANDARD FILE
+    if (!isNXA())
+    {
+        if (new_size > 0xFFFF0000)
+            return exit(FR_INVALID_PARAMETER);
+
+        if (relativeOffset() != new_size && (res = f_lseek(&m_fp, (u32)new_size))) // Seek EOF
+            return exit(res);
+
+        m_size = new_size;
+
+        if (new_size < previous_size && (res = f_truncate(&m_fp))) // Reduced size, truncate
+            return exit(res);
+
+        return exit(FR_OK);
+    }
+
+    /// FILE IS NXA
+    if (new_size < previous_size)
+    {
+        // size reduced, delete some nxa files if necessary
+        auto next_idx = getFileIxByOffset(new_size)+1;
+        bool reopen = false;
+        for (auto i = next_idx; i < m_files.size(); i++)
+        {
+            reopen = i == m_cur_file && !f_close(&m_fp); // Ensure file pointer is closed before delete
+            auto path = completePath() + L"/" + m_files.at(i).file;
+            m_nxp->f_unlink(path.c_str());
+        }
+        if (reopen)
+            m_nxp->f_open(&m_fp, wstring(completePath() + L"/" + m_files.back().file).c_str(), m_openMode);
+
+        m_files.resize(next_idx); // resize vector
+    }
+
+    auto new_split_file = [&](u32 size) {
+        NxSplitOff f_entry;
+        f_entry.off_start = m_files.back().off_start + m_files.back().size;
+        f_entry.size = size;
+        wchar_t buff[3];
+        swprintf(buff, L"%02X", std::stoi(m_files.back().file)+1);
+        f_entry.file = wstring(buff);
+        f_close(&m_fp);
+        FRESULT res;
+        auto path = completePath() + L"/" + f_entry.file;
+
+        if ((res = m_nxp->f_open(&m_fp, path.c_str(), FA_CREATE_NEW | FA_READ | FA_WRITE))) // Create new file
+            return res;
+        if (f_entry.size && (res = f_lseek(&m_fp, f_entry.size))) // Seek EOF (change FS size)
+            return res;
+        m_files.emplace_back(f_entry); // Append entry in file vector
+        m_cur_file = m_files.size()-1; // Entry is current file
+        return FR_OK;
+    };
+
+    auto relative_new_size = new_size - (u64)m_files.back().off_start; // new size relating to the last split file
+    if (relative_new_size > 0xFFFF0000) // size exceeds 4GB
+    {
+        // New file(s) needed
+        m_files.back().size = 0xFFFF0000;
+        auto remaining = relative_new_size - 0xFFFF0000;
+        // Add new split entries
+        while (remaining) {
+            if ((res = new_split_file(remaining > 0xFFFF0000 ? 0xFFFF0000 : (u32)remaining)))
+                return exit(res);
+            remaining -= m_files.back().size;
+        }
+    }
+
+    auto last_idx = m_files.size()-1;
+    // Switch to last split file if needed
+    if (last_idx != m_cur_file) {
+        f_close(&m_fp);
+        auto path = completePath() + L"/" + m_files.at(last_idx).file;
+        if ((res = m_nxp->f_open(&m_fp, path.c_str(), accessMode() == NX_READONLY ? FA_READ : FA_READ | FA_WRITE)))
+            return exit(res);
+        m_cur_file = last_idx;
+    }
+
+    m_files[m_cur_file].size = (u32)relative_new_size; // Set new size for entry
+    m_size = new_size; // Change NxFile size
+
+    // Add new entry if set_cursor_for_write & cur split max ofs reached
+    if (relative_new_size == 0xFFFF0000 && set_cursor_for_write)
+        return exit(new_split_file(0));
+
+    if (relativeOffset() == relative_new_size)
+        return exit(FR_OK);
+
+    if ((res = f_lseek(&m_fp, (u32)relative_new_size))) // Seek EOF
+        return exit(res);
+
+    if (isdebug) dbg_wprintf(L"NxFile::resize() seek to eof. cur file: %ls, relative ofs: %I64d\n",
+                             m_files.at(m_cur_file).file.c_str(), relativeOffset());
+
+    f_truncate(&m_fp); // Truncate
+    return exit(FR_OK);
+}
+
+bool NxFile::isValidOffset(u64 ofs)
+{
+    if (!isNXA())
+        return ofs <= m_size;
+
+    for (size_t i(0); i < m_files.size(); i++)
+        if (ofs >= m_files.at(i).off_start && ofs <= m_files.at(i).off_end())
+            return true;
+
+    return false;
+}
+
 bool NxFile::is_valid_nxp()
 {
     if (!m_nxp || not_in(m_nxp->type(), {USER, SYSTEM, SAFE, PRODINFOF})
-               || (m_nxp->isEncryptedPartition() && (!m_nxp->crypto() || m_nxp->badCrypto()))
+               || !m_nxp->isGood()
                || !m_nxp->is_mounted())
         return false;
     return true;
 }
+
+bool NxFile::isOpenAndValid()
+{
+    if (!is_valid_nxp() || !isGood() || m_openStatus != NX_OPENED)
+        return false;
+    return true;
+}
+
 size_t NxFile::getFileIxByOffset(u64 offset)
 {
     for (size_t i(0); i < m_files.size(); i++)
@@ -152,145 +314,344 @@ size_t NxFile::getFileIxByOffset(u64 offset)
     return 0;
 }
 
-bool NxFile::ensure_nxa_file(u64 offset)
+bool NxFile::ensure_nxa_file(u64 offset, NxAccessMode mode)
 {
-    if (!isNXA())
+    if (!isNXA()) {
+        dbg_printf("NxFile::ensure_nxa_file(%I64d) FAILED, not NXA\n", offset);
         return false;
+    }
 
-    // Switch file
+    if (!isValidOffset(offset)) // Offset is out of range
+        return mode == NX_READONLY ? false : resize(offset, true) == FR_OK;
+
+    // Offset is valid, switch file if necessary
     auto ix = getFileIxByOffset(offset);
     if (ix != m_cur_file) {
         f_close(&m_fp);
         auto path = wstring(this->completePath() + L"/" + m_files.at(ix).file);
-        if (!f_open(&m_fp, path.c_str(), m_openMode)) {
+        if (!m_nxp->f_open(&m_fp, path.c_str(), accessMode() == NX_READONLY ? FA_READ : FA_READ | FA_WRITE)) {
             m_cur_file = ix;
             return true;
         }
-        else return false;
+        dbg_wprintf(L"NxFile::ensure_nxa_file(%I64d) FAILED to open new_path %ls (ix: %d)\n",
+                    offset, path.c_str(), ix);
+        return false;
     }
     return true;
 }
+
 bool NxFile::open(BYTE mode)
 {
-    if (m_fileStatus != NX_VALID || m_openStatus == NX_OPENED || !is_valid_nxp())
-        return false;
+    auto exit = [&](int res) {
+        if (isdebug) {
+            wstring os;
+            openModeString(mode, os);
+            dbg_wprintf(L"NxFile::open(%ls) for %ls (%ls rc: %d) [this=%I64d]\n",
+                        os.c_str(), completePath().c_str(), res == FR_OK ? L"SUCCESS" : L"FAIL", res, (u64)this);
+        }
+        return (bool)(res == FR_OK);
+    };    
+
+    if (!is_valid_nxp())
+        return exit(FR_INVALID_DRIVE);
+
+    if (isOpen())
+        return exit(FR_OK);
 
     auto path = this->completePath();
-    if (this->isNXA())
-        path.append(L"/" + m_files.at(0).file);
+    int res; bool nxa_init = false;
+    bool isCreateNew = !exists(); // File does not exists, creation mode
+    // Force appropriate flogs if not provided
+    if (isCreateNew && !(mode & (FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW)))
+        mode &= FA_CREATE_NEW;
+    if (isCreateNew && !(mode & FA_WRITE))
+        mode &= FA_WRITE;
+    bool truncate_existing = !isCreateNew && (mode & FA_CREATE_ALWAYS);
 
-    bool success = m_nxp->f_open(&m_fp, path.c_str(), mode) == FR_OK;
-    if (success) {
-        m_openStatus = NX_OPENED;
-        m_cur_file = 0;
-        m_openMode = mode;
-    }
-    return success;
-}
-bool NxFile::close()
-{
-    if (m_fileStatus != NX_VALID || m_openStatus == NX_CLOSED || !is_valid_nxp())
-        return false;
-
-    bool success = f_close(&m_fp) == FR_OK;
-    if (success)
-        m_openStatus = NX_CLOSED;
-
-    return success;
-}
-bool NxFile::seek(u64 offset)
-{
-    if (m_fileStatus != NX_VALID || m_openStatus != NX_OPENED || !is_valid_nxp() || offset > m_size)
-        return false;
-
-    if (isNXA() && !ensure_nxa_file(offset))
-        return false;
-
-    auto ofs = relativeOffset(offset);
-    auto res = f_lseek(&m_fp, ofs);
-    return res == FR_OK;
-}
-int NxFile::read(void* buff, UINT btr, UINT* br)
-{
-    if (br)
-        *br = 0;
-
-    bool isValidNxp = is_valid_nxp();
-    if (!isValidNxp || m_fileStatus != NX_VALID || m_openStatus != NX_OPENED)
+    // NX ARCHIVE CREATION if filename matches *.nca & path starts with /Content
+    if (isCreateNew && endsWith(m_filename, wstring(L".nca")) && startsWith(m_filepath, wstring(L"/Contents")))
     {
-        if (!isValidNxp) m_fileStatus = NX_INVALID_PART;
-        return !isValidNxp ? FR_INVALID_DRIVE : FR_INVALID_OBJECT;
+        // Create new dir for NCA
+        if ((res = m_nxp->f_mkdir(path.c_str())))
+            return exit(res);
+
+        // Change file attr to NXA
+        m_fattrib = FILE_ATTRIBUTE_NX_ARCHIVE;
+        if ((res = m_nxp->f_chmod(path.c_str(), m_fattrib, 0x3F))) {
+            m_nxp->f_unlink(path.c_str());
+            return exit(res);
+        }
+
+        nxa_init = true;
+        m_fileType = NX_NCA;
+        NxSplitOff f_entry; // Create new split entry for NXA
+        f_entry.off_start = 0;
+        f_entry.size = 0;
+        f_entry.file = L"00";
+        m_files.emplace_back(f_entry);
     }
 
     if (isNXA())
+        path.append(L"/" + m_files.at(0).file);
+
+    if (!(res = m_nxp->f_open(&m_fp, path.c_str(), mode)))
     {
-        if (!ensure_nxa_file(absoluteOffset()))
-            return false;
-
-        // Resize buffer this read will reach eof
-        if (relativeOffset() + btr > curFile().size)
-            btr = curFile().size - relativeOffset();
+        // OPEN SUCCESS
+        m_openStatus = NX_OPENED;
+        m_fileStatus = NX_FILE;
+        m_cur_file = 0;
+        m_openMode = mode;
+        if (!nxa_init && isCreateNew) {
+            m_fattrib = FILE_ATTRIBUTE_NORMAL;
+        }
+        if (isCreateNew)
+            f_sync(&m_fp); // Sync file if created
+        if (truncate_existing)
+            resize(0);
     }
-
-    return f_read(&m_fp, buff, btr, br);
+    else
+    {
+        // OPEN FAILED
+        if (nxa_init) // delete NXA if previously created
+            m_nxp->f_unlink(completePath().c_str());
+    }
+    return exit(res);
 }
+
+bool NxFile::close()
+{
+    auto exit = [&](int res) {
+        if (isdebug)
+            dbg_wprintf(L"NxFile::close() for %ls (%ls rc: %d) [this=%I64d]\n",
+                        completePath().c_str(), res == FR_OK ? L"SUCCESS" : L"FAIL", res, (u64)this);
+        return res == FR_OK;
+    };
+
+    if (m_openStatus == NX_CLOSED)
+        return exit(FR_OK);
+
+    if (!isOpenAndValid())
+        return exit(FR_INVALID_OBJECT);
+
+    int res = f_close(&m_fp);
+    if (!res)
+        m_openStatus = NX_CLOSED;
+
+    return exit(res);
+}
+
+bool NxFile::seek(u64 offset)
+{
+    auto exit = [&](int res) {
+        if (isdebug && res)
+            dbg_wprintf(L"NxFile::seek(%I64d) FAILED (res=%d) for %ls (relative Offset %I64d) [this=%I64d]\n",
+                        offset, res, completePath().c_str(), relativeOffset(offset), (u64)this);
+        return (bool)(res == FR_OK);
+    };
+
+    if (!isOpenAndValid())
+        return exit(FR_NOT_READY);
+
+    if (isNXA() && !ensure_nxa_file(offset))
+        return exit(FR_NO_FILE);
+
+    if (absoluteOffset() == offset) // no need to move current pointer
+        return exit(FR_OK);
+
+    auto res = f_lseek(&m_fp, relativeOffset(offset)); // move current pointer
+
+    if (!res && absoluteOffset() > m_size) // resize needed ?
+        return exit(resize(absoluteOffset()));
+
+    return exit(res);
+}
+
+int NxFile::truncate()
+{
+    auto exit = [&](int res) {
+        if (res && isdebug)
+            dbg_wprintf(L"NxFile::truncate() FAILED for %ls (result %d) [this=%I64d]\n",
+                        completePath().c_str(), res, (u64)this);
+        return res;
+    };
+
+    if (!isOpenAndValid())
+        return exit(FR_INVALID_OBJECT);
+
+    return exit(resize(absoluteOffset()));
+}
+
+int NxFile::read(void* buff, UINT btr, UINT* br)
+{
+    auto exit = [&](int res) {
+        if (res && isdebug)
+            dbg_wprintf(L"NxFile::read(buff, btr=%I32d, br=%I32d) FAILED for %ls (result %d, current ofs: %I64d) [this=%I64d]\n",
+                        btr, br ? *br : 0, completePath().c_str(), res, absoluteOffset(), (u64)this);
+        return res;
+    };
+
+    *br = 0;
+
+    if (!isOpenAndValid())
+        return exit(FR_NOT_READY);
+
+    u32 bytesCount = 0, bytesTotal = btr;
+    int res = FR_OK;
+    while (bytesCount < bytesTotal)
+    {
+        btr = bytesTotal - bytesCount;
+        *br = 0;
+        if (isNXA()) {
+            if (!ensure_nxa_file(absoluteOffset(), NX_READONLY))
+                break;
+
+            if (relativeOffset() + btr > curFile().size)
+                btr = curFile().size - relativeOffset();
+        }
+
+        void* p = static_cast<u8*>(buff) + bytesCount;
+        res = f_read(&m_fp, p, btr, br);
+
+        bytesCount += *br;
+        if (*br != btr)
+            break;
+    }
+    *br = bytesCount;
+    return exit(!*br && !res ? FR_NO_FILE : res);
+}
+
 int NxFile::read(u64 offset, void* buff, UINT btr, UINT* br)
 {
     if (br)
         *br = 0;
 
-    bool isValidNxp = is_valid_nxp();
-    if (!isValidNxp || m_fileStatus != NX_VALID || m_openStatus != NX_OPENED)
-    {
-        if (!isValidNxp) m_fileStatus = NX_INVALID_PART;
-        return !isValidNxp ? FR_INVALID_DRIVE : FR_INVALID_OBJECT;
-    }
-
     if (!seek(offset))
         return FR_INVALID_OBJECT;
 
-    return f_read(&m_fp, buff, btr, br);
+    return read(buff, btr, br);
 }
+
 int NxFile::write(const void* buff, UINT btw, UINT* bw)
 {
+    auto exit = [&](int res) {
+        if (res && isdebug)
+            dbg_wprintf(L"NxFile::write(buff, btw=%I32d, bw=%I32d) FAILED for %ls (result %d) [this=%I64d]\n",
+                        btw, bw ? *bw : 0, completePath().c_str(), res, (u64)this);
+        return res;
+    };
+
     if (bw)
         *bw = 0;
 
-    bool isValidNxp = is_valid_nxp();
-    if (!isValidNxp || m_fileStatus != NX_VALID || m_openStatus != NX_OPENED)
-    {
-        if (!isValidNxp) m_fileStatus = NX_INVALID_PART;
-        return !isValidNxp ? FR_INVALID_DRIVE : FR_INVALID_OBJECT;
+    if (!isOpenAndValid())
+        return exit(FR_INVALID_OBJECT);
+
+    u32 btw_total = btw, bw_tmp = 0;
+    int res;
+    if (isNXA())
+    {        
+        if (!ensure_nxa_file(absoluteOffset()))
+            return exit(FR_INVALID_PARAMETER);
+
+        // Resize buffer if write will reach eof
+        if ((u64)relativeOffset() + (u64)btw > 0xFFFF0000)
+            btw = 0xFFFF0000 - relativeOffset();
     }
 
-    if (isNXA())
+    res = f_write(&m_fp, buff, btw, &bw_tmp);
+    *bw += bw_tmp;
+
+    if (res == FR_OK && absoluteOffset() > m_size)  // Update file size
+        resize(absoluteOffset());
+
+    if (res == FR_OK && btw_total != btw)
     {
         if (!ensure_nxa_file(absoluteOffset()))
-            return false;
+            return exit(FR_INVALID_PARAMETER);
 
-        // Resize buffer this write will reach eof
-        if (relativeOffset() + btw > curFile().size)
-            btw = curFile().size - relativeOffset();
+        auto buf_size = btw_total - bw_tmp;
+        void* p = static_cast<u8*>(const_cast<void *>(buff)) + buf_size;
+        res = f_write(&m_fp, p, buf_size, &bw_tmp);
+        *bw += bw_tmp;
+        if (!res)
+            resize(absoluteOffset());
     }
-
-    return f_write(&m_fp, buff, btw, bw);
+    /*
+    // Resize after write
+    if (res == FR_OK && absoluteOffset() > m_size) { // Update file size
+        resize(absoluteOffset());
+        if (isdebug)
+            dbg_wprintf(L"NxFile::write(buff, btw=%I32d, bw=%I32d) and filesize changed to "
+                        "%I64d SUCCESS for %ls (result %d) [this=%I64d]\n",
+                        btw, bw ? *bw : 0, m_size, completePath().c_str(), res, (u64)this);
+    }
+    */
+    return exit(!*bw && !res ? FR_NO_FILE : res);
 }
+
 int NxFile::write(u64 offset, const void* buff, UINT btw, UINT* bw)
 {
     if (bw)
         *bw = 0;
 
-    bool isValidNxp = is_valid_nxp();
-    if (!isValidNxp || m_fileStatus != NX_VALID || m_openStatus != NX_OPENED)
-    {
-        if (!isValidNxp) m_fileStatus = NX_INVALID_PART;
-        return !isValidNxp ? FR_INVALID_DRIVE : FR_INVALID_OBJECT;
-    }
-
     if (!seek(offset))
         return FR_INVALID_OBJECT;
 
-    return f_write(&m_fp, buff, btw, bw);
+    return write(buff, btw, bw);
+}
+
+int NxFile::remove()
+{
+    auto exit = [&](int res) {
+        if (isdebug)
+            dbg_wprintf(L"NxFile::remove() %ls for %ls (result %d) [this=%I64d]\n",
+                        res ? L"FAIL" : L"SUCCESS", completePath().c_str(), res, (u64)this);
+        return res;
+    };
+
+    if (!is_valid_nxp() || !isGood())
+        return exit(FR_INVALID_OBJECT);
+
+    int res;
+    if (isNXA()) {
+        resize(0); // truncate ensures deletion of extra nxa's files
+        // Delete cur nxa file
+        if ((res =  m_nxp->f_unlink(wstring(completePath() + L"/" + m_files.at(0).file).c_str())))
+            return exit(res);
+    }
+    else close();
+
+    // Unlink file (or NXA dir)
+    res = m_nxp->f_unlink(completePath().c_str());
+
+    if (res == FR_OK) {
+        m_fileStatus = NX_INVALID;
+        m_size = 0;
+        m_openStatus = NX_CLOSED;
+        if (isNXA())
+            m_files.clear();
+    }
+    return exit(res);
+}
+
+int NxFile::rename(const wstring &new_name)
+{
+    auto previous_name = completePath();
+    auto exit = [&](int res) {
+        if (res && isdebug)
+            dbg_wprintf(L"NxFile::rename(new_name= %ls) FAILED for %ls (result %d) [this=%I64d]\n",
+                        new_name.c_str(), previous_name.c_str(), res, (u64)this);
+        return res;
+    };
+
+    if (!is_valid_nxp())
+        return exit(FR_INVALID_OBJECT);
+
+    auto res = m_nxp->f_rename(completePath().c_str(), new_name.c_str());
+    if (res == FR_OK)
+        setCompletePath(new_name);
+
+    return exit(res);
 }
 
 string NxFile::titleIDString() {
@@ -303,9 +664,11 @@ string NxFile::titleIDString() {
     return hexStr(buff, 8);
 
 }
+
 string NxFile::userIDString() {
     return hexStr((u8*)m_user_id, 16);
 }
+
 int NxFile::getAddStringIxByKey(const string &key)
 {
     for (size_t i(0); i < m_addStrings.size(); i++)
@@ -313,6 +676,7 @@ int NxFile::getAddStringIxByKey(const string &key)
             return (int) i;
     return -1;
 }
+
 void NxFile::setAdditionalString(const string &key, const string &value)
 {
     auto ix = getAddStringIxByKey(key);
@@ -325,11 +689,13 @@ void NxFile::setAdditionalString(const string &key, const string &value)
         m_addStrings.emplace_back(s);
     }
 }
+
 string NxFile::getAdditionalString(const string &key)
 {
     auto ix = getAddStringIxByKey(key);
     return ix >= 0 ? m_addStrings.at((size_t)ix).value : string();
 }
+
 string NxFile::contentTypeString()
 {
     string str;
@@ -417,4 +783,84 @@ string NxFile::normalizedTitleLabel()
         return !std::isalpha(c) && !std::isspace(c) && !std::isdigit(c);
     }), label.end());
     return label;
+}
+
+bool NxFile::setFileTime(const FILETIME* time)
+{
+    return true;
+    auto exit = [&](bool res) {
+        if (!res && isdebug)
+            dbg_wprintf(L"NxFile::setFileTime() FAILED for %ls [this=%I64d]\n", completePath().c_str(), (u64)this);
+        return res;
+    };
+
+    if (!isOpenAndValid())
+        return exit(false);
+
+    FILINFO fno;
+    if (m_nxp->f_stat(completePath().c_str(), &fno) != FR_OK)
+        return exit(false);
+
+    FileTimeToDosDateTime(time, &fno.fdate, &fno.ftime);
+    bool is_open = isOpen();
+    if (is_open)
+        close();
+
+    if (m_nxp->f_utime(completePath().c_str(), &fno) != FR_OK)
+        return exit(false);
+
+    if (is_open)
+        open(m_openMode);
+
+    m_fdate = fno.fdate;
+    m_ftime = fno.ftime;
+    return exit(true);
+}
+
+bool NxFile::setFileAttr(const BYTE fattr)
+{
+    return true;
+
+    auto exit = [&](bool res) {
+        if (!res && isdebug)
+            dbg_wprintf(L"NxFile::setFileAttr() FAILED for %ls [this=%I64d]\n", completePath().c_str(), (u64)this);
+        return res;
+    };
+
+    if (!isOpenAndValid())
+        return exit(false);
+
+    bool is_open = isOpen();
+    if (is_open)
+        close();
+
+    if (m_nxp->f_chmod(completePath().c_str(), fattr, 0x3F) != FR_OK)
+        return exit(false);
+
+    if (is_open)
+        open(m_openMode);
+
+    m_fattrib = fattr;
+    return exit(true);
+}
+
+void openModeString(BYTE mode, wstring &open_str)
+{
+    open_str.clear();
+    if (mode & FA_READ)
+        open_str.append(L"FA_READ ");
+    if (mode & FA_WRITE)
+        open_str.append(L"FA_WRITE ");
+    if (mode & FA_OPEN_EXISTING)
+        open_str.append(L"FA_OPEN_EXISTING ");
+    if (mode & FA_CREATE_NEW)
+        open_str.append(L"FA_CREATE_NEW ");
+    if (mode & FA_CREATE_ALWAYS)
+        open_str.append(L"FA_CREATE_ALWAYS ");
+    if (mode & FA_OPEN_ALWAYS)
+        open_str.append(L"FA_OPEN_ALWAYS ");
+    if (mode & FA_OPEN_APPEND)
+        open_str.append(L"FA_OPEN_APPEND ");
+
+    open_str = rtrimW(open_str);
 }

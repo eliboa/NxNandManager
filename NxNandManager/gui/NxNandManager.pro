@@ -58,6 +58,7 @@ SOURCES += \
     keyset.cpp \
     loading_widget.cpp \
     mainwindow.cpp \
+    mount.cpp \
     properties.cpp \
     qutils.cpp \
     resizeuser.cpp \
@@ -101,6 +102,7 @@ HEADERS += \
     keyset.h \
     loading_widget.h \
     mainwindow.h \
+    mount.h \
     properties.h \
     ../NxPartition.h \
     ../NxHandle.h \
@@ -131,6 +133,7 @@ FORMS += \
     explorer.ui \
     loading_widget.ui \
     mainwindow.ui \
+    mount.ui \
     opendrive.ui \
     keyset.ui \
     properties.ui \

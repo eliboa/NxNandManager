@@ -306,6 +306,7 @@ bool not_in(const T& v, std::initializer_list<T> lst)
 std::string ltrim(const std::string& s);
 std::string rtrim(const std::string& s);
 std::string trim(const std::string& s);
+std::wstring rtrimW(const std::wstring& s);
 
 bool is_file(const char* path);
 bool is_dir(const char* path);

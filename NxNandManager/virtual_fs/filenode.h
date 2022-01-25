@@ -42,7 +42,8 @@ THE SOFTWARE.
 #include <set>
 #include <memory>
 #include <vector>
-
+#include "../NxFile.h"
+class NxFile;
 #ifndef byte
     typedef unsigned char byte;
 #endif
@@ -95,9 +96,10 @@ struct filetimes {
 class filenode {
  public:
     filenode(const std::wstring &filename, bool is_directory, DWORD file_attr,
-           const PDOKAN_IO_SECURITY_CONTEXT security_context);
+           const PDOKAN_IO_SECURITY_CONTEXT security_context, NxFile* nxfile = nullptr);
 
     filenode(const filenode& f) = delete;
+    ~filenode();
 
     DWORD read(LPVOID buffer, DWORD bufferlength, LONGLONG offset);
     DWORD write(LPCVOID buffer, DWORD number_of_bytes_to_write, LONGLONG offset);
@@ -109,8 +111,10 @@ class filenode {
     const std::wstring get_filename();
     void set_filename(const std::wstring& filename);
 
-    // Alternated streams
+    NxFile* get_nxfile() { return _nxfile; }
+    void delete_nxfile();
 
+    // Alternated streams
     void add_stream(const std::shared_ptr<filenode>& stream);
     void remove_stream(const std::shared_ptr<filenode>& stream);
     std::unordered_map<std::wstring, std::shared_ptr<filenode> > get_streams();
@@ -127,6 +131,8 @@ class filenode {
 
  private:
     filenode() = default;
+
+    NxFile* _nxfile = nullptr;
 
     std::mutex _data_mutex;
     // _data_mutex need to be aquired

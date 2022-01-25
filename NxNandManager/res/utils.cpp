@@ -351,6 +351,8 @@ bool file_exists(const wchar_t * fileName)
 }
 
 const std::string WHITESPACE = " \n\r\t\f\v";
+const std::wstring WHITESPACEW = L" \n\r\t\f\v";
+
 
 std::string ltrim(const std::string& s)
 {
@@ -362,6 +364,12 @@ std::string rtrim(const std::string& s)
 {
 	size_t end = s.find_last_not_of(WHITESPACE);
 	return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+}
+
+std::wstring rtrimW(const std::wstring& s)
+{
+    size_t end = s.find_last_not_of(WHITESPACEW);
+    return (end == std::wstring::npos) ? L"" : s.substr(0, end + 1);
 }
 
 std::string trim(const std::string& s)

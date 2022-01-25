@@ -37,6 +37,7 @@
 #include "dump.h"
 #include "debug.h"
 #include "explorer.h"
+#include "mount.h"
 
 QT_BEGIN_NAMESPACE
 class QAction;
@@ -67,7 +68,8 @@ private:
     Emunand* EmunandDialog;
     Dump* DumpDialog;
     Debug* DebugDialog = nullptr;
-    Explorer* ExplorerDialog;
+    Explorer* ExplorerDialog = nullptr;
+    MountDialog* mountDialog = nullptr;
 
 	NxStorage* input;
     NxStorage* selected_io = nullptr;
@@ -110,6 +112,7 @@ private slots:
     void Properties();
     void openKeySet();
     void openResizeDialog();
+    void openMountDialog();
     void openEmunandDialog();
     void openDumpDialog(int partition = UNKNOWN);
     void openDebugDialog();

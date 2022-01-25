@@ -122,27 +122,7 @@ DRESULT disk_read (
 
     if (!fs->nx_handle->read((u32)sector, (void*)buff, nullptr, count * NX_BLOCKSIZE))
         return RES_PARERR;
-    /*
-    u64 offset = (u64)sector * NX_BLOCKSIZE;
-    DWORD bytesToRead = count * NX_BLOCKSIZE;
-    DWORD bytesCount = 0;
-    while (bytesCount < bytesToRead)
-    {
-        DWORD bytesRead = 0;
-        if (!fs->nx_handle->read(offset, (void*)&buff[bytesCount], &bytesRead, NX_BLOCKSIZE))
-            return RES_PARERR;
 
-        if (!bytesRead)
-            break;
-
-        offset += bytesRead;
-        bytesCount += bytesRead;
-    }
-
-    for (UINT i(0); i < count; i++)
-        if (!fs->nx_handle->read((u32)(sector+i), (void*)&buff[i*NX_BLOCKSIZE], nullptr, NX_BLOCKSIZE))
-            return RES_PARERR;
-    */
     return RES_OK;
 }
 

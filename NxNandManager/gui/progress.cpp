@@ -1,6 +1,7 @@
 #include "progress.h"
 #include "ui_progress.h"
 #include "mainwindow.h"
+#include <QTextStream>
 
 Progress::Progress(QWidget *parent, NxStorage *workingStorage) :
     QDialog(parent),
@@ -39,6 +40,8 @@ Progress::~Progress()
     }
     if (console)
         delete console;
+    if (console_progress_line)
+        delete console_progress_line;
     delete ui;
 }
 
@@ -54,7 +57,7 @@ void Progress::timer1000()
         label.append("Elapsed time: " + QString(GetReadableElapsedTime(elapsed_seconds).c_str()));
 
         //Remaining time
-        if(!b_done && m_remaining_time >= time)
+        if(!b_done && !b_simpleProgress && m_remaining_time >= time)
         {
             std::chrono::duration<double> remaining_seconds = m_remaining_time - time;
             label.append(" / Remaining: " + QString(GetReadableElapsedTime(remaining_seconds).c_str()));
@@ -64,7 +67,7 @@ void Progress::timer1000()
     }
 
     // Transfer rate
-    if(m_isRunning && m_cur_pi.mode != MD5_HASH)
+    if(m_isRunning && !b_simpleProgress && m_cur_pi.mode != MD5_HASH)
     {
         std::chrono::duration<double> elapsed_seconds = time - m_buf_time;
         m_bytesProcessedPerSecond = (m_cur_pi.bytesCount - m_bytesCountBuffer) / elapsed_seconds.count();
@@ -126,37 +129,53 @@ void Progress::updateProgress(const ProgressInfo pi)
     if (!pi.bytesCount)
     {
         progressBar->setValue(0);
-        QString color;
+        QString color = nullptr;
         if(pi.mode == MD5_HASH) color = "0FB3FF";
         else if (pi.mode == ZIP) color = "FF6A00";
-        else color = nullptr;
         setProgressBarStyle(progressBar, color);
+        progressBar->setRange(0, 100);
 
         // Initialize Main Progress Bar
         if(!pi.isSubProgressInfo)
         {
+            b_simpleProgress = pi.percent == -1;
             TaskBarProgress->setValue(0);
-
             // First init
             if (not_in(pi.mode, {MD5_HASH, ZIP}))
             {
                 m_begin_time = pi.begin_time;
+            }
+            // Simple progress, init sub progress
+            if (b_simpleProgress) {
+                ui->progressBar2->setRange(0, 0);
+                setProgressBarStyle(ui->progressBar2, nullptr);
             }
         }
     }
 
     if (pi.bytesCount == pi.bytesTotal)
     {
+        if (b_simpleProgress) {
+            ui->progressBar2->setRange(0, 100);
+            ui->progressBar2->setValue(100);
+        }
         progressBar->setValue(100);
-        label.append(pi.storage_name);
-        if (pi.mode == MD5_HASH) label.append(" dumped & verified");
-        else if (pi.mode == RESTORE) label.append(" restored");
-        else if (pi.mode == RESIZE) label.append(" resized");
-        else if (pi.mode == CREATE) label.append(" created");
-        else if (pi.mode == ZIP) label.append(pi.isSubProgressInfo ? " zipped" : " archived");
-        else if (pi.mode == FORMAT) label.append(" formatted");
-        else label.append(" dumped");
-        label.append(" (").append(GetReadableSize(pi.bytesTotal).c_str()).append(")");
+        if (!(pi.isSubProgressInfo && b_simpleProgress))
+        {
+            // Default label
+            label.append(pi.storage_name);
+            if (pi.mode == MD5_HASH) label.append(" dumped & verified");
+            else if (pi.mode == RESTORE) label.append(" restored");
+            else if (pi.mode == RESIZE) label.append(" resized");
+            else if (pi.mode == CREATE) label.append(" created");
+            else if (pi.mode == ZIP) label.append(pi.isSubProgressInfo ? " zipped" : " archived");
+            else if (pi.mode == FORMAT) label.append(" formatted");
+            else if (pi.mode == EXTRACT) label.append(" extracted");
+            else if (pi.mode == DECRYPT) label.append(" decrypted");
+            else label.append(" dumped");
+            if (!b_simpleProgress)
+                label.append(" (").append(GetReadableSize(pi.bytesTotal).c_str()).append(")");
+        }
         if (!pi.isSubProgressInfo)
         {
             TaskBarProgress->setValue(100);
@@ -164,24 +183,47 @@ void Progress::updateProgress(const ProgressInfo pi)
             ui->progressBar2->setValue(100);
             ui->progressBar2->setFormat("");
         }
+
+        if (console_progress_line)
+            console_progress_line->setText("");
         b_done = true;
     }
     else
     {                
         int percent = pi.bytesCount * 100 / pi.bytesTotal;
-        progressBar->setValue(percent);        
-        if (pi.mode == MD5_HASH) label.append("Computing hash for ");
-        else if (pi.mode == RESTORE) label.append("Restoring to ");
-        else if (pi.mode == RESIZE) label.append("Resizing ");
-        else if (pi.mode == CREATE) label.append("Creating ");
-        else if (pi.mode == FORMAT) label.append("Formatting ");
-        else if (pi.mode == ZIP) label.append(pi.isSubProgressInfo ? "Archiving " : "Creating archive ");
-        else label.append("Copying ");
-        label.append(pi.storage_name);
-        label.append("... ").append(GetReadableSize(pi.bytesCount).c_str());
-        label.append(" /").append(GetReadableSize(pi.bytesTotal).c_str());
-        label.append(" (").append(QString::number(percent)).append("%)");
+        if (pi.bytesTotal > 1)
+            progressBar->setValue(percent);
 
+        if (!(pi.isSubProgressInfo && b_simpleProgress))
+        {
+            // Default label
+            if (pi.mode == MD5_HASH) label.append("Computing hash for ");
+            else if (pi.mode == RESTORE) label.append("Restoring to ");
+            else if (pi.mode == RESIZE) label.append("Resizing ");
+            else if (pi.mode == CREATE) label.append("Creating ");
+            else if (pi.mode == FORMAT) label.append("Formatting ");
+            else if (pi.mode == ZIP) label.append(pi.isSubProgressInfo ? "Archiving " : "Creating archive ");
+            else if (pi.mode == EXTRACT) label.append("Extracting from ");
+            else if (pi.mode == DECRYPT) label.append("Decrypting ");
+            else label.append("Copying ");
+            label.append(pi.storage_name);
+            if (!b_simpleProgress) {
+                label.append("... ").append(GetReadableSize(pi.bytesCount).c_str());
+                label.append(" /").append(GetReadableSize(pi.bytesTotal).c_str());
+                label.append(" (").append(QString::number(percent)).append("%)");
+            }
+            else if (pi.bytesTotal > 1)
+                label.append(QString(" (%1/%2)").arg(pi.bytesCount+1).arg(pi.bytesTotal));
+        }
+        else if(pi.bytesTotal > 1) // Simple mode sub info
+        {
+            progressBar->setRange(0, 100);
+            progressBar->setValue(percent);
+            label = QString("%1/%2 %3%").arg(GetReadableSize(pi.bytesCount).c_str())
+                                        .arg(GetReadableSize(pi.bytesTotal).c_str())
+                                        .arg(percent);
+
+        }
         if(!pi.isSubProgressInfo) {
             std::chrono::duration<double> remaining_seconds = (elapsed_seconds / pi.bytesCount) * (pi.bytesTotal - pi.bytesCount);
             m_remaining_time = time + remaining_seconds;
@@ -190,6 +232,7 @@ void Progress::updateProgress(const ProgressInfo pi)
         b_done = false;
     }
     progressBar->setFormat(label);
+    progressBar->setTextVisible(true);
 
     // Save current ProgressInfo
     if(!pi.isSubProgressInfo)
@@ -278,5 +321,8 @@ void Progress::consoleWrite(const QString &str)
         console->setMinimumHeight(150);
         ui->consoleLayout->addWidget(console);
     }
-    console->appendPlainText(str);
+    console->moveCursor(QTextCursor::End);
+    console->textCursor().insertText(str);
+    console->moveCursor(QTextCursor::End);
+
 }
