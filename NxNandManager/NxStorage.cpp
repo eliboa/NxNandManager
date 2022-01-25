@@ -19,11 +19,11 @@
 
 static MagicOffsets mgkOffArr[] =
 {
-    // { offset, magic, size, type, firwmare }
+    // { offset, magic, size, type, firmware }
     { 0, "43414C30", 4, PRODINFO}, // PRODINFO ("CAL0" at offset 0x0)
     { 0x680, "434552544946", 6, PRODINFOF}, // PRODINFOF ("CERTIF at offset 0x680")
     { 0x200, "4546492050415254", 8, RAWNAND, 0 }, // RAWNAND ("EFI PART" at offset 0x200)
-    //{ 0x200, "54584E414E44", 6, TXNAND, 0}, // TX hidden paritition ("TXNAND" at offset 0x200)
+    //{ 0x200, "54584E414E44", 6, TXNAND, 0}, // TX hidden partition ("TXNAND" at offset 0x200)
     { 0x800200, "4546492050415254", 8, RAWMMC, 0}, // RAWMMC ("EFI PART" at offset 0x80000, i.e after 2 x 0x40000 for each BOOT)
     { 0x1800200, "4546492050415254", 8, EMMC_PART, 0}, // RAWMMC
     { 0x0530, "010021000E00000009000000", 12, BOOT0, 0}, // BOOT0 (boot_data_version + block_size_log2 + page_size_log2 at offset 0x530)
@@ -36,8 +36,8 @@ static MagicOffsets mgkOffArr[] =
     { 0x12F0, "504B3131", 4, BOOT1, 6},
     { 0x40AF8,"504B3131", 4, BOOT1, 7},
     { 0x40ADC,"504B3131", 4, BOOT1, 8},
-    { 0x40ACC,"504B3131", 4, BOOT1, 8.1},
-    { 0x40AC0,"504B3131", 4, BOOT1, 9} /* 9 -> 10.0.4 */
+    { 0x40ACC,"504B3131", 4, BOOT1, 8.1}, /* 8.1.0 -> 13.1.0 */
+    { 0x40AC0,"504B3131", 4, BOOT1, 9} /* unknown */
 };
 
 
@@ -66,6 +66,12 @@ static NxStorageType NxTypesArr[] =
 
 // Title ID 0100000000000809 (SystemVersion)
 static NxSystemTitles systemTitlesArr[] = {
+    { "13.2.1", "9eb7dd136e156361dc6368f812175e90.nca"},
+    { "13.2.0", "6ab4d9b617765d1a40fba67fea5fc544.nca"},
+    { "13.1.0", "e9a8046639a10d656ea0e92254d7b8f6.nca"},
+    { "13.0.0", "bf2337ee88bd9f963a33b3ecbbc3732a.nca"},
+    { "12.1.0", "9d9d83d68d9517f245f3e8cd7f93c416.nca"},
+    { "12.0.3", "a1863a5c0e1cedd442f5e60b0422dc15.nca"},
     { "12.0.2", "63d928b5a3016fe8cc0e76d2f06f4e98.nca"},
     { "12.0.1", "e65114b456f9d0b566a80e53bade2d89.nca"},
     { "12.0.0", "bd4185843550fbba125b20787005d1d2.nca"},
@@ -114,6 +120,12 @@ static NxSystemTitles systemTitlesArr[] = {
 
 // Title ID 010000000000081B (BootImagePackageExFat)
 static NxSystemTitles exFatTitlesArr[] = {
+    { "13.2.1", "d1358d28252ceccbfd1d8d8339f5137d.nca"},
+    { "13.2.0", "492bb2c020fa62f32a417eaeee67c647.nca"},
+    { "13.1.0", "492bb2c020fa62f32a417eaeee67c647.nca"},
+    { "13.0.0", "adc64b133167ad1c41a1a3de148cc73c.nca"},
+    { "12.1.0", "25bb90ed24664b791d0e2cc1b707ea30.nca"},
+    { "12.0.3", "1334ffa781ecd54085931da55339ed84.nca"},
     { "12.0.2", "77bbe586d5b4bfe8fee7a2a10936716f.nca"},
     { "12.0.1", "22f8b6e12000aa530c1d301b5ed4d70a.nca"},
     { "12.0.0", "22f8b6e12000aa530c1d301b5ed4d70a.nca"},
@@ -744,6 +756,14 @@ void NxStorage::setStorageInfo(int partition)
             memcpy(&serial_number, &buff[0x250], 18);
             memset(&deviceId, 0x00, 21);
             memcpy(&deviceId, &buff[0x544], 18);
+            if (strlen(deviceId) == 0)
+            {
+                memcpy(&deviceId, &buff[0x2B54], 18);
+            }
+            if (strlen(deviceId) == 0)
+            {
+                memcpy(&deviceId, &buff[0x4084], 18);
+            }
 
             // Copy wlan mac address
             s8 t_wlanMacAddress[7] = { 0 };

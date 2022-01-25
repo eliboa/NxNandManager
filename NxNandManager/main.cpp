@@ -90,7 +90,7 @@ void printStorageInfo(NxStorage *storage)
 
     if (nullptr != storage->getNxPartition(BOOT0))
     {
-        printf("SoC revision   : %s\n", storage->isEristaBoot0 ? "Erista" : "Unknown (Mariko ?)");
+        printf("SoC revision   : %s\n", storage->isEristaBoot0 ? "Erista" : "Unknown - Mariko");
 
         if (storage->isEristaBoot0)
         {
