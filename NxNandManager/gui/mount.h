@@ -20,6 +20,7 @@ public:
 private slots:
     void on_mountButton_clicked();
     void dokanDriver_install();
+    void on_mounting_done();
 
 private:
     Ui::MountDialog *ui;
@@ -29,6 +30,7 @@ private:
 signals:
     void error(int, QString s = nullptr);
     void dokanDriver_install_signal();
+    void on_mounting_done_signal();
 
 };
 
