@@ -215,15 +215,7 @@ make
 
 **Dependencies :** [Qt](https://www.qt.io/download), [OpenSSL](https://www.openssl.org/source/) (You can grab my own pre-compiled binaries for mingw32/64 [here](https://www.eliboa.com/OpenSSL_mingw_build.rar))
 
-Download and install Qt (mingw) and Qt Creator (IDE).   
-In Qt Creator open  project file ```NxNandManager/NxNandManager.pro```   
-In .pro file, search for ```OPENSSL_LIB_PATH``` and configure path to OpenSSL library for both x86 and x64 arch.   
-   
-Add qmake arguments (Projects tab > %kit name% > build)  :   
-- ```CONFIG+=DYNAMIC```
-- ```CONFIG+=ARCH64``` (or ```CONFIG+=ARCH32``` if using mingw32) 
-   
-If you want to make a static build use ```CONFIG+=STATIC```. You'll have to make a static build of Qt first (not an easy challenge).   
+I made a [step by step guide](https://github.com/eliboa/NxNandManager/blob/master/doc/NxNandManager_Set_up_and_build_project_with_Qt.pdf) to set up, build and run the project with Qt. 
 
 ## Licencing
 
