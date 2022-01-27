@@ -759,8 +759,42 @@ void MainWindow::inputSet(NxStorage *storage)
                 ui->fwversion_value->setStatusTip("Error while decrypting content, wrong keys ? (CTRL+K to configure keyset)");
             }
             else {
-                ui->fwversion_value->setText("KEYSET NEEDED!");
-                ui->fwversion_value->setStatusTip("Unable to decrypt content (CTRL+K to configure keyset)");
+
+                bool search = false;
+                if (!m_ncaDB->is_Empty())
+                {
+                    // Look for firmware version in NCA DB (async)
+                    search = true;
+                    QFuture<void> future = QtConcurrent::run([&]() {
+                        auto system = input->getNxPartition(SYSTEM);
+                        bool found = false;
+                        if (system->mount_fs() == SUCCESS)
+                        {
+                            for (auto t : m_ncaDB->findTitlesById("0100000000000809")) //SystemVersion
+                            {
+                                auto file = NxFile(system, wstring(L"/Contents/registered/").append(t->filename.toStdWString()));
+                                if (file.exists()) {
+                                    ui->fwversion_value->setText(t->firmware);
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!found) {
+                            ui->fwversion_value->setText("NOT FOUND!");
+                            ui->fwversion_value->setStatusTip("Unable to found fw version");
+                        }
+                    });
+
+                }
+
+                if (!search)
+                {
+                    ui->fwversion_value->setText("NOT FOUND!");
+                    ui->fwversion_value->setStatusTip("Unable to found fw version (CTRL+K to configure keyset)");
+                }
+                else ui->fwversion_value->setText("Searching...");
+
             }
         }
         else ui->fwversion_value->setText("N/A");

@@ -817,6 +817,7 @@ void NxStorage::setStorageInfo(int partition)
             while (cur_off < max_off && nxHandle->read(cur_off, buff, &bytesRead, CLUSTER_SIZE))
             {
                 std::string haystack(buff, buff + CLUSTER_SIZE);
+                /*
                 // Find needle (firmware version) in haystack
                 std::size_t n = haystack.find("OsVersion");
                 if (n != std::string::npos)
@@ -835,16 +836,16 @@ void NxStorage::setStorageInfo(int partition)
                         }
                     }
                 }
-
+                */
                 // Find needle (serial number) in haystack
-                n = haystack.find("\xACSerialNumber");
+                std::size_t n = haystack.find("\xACSerialNumber");
                 if (!strlen(serial_number) && n != std::string::npos)
                     strcpy(serial_number, haystack.substr(n + 14, 14).c_str());
 
                 cur_off += bytesRead;
             }
         }
-
+        /*
         // Read play report => /save/80000000000000a1 --> Let's just assume file is not fragmented in SYSTEM (TODO : Scan FAT for fragmentation)
         if (cur_part->fat32_dir(&dir_entries, "/save/80000000000000a1"))
         {
@@ -878,11 +879,11 @@ void NxStorage::setStorageInfo(int partition)
                 cur_off += bytesRead;
             }
         }
-
+        */
         // overwrite fw version if value found in journal/play report is greater than fw version in
         // package1ldr (trick for downgraded NAND, only works for FULL NAND)
-        if(firmware_version_boot0.major > 0 && firmware_version_boot0.major < firmware_version.major)
-            firmware_version = firmware_version_boot0;
+        //if(firmware_version_boot0.major > 0 && firmware_version_boot0.major < firmware_version.major)
+        //    firmware_version = firmware_version_boot0;
     }
 }
 
