@@ -4,6 +4,7 @@
 #include "mainwindow.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QProcess>
+#include <QSettings>
 
 MountDialog::MountDialog(QWidget *parent, NxPartition* partition) :
     QDialog(parent),
@@ -27,10 +28,30 @@ MountDialog::MountDialog(QWidget *parent, NxPartition* partition) :
     auto cmb = ui->mountPointComboBox;
     for (const auto mount_point : mount_points)
         cmb->insertItem(cmb->count(), QString(mount_point).toUpper() + ":", QString(mount_point));
+
+    QSettings userSettings;
+    if (userSettings.contains("mount_readonly"))
+        ui->readOnlyCheckBox->setChecked(userSettings.value("mount_readonly").toBool());
+    if (userSettings.contains("mount_explorer"))
+        ui->openExplorerCheckBox->setChecked(userSettings.value("mount_explorer").toBool());
+
+    auto mntPt_val = userSettings.value(QString("mount_%1_mountPoint").arg(QString::fromStdString(m_nxp->partitionName())));
+    for (int ix = 0; ix < ui->mountPointComboBox->count(); ix++)
+        if (ui->mountPointComboBox->itemData(ix) == mntPt_val) {
+            ui->mountPointComboBox->setCurrentIndex(ix);
+            break;
+        }
+    return;
 }
 
 MountDialog::~MountDialog()
 {
+    QSettings userSettings;
+    userSettings.setValue("mount_readonly", ui->readOnlyCheckBox->isChecked());
+    userSettings.setValue("mount_explorer", ui->openExplorerCheckBox->isChecked());
+    auto mntPt_key = QString("mount_%1_mountPoint").arg(QString::fromStdString(m_nxp->partitionName()));
+    userSettings.setValue(mntPt_key, ui->mountPointComboBox->currentData());
+
     delete ui;
     delete loading;
     disconnect(this);
