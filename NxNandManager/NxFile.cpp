@@ -50,6 +50,7 @@ NxFile::NxFile(NxPartition* nxp, const wstring &name, bool b_setAdditionalInfo)
             f_entry.file = wstring(sub_fno.fname);
             m_size += (u64)sub_fno.fsize;
             m_files.emplace_back(f_entry);
+            dbg_wprintf(L"NxFile: new NxSplitOff for %ls, off_start= %I64D, size= %I64D", sub_fno.fname, f_entry.off_start, f_entry.size);
         }
         f_closedir(&dp);
 
@@ -331,6 +332,7 @@ bool NxFile::ensure_nxa_file(u64 offset, NxAccessMode mode)
         auto path = wstring(this->completePath() + L"/" + m_files.at(ix).file);
         if (!m_nxp->f_open(&m_fp, path.c_str(), accessMode() == NX_READONLY ? FA_READ : FA_READ | FA_WRITE)) {
             m_cur_file = ix;
+            dbg_wprintf(L"NxFile::ensure_nxa_file(%I64d) SWITCH TO %l (%d)s\n", path.c_str(), m_cur_file);
             return true;
         }
         dbg_wprintf(L"NxFile::ensure_nxa_file(%I64d) FAILED to open new_path %ls (ix: %d)\n",
@@ -505,8 +507,11 @@ int NxFile::read(void* buff, UINT btr, UINT* br)
             if (!ensure_nxa_file(absoluteOffset(), NX_READONLY))
                 break;
 
-            if (relativeOffset() + btr > curFile().size)
+            u64 new_off = (u64) relativeOffset() + (u64)btr;
+            if (new_off > (u64)curFile().size) {
+                // Reduce amount of bytes to read if we'll reach eof (NXA)
                 btr = curFile().size - relativeOffset();
+            }
         }
 
         void* p = static_cast<u8*>(buff) + bytesCount;
@@ -570,7 +575,7 @@ int NxFile::write(const void* buff, UINT btw, UINT* bw)
             return exit(FR_INVALID_PARAMETER);
 
         auto buf_size = btw_total - bw_tmp;
-        void* p = static_cast<u8*>(const_cast<void *>(buff)) + buf_size;
+        void* p = static_cast<u8*>(const_cast<void *>(buff)) + bw_tmp;
         res = f_write(&m_fp, p, buf_size, &bw_tmp);
         *bw += bw_tmp;
         if (!res)
