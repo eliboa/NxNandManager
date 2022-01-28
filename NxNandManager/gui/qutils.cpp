@@ -257,6 +257,8 @@ void NxNcaDB::populate_titles()
             nx_title.filename.append(title["nca_filename"].toString());
         if (title.contains("type"))
             nx_title.content_type = title["type"].toString();
+        if (title.contains("firmware"))
+            nx_title.firmware = title["firmware"].toString();
 
         if (nx_title.u64_id)
             m_titles.append(nx_title);
@@ -276,6 +278,17 @@ NxTitle* NxNcaDB::findTitleByFileName(QString filename)
         if (m_titles[i].filename.contains(f))
             return &m_titles[i];
     return nullptr;
+}
+
+QVector<NxTitle*> NxNcaDB::findTitlesById(QString id)
+{
+    QVector<NxTitle*> titles;
+    std::lock_guard<std::mutex> lock(_m_titles_mutex);
+    for (int i(0); i < m_titles.count(); i++)
+        if (!m_titles[i].id.compare(id))
+            titles.push_back(&m_titles[i]);
+
+    return titles;
 }
 
 NxUserDB::NxUserDB(NxStorage *nxStorage)

@@ -414,8 +414,13 @@ Explorer::Explorer(QWidget *parent, NxPartition *partition) :
     m_loading_movie->start();
     ui->loadingLabel->hide();
 
-    ui->currentDir_combo->addItem("/save (Saves)", "/save");
-    ui->currentDir_combo->addItem("/Contents/registered (Installed titles)", "/Contents/registered");
+    if (m_partition->type() == USER) {
+        ui->currentDir_combo->addItem("/save (Saves)", "/save");
+        ui->currentDir_combo->addItem("/Contents/registered (Installed titles)", "/Contents/registered");
+    } else {
+        ui->currentDir_combo->addItem("/Contents/registered (Installed titles)", "/Contents/registered");
+        ui->currentDir_combo->addItem("/save (Saves)", "/save");
+    }
     ui->currentDir_combo->addItem("/Contents/placehld (Downloaded titles)", "/Contents/placehld");
 }
 
@@ -912,6 +917,46 @@ void Explorer::on_selection_changed()
                   &Explorer::listFS, selection.count() == 1 && m_model.viewType() != Generic);
     enable_action(ui->extractFs_button, QString("Extract files (from %1) to directory... %2").arg(fs_str).arg(selection_label),
               &Explorer::extractFS, m_model.viewType() != Generic && selection.count());
+
+    if (isMultipleSelection || selection.isEmpty())
+        return;
+
+    auto enable_c2c_action = [=](QString lbl, viewColumnType type)
+    {
+        QAction* action = new QAction(lbl);
+        connect(action, &QAction::triggered, [=]() {
+            QClipboard *qcb = QApplication::clipboard();
+            auto entry = m_model.entryAt(ui->tableView->selectionModel()->selectedRows().first().row());
+            if (type == FileColumn)
+                qcb->setText(QString::fromStdWString(entry->filename()));
+            else if (type == SizeColumn)
+                qcb->setText(QString::fromStdString(GetReadableSize(entry->size())));
+            else if (type == TitleColumn)
+                qcb->setText(QString::fromStdString(entry->titleIDString()));
+            else if (type == TypeColumn)
+                qcb->setText(QString::fromStdString(entry->contentTypeString()));
+            else if (type == UserColumn)
+                qcb->setText(QString::fromStdString(entry->userIDString()));
+
+        });
+        view->addAction(action);
+    };
+
+    //enum viewColumnType { FileColumn, SizeColumn, TitleColumn, TypeColumn, UserColumn, UnknownColumn };
+    auto row_ix = ui->tableView->selectionModel()->selectedRows().first().row();
+    auto entry = m_model.entryAt(row_ix);
+    for (int i(0); i < m_model.columnCount(); i++)
+        if (m_model.getColumnType(i) == FileColumn)
+            enable_c2c_action("Copy filename to clipboard", FileColumn);
+        else if (m_model.getColumnType(i) == SizeColumn)
+            enable_c2c_action("Copy filesize to clipboard", SizeColumn);
+        else if (m_model.getColumnType(i) == TitleColumn)
+            enable_c2c_action("Copy titleID to clipboard", TitleColumn);
+        else if (m_model.getColumnType(i) == TypeColumn)
+            enable_c2c_action("Copy content type to clipboard", TypeColumn);
+        else if (m_model.getColumnType(i) == UserColumn)
+            enable_c2c_action("Copy userID to clipboard", UserColumn);
+
 }
 
 void Explorer::on_currentDir_combo_currentIndexChanged(int index)
@@ -924,7 +969,7 @@ void Explorer::on_currentDir_combo_currentIndexChanged(int index)
     else if (m_current_dir.contains("/Contents"))
         m_viewtype = Nca;
 
-    setWindowTitle(" Explorer (" + QString::fromStdString(m_partition->partitionName()) + ":" + m_current_dir + ")");
+    setWindowTitle(" Explorer (" + QString::fromStdString(m_partition->partitionName()) + ":" + m_current_dir + ") - Beta version (WIP)");
 
     ui->warningLabel->setText("");
     ui->warningLabel->setToolTip("");

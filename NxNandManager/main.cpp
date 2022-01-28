@@ -42,7 +42,9 @@ int startGUI(int argc, char *argv[])
         // redirect stderr
         _dup2(_fileno(stdout), _fileno(stderr));
     }
-
+    QCoreApplication::setOrganizationName("eliboa");
+    QCoreApplication::setOrganizationDomain("eliboa.com");
+    QCoreApplication::setApplicationName("NxNandManager");
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication a(argc, argv);
     isGUI = true;

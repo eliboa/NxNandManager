@@ -27,6 +27,7 @@ typedef struct _NxTitle {
     QString icon_url;
     QString type;
     QString content_type;
+    QString firmware;
 
     bool operator==(const _NxTitle &a) const {
         return u64_id == a.u64_id;
@@ -85,7 +86,9 @@ signals:
     void update_signal();
 
 public slots:
-    virtual void populate_titles() ;
+    virtual void populate_titles();
+
+
 
 };
 
@@ -97,9 +100,13 @@ public:
     NxNcaDB(const QString &json_file_, const QString &update_url_ = nullptr, int expiration_delay = 86400) :
         NxTitleDB(json_file_, update_url_, expiration_delay) {}
     NxTitle* findTitleByFileName(QString filename);
+    QVector<NxTitle*> findTitlesById(QString id);
 
 public slots:
     void populate_titles() override;
+
+public :
+    bool is_Empty() { return m_titles.isEmpty(); }
 };
 
 typedef struct { u32 _u32; u16 _u16[6]; } uid;

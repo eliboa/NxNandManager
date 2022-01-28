@@ -102,6 +102,7 @@ public:
     ExplorerModel(Explorer* parent, viewTypeEnum viewType, QList<NxFile*> entries);
     ExplorerModel(Explorer* parent) : m_parent(parent) {}
     ~ExplorerModel() override;
+    viewColumnType getColumnType(int column) const;
 
 private:
     // Private objects
@@ -117,7 +118,6 @@ private:
 
     // Private functions
     void updateAll();
-    viewColumnType getColumnType(int column) const;
     void setTitleIconsFromUrl();
     void setTitleIconFromUrl(NxFile* file);
 

@@ -785,7 +785,6 @@ void MainWindow::inputSet(NxStorage *storage)
                             ui->fwversion_value->setStatusTip("Unable to found fw version");
                         }
                     });
-
                 }
 
                 if (!search)
