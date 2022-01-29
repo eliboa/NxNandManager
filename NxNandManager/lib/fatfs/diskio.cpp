@@ -191,6 +191,17 @@ DRESULT disk_ioctl (
 	void *buff		/* Buffer to send/receive control data */
 )
 {	
+    if (cmd == GET_SECTOR_COUNT)
+    {
+
+        NXFS *fs = get_nxfs_by_ix(pdrv);
+        if (fs == nullptr || fs->nx_partition == nullptr)
+            return RES_OK;
+
+        u32 sector_count = fs->nx_partition->lbaEnd() - fs->nx_partition->lbaStart();
+        memcpy(buff, &sector_count, sizeof (u32));
+        return RES_OK;
+    }
     return RES_OK;
 }
 

@@ -19,6 +19,7 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
 
+
 MainWindow *mainWindowInstance = nullptr;
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -926,7 +927,7 @@ void MainWindow::on_partition_table_itemSelectionChanged()
     }
 
     // Format partition action
-    if (selected_part->type() == USER)
+    if (selected_part->type() == USER || selected_part->type() == SYSTEM)
     {
         QAction* formtAction = new QAction(formtIcon, "Format partition (FAT32)");
         QString statusTip(tr("Erase all data on selected partition (quick format)"));
@@ -1298,11 +1299,19 @@ void MainWindow::formatPartition()
     if(QMessageBox::question(this, "Warning", "Formatting will erase all data on partition. Are you sure you want to continue ?", QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
         return;
 
+    /*
     params_t par;
     par.partition = curPartition->type();
 
     WorkerInstance wi(this, WorkerMode::format_partition, &par, input);
     wi.exec();
+    */
+
+    auto res = curPartition->formatPartition();
+    if (res)
+        QMessageBox::critical(this, "Error", "Failed to format partition");
+    else
+        QMessageBox::information(this, "Information", "Partition formated");
 
     beforeInputSet();
     QString filename = QString::fromWCharArray(input->m_path);
@@ -1312,6 +1321,7 @@ void MainWindow::formatPartition()
         delete workThread;
     workThread = new Worker(this, WorkerMode::new_storage, filename);
     workThread->start();
+
 }
 
 void MainWindow::keySetSet()

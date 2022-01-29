@@ -130,6 +130,7 @@ class NxPartition
         u64 size();
         int type() { return m_type; }
         NxCrypto* crypto() { return nxCrypto; }
+        fat32::fs_attr fs_attr() { return m_fs; }
         FATFS *fs() { return &m_fatfs; }
         virtual_fs::virtual_fs *vfs() { return m_vfs; }
         NxStorage* nxStorage() { return parent; }

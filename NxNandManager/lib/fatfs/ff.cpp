@@ -1640,7 +1640,7 @@ static FRESULT dir_clear (	/* Returns FR_OK or FR_DISK_ERR */
 	memset(fs->win, 0, sizeof fs->win);	/* Clear window buffer */
 #if FF_USE_LFN == 3		/* Quick table clear by using multi-secter write */
 	/* Allocate a temporary buffer */
-	for (szb = ((DWORD)fs->csize * SS(fs) >= MAX_MALLOC) ? MAX_MALLOC : fs->csize * SS(fs), ibuf = 0; szb > SS(fs) && (ibuf = ff_memalloc(szb)) == 0; szb /= 2) ;
+    for (szb = ((DWORD)fs->csize * SS(fs) >= MAX_MALLOC) ? MAX_MALLOC : fs->csize * SS(fs), ibuf = 0; szb > SS(fs) && (ibuf = (BYTE*)ff_memalloc(szb)) == 0; szb /= 2) ;
 	if (szb > SS(fs)) {		/* Buffer allocated? */
 		memset(ibuf, 0, szb);
 		szb /= SS(fs);		/* Bytes -> Sectors */
@@ -5859,7 +5859,7 @@ FRESULT f_mkfs (
 	if (sz_buf == 0) return FR_NOT_ENOUGH_CORE;
 	buf = (BYTE*)work;		/* Working buffer */
 #if FF_USE_LFN == 3
-	if (!buf) buf = ff_memalloc(sz_buf * ss);	/* Use heap memory for working buffer */
+    if (!buf) buf = (BYTE*)ff_memalloc(sz_buf * ss);	/* Use heap memory for working buffer */
 #endif
 	if (!buf) return FR_NOT_ENOUGH_CORE;
 
@@ -5868,7 +5868,8 @@ FRESULT f_mkfs (
 	if (FF_MULTI_PARTITION && ipart != 0) {	/* Is the volume associated with any specific partition? */
 		/* Get partition location from the existing partition table */
 		if (disk_read(pdrv, buf, 0, 1) != RES_OK) LEAVE_MKFS(FR_DISK_ERR);	/* Load MBR */
-		if (ld_word(buf + BS_55AA) != 0xAA55) LEAVE_MKFS(FR_MKFS_ABORTED);	/* Check if MBR is valid */
+        if (ld_word(buf + BS_55AA) != 0xAA55)
+            LEAVE_MKFS(FR_MKFS_ABORTED);	/* Check if MBR is valid */
 #if FF_LBA64
 		if (buf[MBR_Table + PTE_System] == 0xEE) {	/* GPT protective MBR? */
 			DWORD n_ent, ofs;
@@ -5895,7 +5896,8 @@ FRESULT f_mkfs (
 #endif
 		{	/* Get the partition location from MBR partition table */
 			pte = buf + (MBR_Table + (ipart - 1) * SZ_PTE);
-			if (ipart > 4 || pte[PTE_System] == 0) LEAVE_MKFS(FR_MKFS_ABORTED);	/* No partition? */
+            if (ipart > 4 || pte[PTE_System] == 0)
+                LEAVE_MKFS(FR_MKFS_ABORTED);	/* No partition? */
 			b_vol = ld_dword(pte + PTE_StLba);		/* Get volume start sector */
 			sz_vol = ld_dword(pte + PTE_SizLba);	/* Get volume size */
 		}
@@ -5916,7 +5918,8 @@ FRESULT f_mkfs (
 			}
 		}
 	}
-	if (sz_vol < 128) LEAVE_MKFS(FR_MKFS_ABORTED);	/* Check if volume size is >=128s */
+    if (sz_vol < 128)
+        LEAVE_MKFS(FR_MKFS_ABORTED);	/* Check if volume size is >=128s */
 
 	/* Now start to create an FAT volume at b_vol and sz_vol */
 
@@ -6115,7 +6118,8 @@ FRESULT f_mkfs (
 				sz_fat = (n_clst * 4 + 8 + ss - 1) / ss;	/* FAT size [sector] */
 				sz_rsv = 32;	/* Number of reserved sectors */
 				sz_dir = 0;		/* No static directory */
-				if (n_clst <= MAX_FAT16 || n_clst > MAX_FAT32) LEAVE_MKFS(FR_MKFS_ABORTED);
+                if (n_clst <= MAX_FAT16 || n_clst > MAX_FAT32)
+                    LEAVE_MKFS(FR_MKFS_ABORTED);
 			} else {				/* FAT volume */
 				if (pau == 0) {	/* au auto-selection */
 					n = (DWORD)sz_vol / 0x1000;	/* Volume size in unit of 4KS */
@@ -6171,7 +6175,8 @@ FRESULT f_mkfs (
 					LEAVE_MKFS(FR_MKFS_ABORTED);
 				}
 			}
-			if (fsty == FS_FAT12 && n_clst > MAX_FAT12) LEAVE_MKFS(FR_MKFS_ABORTED);	/* Too many clusters for FAT12 */
+            if (fsty == FS_FAT12 && n_clst > MAX_FAT12)
+                LEAVE_MKFS(FR_MKFS_ABORTED);	/* Too many clusters for FAT12 */
 
 			/* Ok, it is the valid cluster configuration */
 			break;

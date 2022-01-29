@@ -107,11 +107,13 @@ bool NxPartition::setCrypto(char* crypto, char* tweak)
         // Do magic
         if (!magic_found && !is_blank)
             m_bad_crypto = true;
-        else if(!is_blank && is_in(m_type, {USER, SYSTEM})) {
+        else if(is_in(m_type, {USER, SYSTEM})) {
             // Save boot sector
             fat32::read_boot_sector(first_cluster, &m_fs);
-            m_fsSet = true;
-            freeSpace = fat32_getFreeSpace(&freeSpaceRaw, &availableTotSpace);
+            if (m_fs.fat_size > 0) {
+                m_fsSet = true;
+                freeSpace = fat32_getFreeSpace(&freeSpaceRaw, &availableTotSpace);
+            }
         }
         delete[] blank_buff;
     }
@@ -447,7 +449,7 @@ int NxPartition::restore(NxStorage* input, part_params_t par, void(*updateProgre
 
 int NxPartition::formatPartition(void(*updateProgress)(ProgressInfo))
 {
-    if (not_in(m_type, { SYSTEM, USER }))
+    if (not_in(m_type, { SYSTEM, USER }) || !m_fsSet)
         return ERR_FORMAT_BAD_PART;
 
     if (isEncryptedPartition())
@@ -459,6 +461,47 @@ int NxPartition::formatPartition(void(*updateProgress)(ProgressInfo))
             return ERR_BAD_CRYPTO;
     }
 
+
+    DWORD br = 0;
+    BYTE first_clust[CLUSTER_SIZE];
+
+    if (!is_mounted())
+        mount_fs();
+
+    // Read & save first cluster
+    nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
+    if (!nxHandle->read(first_clust, &br, CLUSTER_SIZE))
+        return ERR_WHILE_COPY;
+
+    // Set make fs options
+    MKFS_PARM opt;
+    opt.fmt = FM_FAT32;
+    opt.n_fat = m_fs.num_fats;
+    opt.au_size = m_fs.bytes_per_sector * m_fs.sectors_per_cluster;
+
+    // Make FS
+    auto res = f_mkfs(std::to_wstring(get_ix_by_nx_partition(this)).append(L":").c_str(), &opt, nullptr, CLUSTER_SIZE);
+    if (res == FR_OK)
+    {
+        BYTE buffer[CLUSTER_SIZE];
+
+        // Read new first cluster
+        nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
+        if (!nxHandle->read(buffer, &br, CLUSTER_SIZE))
+            return ERR_WHILE_COPY;
+
+        // Restore first sector
+        memcpy(buffer, first_clust, 0x200);
+
+        // Emplace back first cluster
+        nxHandle->initHandle(isEncryptedPartition() ? ENCRYPT : NO_CRYPTO, this);
+        if (!nxHandle->write(buffer, &br, CLUSTER_SIZE))
+            return ERR_WHILE_COPY;
+    }
+
+    return res;
+
+    /*
     bool sendProgress = nullptr != updateProgress ? true : false;
     BYTE buffer[CLUSTER_SIZE];
     DWORD bytesCount = 0, bytesWrite = 0;
@@ -470,9 +513,11 @@ int NxPartition::formatPartition(void(*updateProgress)(ProgressInfo))
     if (!nxHandle->read(buffer, &bytesCount, CLUSTER_SIZE))
         return ERR_WHILE_COPY;
 
+    fat32::fs_attr fs;
     fat32::boot_sector *bs = (fat32::boot_sector *)(buffer);
+    fat32::read_boot_sector(buffer,&fs);
     u32 fat_size_in_cluster = bs->fat_size / 32;
-    int num_fats = bs->num_fats;
+    int num_fats = bs->num_fats;    
 
     ProgressInfo pi;
     pi.mode = FORMAT;
@@ -523,6 +568,7 @@ int NxPartition::formatPartition(void(*updateProgress)(ProgressInfo))
     if (sendProgress) updateProgress(pi);
 
     return SUCCESS;
+    */
 }
 
 
