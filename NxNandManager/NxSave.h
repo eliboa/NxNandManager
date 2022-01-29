@@ -47,8 +47,8 @@ void save_free_contexts(save_ctx_t *ctx);
 class NxSave : public NxFile
 {
 public:
-    NxSave(NxPartition* nxp, const wstring &name) : NxFile(nxp, name, true) { save_init(); }
-    NxSave(NxFile* f) : NxFile(f->nxp(), f->completePath(), true) { save_init(); }
+    NxSave(NxPartition* nxp, const wstring &name) : NxFile(nxp, name, SetAdditionalInfo) { save_init(); }
+    NxSave(NxFile* f) : NxFile(f->nxp(), f->completePath(), SetAdditionalInfo) { save_init(); }
     ~NxSave() { if (init_done) save_free_contexts(&ctx); }
 
     vector<NxSaveFile> listFiles(ListMode mode = ListFilesOnly);

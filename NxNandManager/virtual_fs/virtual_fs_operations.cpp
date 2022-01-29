@@ -182,7 +182,7 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO
         auto alloc_NxFile = [&](BYTE desiredAccess)
         {
             NxFile *ffile = f ? f->get_nxfile() : nullptr;
-            NxFile *file = new NxFile(nxp, ffile ? ffile->completePath().c_str() : filename_str.c_str(), false);
+            NxFile *file = new NxFile(nxp, ffile ? ffile->completePath().c_str() : filename_str.c_str(), nxp->vfs()->virtualize_nxa ? VirtualizeNXA : SimpleFile);
             if (!file->open(desiredAccess)) {
                 delete file;
                 file = nullptr;
@@ -217,7 +217,7 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO
                 if (f) return STATUS_OBJECT_NAME_COLLISION;
 
                 auto n = filenodes->add(std::make_shared<filenode>(filename_str, false, file_attributes_and_flags, security_context,
-                                                                   nxFile ? new NxFile(nxp, nxFile->completePath().c_str(), false) : nullptr));
+                                                                   nxFile ? new NxFile(nxp, nxFile->completePath().c_str(), nxp->vfs()->virtualize_nxa ? VirtualizeNXA : SimpleFile) : nullptr));
                 if (n != STATUS_SUCCESS) return n;
 
               } break;
@@ -241,7 +241,7 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO
                     return STATUS_OBJECT_PATH_INVALID;
 
                 auto n = filenodes->add(std::make_shared<filenode>(filename_str, false, file_attributes_and_flags, security_context,
-                                                                   nxFile ? new NxFile(nxp, nxFile->completePath().c_str(), false) : nullptr));
+                                                                   nxFile ? new NxFile(nxp, nxFile->completePath().c_str(), nxp->vfs()->virtualize_nxa ? VirtualizeNXA : SimpleFile) : nullptr));
                 if (n != STATUS_SUCCESS) return n;
               } break;
               case OPEN_ALWAYS: {
@@ -257,7 +257,7 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO
                 if (!f) {
                     auto n = filenodes->add(std::make_shared<filenode>(
                       filename_str, false, file_attributes_and_flags,
-                      security_context, nxFile ? new NxFile(nxp, nxFile->completePath().c_str(), false) : nullptr));
+                      security_context, nxFile ? new NxFile(nxp, nxFile->completePath().c_str(), nxp->vfs()->virtualize_nxa ? VirtualizeNXA : SimpleFile) : nullptr));
                     if (n != STATUS_SUCCESS) return n;
                 } else {
                   if (desiredaccess & FILE_EXECUTE) {

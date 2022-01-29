@@ -372,6 +372,9 @@ void VfsMountRunner::run(NxPartition *p, const QString &YesNoQuestion)
                                         YesNoQuestion, QMessageBox::Yes | QMessageBox::No) == QMessageBox::No)
         return;
 
+    if (p->is_vfs_mounted())
+        p->unmount_vfs();
+    p->disconnect();
     connect(p, &NxPartition::vfs_mounted_signal, this, &VfsMountRunner::mounted);
     connect(p, &NxPartition::vfs_callback, [&](long status){
         if (status == DOKAN_DRIVER_INSTALL_ERROR)
@@ -381,7 +384,14 @@ void VfsMountRunner::run(NxPartition *p, const QString &YesNoQuestion)
         else if (status != DOKAN_SUCCESS)
             emit error(1, QString::fromStdString(dokanNtStatusToStr(status)));
     });
-    QtConcurrent::run(p, &NxPartition::mount_vfs, true, '\0', true, nullptr);
+
+    QSettings userSettings;
+    auto setting_key = QString("mount_%1_mountPoint").arg(QString::fromStdString(p->partitionName()));
+    wchar_t driveLetter = '\0';
+    if (userSettings.contains(setting_key))
+        driveLetter = userSettings.value(setting_key).toString().back().unicode();
+
+    QtConcurrent::run(p, &NxPartition::mount_vfs, true, driveLetter, ReadOnly | VirtualNXA, nullptr);
 }
 QString rtrimmed(const QString& str) {
   int n = str.size() - 1;

@@ -1383,7 +1383,7 @@ void MainWindow::on_mountParition(int nx_type, const wchar_t &mount_point)
 
         emit this->on_partition_table_itemSelectionChanged();
     });
-    QtConcurrent::run(nxp, &NxPartition::mount_vfs, true, mount_point, m_isMountOptionReadOnly, nullptr);
+    QtConcurrent::run(nxp, &NxPartition::mount_vfs, true, mount_point, m_isMountOptionReadOnly ? ReadOnly : VirtualNXA, nullptr);
 
 }
 

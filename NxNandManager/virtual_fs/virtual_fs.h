@@ -43,6 +43,7 @@ THE SOFTWARE.
 
 namespace virtual_fs {
 class fs_filenodes;
+
 class virtual_fs
 #if defined(ENABLE_GUI)
     : public QObject
@@ -52,6 +53,7 @@ class virtual_fs
 {
 #endif
     public:
+
     virtual_fs(NxPartition* part);
 
     // Populate file nodes
@@ -72,6 +74,7 @@ class virtual_fs
     bool debug_log = false;
     bool enable_network_unmount = false;
     bool read_only = false;
+    bool virtualize_nxa = false;
     ULONG timeout = 0;
     NxPartition *partition;
 

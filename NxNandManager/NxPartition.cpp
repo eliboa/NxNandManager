@@ -767,7 +767,7 @@ int NxPartition::unmount_fs()
     return SUCCESS;
 }
 
-int NxPartition::mount_vfs(bool run, wchar_t driveLetter, bool readOnly, void(*clb_func_ptr)(NTSTATUS))
+int NxPartition::mount_vfs(bool run, wchar_t driveLetter, VFSOptions options, void(*clb_func_ptr)(NTSTATUS))
 {
     long res = SUCCESS;
 
@@ -785,8 +785,11 @@ int NxPartition::mount_vfs(bool run, wchar_t driveLetter, bool readOnly, void(*c
     if (driveLetter)
         m_vfs->setDriveLetter(driveLetter);
 
-    if (readOnly)
+    if (options & ReadOnly)
         m_vfs->setReadOnly();
+
+    if (options & VirtualNXA)
+        m_vfs->virtualize_nxa = true;
 
     int ent = m_vfs->populate();
     if(ent < 0) {

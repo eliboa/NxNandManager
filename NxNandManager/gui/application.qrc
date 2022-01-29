@@ -36,5 +36,6 @@
         <file>images/save2.png</file>
         <file>images/unbox.png</file>
         <file>images/unlock_file.png</file>
+        <file>images/vfs_nca.png</file>
     </qresource>
 </RCC>

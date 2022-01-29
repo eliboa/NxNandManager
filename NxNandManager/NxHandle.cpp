@@ -415,7 +415,7 @@ bool NxHandle::createFile(wchar_t *path, unsigned long io_mode, HANDLE *h)
     auto access = !b_isDrive && m_isReadOnly && io_mode != GENERIC_WRITE ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE;
     auto share = !b_isDrive && m_isReadOnly && io_mode != GENERIC_WRITE ? FILE_SHARE_READ : FILE_SHARE_READ | FILE_SHARE_WRITE;
     if (io_mode == GENERIC_READ)
-        *handle = CreateFileW(path, access, share, nullptr, OPEN_EXISTING, 0, nullptr);
+        *handle = CreateFileW(path, access, share, nullptr, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, nullptr);
     else
         *handle = CreateFileW(path, access, share, nullptr, CREATE_ALWAYS, FILE_FLAG_NO_BUFFERING | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
     

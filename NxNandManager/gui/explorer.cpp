@@ -472,9 +472,9 @@ void Explorer::askForVfsMount(std::function<void()> callback, const QString &que
         if (callback)
             callback();
     });
-    emit loadingWdgtSetVisible(true);
+    emit loadingWdgtSetVisible(true);    
     m_vfsRunner.run(m_partition, !question.isEmpty() ? question :
-            "Partition needs to be mounted as virtual disk.\n Click 'Yes' to mount partition.");
+            "Partition needs to be mounted as virtual disk (+ virtual FS).\n Click 'Yes' to mount partition.");
     return;
 }
 
@@ -1049,7 +1049,7 @@ void Explorer::decrypt(NxFileList selectedFiles)
     if (!m_hactool.exists())
         return error(0, "hactoolnet.exe not found!");
 
-    if (!m_partition->is_vfs_mounted())
+    if (!m_partition->is_vfs_mounted() || (m_partition->is_vfs_mounted() && !m_partition->vfs()->virtualize_nxa))
         return askForVfsMount([=]() { decrypt(selectedFiles); });
 
     auto queue = getCopyQueue(selectedFiles);
@@ -1161,7 +1161,7 @@ void Explorer::listFS(NxFileList selectedFiles)
         return error(1, "hactoolnet.exe not found!");
 
     QStringList files;
-    if (!m_partition->is_vfs_mounted())
+    if (!m_partition->is_vfs_mounted() || (m_partition->is_vfs_mounted() && !m_partition->vfs()->virtualize_nxa))
         return askForVfsMount([=]() { emit listFS_signal(selectedFiles); });
     else files = m_hactool.listFiles(NxFilePath2VfsPath(m_partition, entry), entry->isNCA() ? HacToolNet::Nca : HacToolNet::Save);
 
@@ -1196,7 +1196,7 @@ void Explorer::extractFS(QList<NxFile*> selectedFiles)
     if (m_viewtype == Nca && !m_hactool.exists())
         return error(1, "hactoolnet.exe not found!");
 
-    if (m_viewtype == Nca && !m_partition->is_vfs_mounted())
+    if (m_viewtype == Nca && (!m_partition->is_vfs_mounted() || (m_partition->is_vfs_mounted() && !m_partition->vfs()->virtualize_nxa)))
         return askForVfsMount([=]() {
             emit extractFS_signal(selectedFiles);
         });

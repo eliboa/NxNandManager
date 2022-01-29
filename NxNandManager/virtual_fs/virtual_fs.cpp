@@ -68,17 +68,17 @@ int virtual_fs::populate()
             if (fno.fname[0] == '\0')
                 break;
 
-            bool isDir = fno.fattrib == FILE_ATTRIBUTE_DIRECTORY;
+            bool isDir = fno.fattrib == FILE_ATTRIBUTE_DIRECTORY || (fno.fattrib == FILE_ATTRIBUTE_NX_ARCHIVE && !virtualize_nxa);
             auto filename = wstring(dir).append(dir.back() != L'\\' ? L"\\" : L"").append(fno.fname);
 
-            NxFile *nxFile = isDir ? nullptr : new NxFile(partition, filename, false /* Skip setAdditionalData */);
+            NxFile *nxFile = isDir ? nullptr : new NxFile(partition, filename, virtualize_nxa ? VirtualizeNXA : SimpleFile);
             if (nxFile && !nxFile->exists()) {
                 delete nxFile;
                 continue;
             }
 
             DWORD fattr = fno.fattrib;
-            if (fno.fattrib == FILE_ATTRIBUTE_NX_ARCHIVE)
+            if (fno.fattrib == FILE_ATTRIBUTE_NX_ARCHIVE && virtualize_nxa)
                 fattr = FILE_ATTRIBUTE_VIRTUAL;
 
             // File or direcory, create a node

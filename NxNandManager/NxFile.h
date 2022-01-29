@@ -143,10 +143,16 @@ struct AdditionalString {
 
 void openModeString(BYTE mode, wstring &open_str);
 
+enum NxFileFlag {
+    SimpleFile          = 0x01,
+    SetAdditionalInfo   = 0x02,
+    VirtualizeNXA       = 0x04,
+};
+
 class NxFile
 {
 public:
-    NxFile(NxPartition* nxp, const wstring &name, bool setAdditionalInfo = true);
+    NxFile(NxPartition* nxp, const wstring &name, u8 options = SetAdditionalInfo | VirtualizeNXA);
     ~NxFile();
 
 private:
@@ -156,6 +162,7 @@ private:
     NxOpenStatus m_openStatus = NX_CLOSED;
     BYTE m_openMode = FA_READ;
     FIL m_fp;
+    u8 m_options;
 
     u64  	m_size = 0;		/* File size */
     WORD	m_fdate;		/* Modified date */

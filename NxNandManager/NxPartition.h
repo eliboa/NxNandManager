@@ -69,6 +69,13 @@ class NxStorage;
 class NxCrypto;
 class NxHandle;
 
+enum VFSOptions {
+    NoOption            = 0,
+    ReadOnly            = 1,
+    VirtualNXA          = 2
+};
+DEFINE_ENUM_FLAG_OPERATORS(VFSOptions)
+
 class NxPartition
 #if defined(ENABLE_GUI)
     : public QObject
@@ -82,7 +89,7 @@ class NxPartition
         NxPartition(NxStorage *parent, const char* p_name, u32 lba_start, u32 lba_end, u64 attrs = 0);
         ~NxPartition();
         NxStorage *parent;
-    
+
     private:
         u32 m_lba_start = 0;
         u32 m_lba_end = 0;
@@ -158,7 +165,7 @@ class NxPartition
         int unmount_vfs();
         bool is_mounted() { return m_fatfs.fs_type > 0; }
         bool is_vfs_mounted() { return m_is_vfs_mounted; }
-        int mount_vfs(bool run = true, wchar_t driveLetter = L'\0', bool readOnly = false, void(*clb_func_ptr)(NTSTATUS) = nullptr);
+        int mount_vfs(bool run = true, wchar_t driveLetter = L'\0', VFSOptions options = NoOption, void(*clb_func_ptr)(NTSTATUS) = nullptr);
 
         FRESULT f_open (FIL* fp, const TCHAR* path, BYTE mode);				/* Open or create a file */
         FRESULT f_opendir (DIR* dp, const TCHAR* path);						/* Open a directory */

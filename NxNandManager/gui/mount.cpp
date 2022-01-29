@@ -12,12 +12,14 @@ MountDialog::MountDialog(QWidget *parent, NxPartition* partition) :
 {
     ui->setupUi(this);
     setWindowFlags(Qt::Dialog | Qt::WindowCloseButtonHint);
-    setWindowTitle(QString("Mount %1 (virtual disk, virtual fs)").arg(QString::fromStdString(m_nxp->partitionName())));
+    setWindowTitle(QString("Mount %1").arg(QString::fromStdString(m_nxp->partitionName())));
 
     auto mainwin = reinterpret_cast<MainWindow*>(parent);
     connect(this, &MountDialog::error, mainwin, &MainWindow::error);
     connect(this, &MountDialog::dokanDriver_install_signal, this, &MountDialog::dokanDriver_install);
     connect(this, &MountDialog::on_mounting_done_signal, this, &MountDialog::on_mounting_done);
+
+    ui->virtualNxaCheckBox->setToolTip("Only applies to NCA under /Contents (& subdirs)<br><img src=':/images/vfs_nca.png'><br>No more 4GB file size limitation");
 
     loading = new QMovie(":/images/loading_wheel.gif");
     loading->setScaledSize(QSize(25, 25));
@@ -34,6 +36,8 @@ MountDialog::MountDialog(QWidget *parent, NxPartition* partition) :
         ui->readOnlyCheckBox->setChecked(userSettings.value("mount_readonly").toBool());
     if (userSettings.contains("mount_explorer"))
         ui->openExplorerCheckBox->setChecked(userSettings.value("mount_explorer").toBool());
+    if (userSettings.contains("mount_virtualNxa"))
+        ui->virtualNxaCheckBox->setChecked(userSettings.value("mount_virtualNxa").toBool());
 
     auto mntPt_val = userSettings.value(QString("mount_%1_mountPoint").arg(QString::fromStdString(m_nxp->partitionName())));
     for (int ix = 0; ix < ui->mountPointComboBox->count(); ix++)
@@ -49,6 +53,7 @@ MountDialog::~MountDialog()
     QSettings userSettings;
     userSettings.setValue("mount_readonly", ui->readOnlyCheckBox->isChecked());
     userSettings.setValue("mount_explorer", ui->openExplorerCheckBox->isChecked());
+    userSettings.setValue("mount_virtualNxa", ui->virtualNxaCheckBox->isChecked());
     auto mntPt_key = QString("mount_%1_mountPoint").arg(QString::fromStdString(m_nxp->partitionName()));
     userSettings.setValue(mntPt_key, ui->mountPointComboBox->currentData());
 
@@ -67,6 +72,7 @@ void MountDialog::on_mountButton_clicked()
         ui->openExplorerCheckBox->setDisabled(false);
         ui->readOnlyCheckBox->setDisabled(false);
         ui->mountPointComboBox->setDisabled(false);
+        ui->virtualNxaCheckBox->setDisabled(false);
         ui->loadingLabel->show();
         ui->mountButton->setText("Unmounting...");
         ui->mountButton->setEnabled(false);
@@ -106,7 +112,13 @@ void MountDialog::on_mountButton_clicked()
         ui->loadingLabel->show();
         ui->mountButton->setText("Mounting...");
         ui->mountButton->setDisabled(true);
-        QtConcurrent::run(m_nxp, &NxPartition::mount_vfs, true, mount_point, ui->readOnlyCheckBox->isChecked(), nullptr);
+        VFSOptions options = NoOption;
+        if (ui->readOnlyCheckBox->isChecked())
+            options |= ReadOnly;
+        if (ui->virtualNxaCheckBox->isChecked())
+            options |= VirtualNXA;
+
+        QtConcurrent::run(m_nxp, &NxPartition::mount_vfs, true, mount_point, options, nullptr);
     }
 }
 
@@ -120,6 +132,7 @@ void MountDialog::on_mounting_done()
         ui->openExplorerCheckBox->setDisabled(false);
         ui->readOnlyCheckBox->setDisabled(false);
         ui->mountPointComboBox->setDisabled(false);
+        ui->virtualNxaCheckBox->setDisabled(false);
     }
     else
     {
@@ -129,6 +142,7 @@ void MountDialog::on_mounting_done()
         ui->openExplorerCheckBox->setDisabled(true);
         ui->readOnlyCheckBox->setDisabled(true);
         ui->mountPointComboBox->setDisabled(true);
+        ui->virtualNxaCheckBox->setDisabled(true);
     }
 }
 

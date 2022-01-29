@@ -1,7 +1,7 @@
 #include "NxFile.h"
 
-NxFile::NxFile(NxPartition* nxp, const wstring &name, bool b_setAdditionalInfo)
- : m_nxp(nxp)
+NxFile::NxFile(NxPartition* nxp, const wstring &name, u8 options)
+ : m_nxp(nxp), m_options(options)
 {
     memset(m_user_id, 0, 0x10);
     setCompletePath(name);
@@ -36,29 +36,35 @@ NxFile::NxFile(NxPartition* nxp, const wstring &name, bool b_setAdditionalInfo)
         // Nintendo archive
         // Data is stored in one or several files (00, 01, 02, etc) inside a directory
         m_fileType = NX_NCA;
-        m_size = 0;
-        DIR dp;
-        FILINFO sub_fno;
-        if (m_nxp->f_opendir(&dp, this->completePath().c_str())) {
-            m_fileStatus = NX_NO_FILE;
-            return;
-        }
-        while (!f_readdir(&dp, &sub_fno) && sub_fno.fname[0]) {
-            NxSplitOff f_entry;
-            f_entry.off_start = m_size;
-            f_entry.size = sub_fno.fsize;
-            f_entry.file = wstring(sub_fno.fname);
-            m_size += (u64)sub_fno.fsize;
-            m_files.emplace_back(f_entry);
-            dbg_wprintf(L"NxFile: new NxSplitOff for %ls, off_start= %I64D, size= %I64D", sub_fno.fname, f_entry.off_start, f_entry.size);
-        }
-        f_closedir(&dp);
 
-        if (!m_size)
-            return;
+        if (m_options & VirtualizeNXA)
+        {
+            m_size = 0;
+            DIR dp;
+            FILINFO sub_fno;
+            if (m_nxp->f_opendir(&dp, this->completePath().c_str())) {
+                m_fileStatus = NX_NO_FILE;
+                return;
+            }
+            while (!f_readdir(&dp, &sub_fno) && sub_fno.fname[0]) {
+                NxSplitOff f_entry;
+                f_entry.off_start = m_size;
+                f_entry.size = sub_fno.fsize;
+                f_entry.file = wstring(sub_fno.fname);
+                m_size += (u64)sub_fno.fsize;
+                m_files.emplace_back(f_entry);
+                dbg_wprintf(L"NxFile: new NxSplitOff for %ls, off_start= %I64D, size= %I64D",
+                            sub_fno.fname, f_entry.off_start, f_entry.size);
+            }
+            f_closedir(&dp);
+
+            if (!m_size)
+                return;
+        }
 
     }
-    if (b_setAdditionalInfo)
+
+    if (m_options & SetAdditionalInfo)
         setAdditionalInfo();
 
     if (isdebug) {
@@ -103,6 +109,10 @@ void NxFile::setCompletePath(const wstring &name)
 void NxFile::setAdditionalInfo()
 {
     UINT br;
+
+    if (!(m_options & VirtualizeNXA) && m_fileType == NX_NCA)
+        return;
+
     if ((m_fileType == NX_NCA || endsWith(m_filename, wstring(L".nca"))) && m_size > 0x400) {
         m_fileType = NX_NCA;
         // Retrieve NCA information
@@ -317,10 +327,14 @@ size_t NxFile::getFileIxByOffset(u64 offset)
 
 bool NxFile::ensure_nxa_file(u64 offset, NxAccessMode mode)
 {
+
     if (!isNXA()) {
         dbg_printf("NxFile::ensure_nxa_file(%I64d) FAILED, not NXA\n", offset);
         return false;
     }
+    else if (!(m_options & VirtualizeNXA))
+        return true;
+
 
     if (!isValidOffset(offset)) // Offset is out of range
         return mode == NX_READONLY ? false : resize(offset, true) == FR_OK;
@@ -371,7 +385,7 @@ bool NxFile::open(BYTE mode)
     bool truncate_existing = !isCreateNew && (mode & FA_CREATE_ALWAYS);
 
     // NX ARCHIVE CREATION if filename matches *.nca & path starts with /Content
-    if (isCreateNew && endsWith(m_filename, wstring(L".nca")) && startsWith(m_filepath, wstring(L"/Contents")))
+    if (isCreateNew && (m_options & VirtualizeNXA) && endsWith(m_filename, wstring(L".nca")) && startsWith(m_filepath, wstring(L"/Contents")))
     {
         // Create new dir for NCA
         if ((res = m_nxp->f_mkdir(path.c_str())))
@@ -503,7 +517,7 @@ int NxFile::read(void* buff, UINT btr, UINT* br)
     {
         btr = bytesTotal - bytesCount;
         *br = 0;
-        if (isNXA()) {
+        if (isNXA() && (m_options & VirtualizeNXA)) {
             if (!ensure_nxa_file(absoluteOffset(), NX_READONLY))
                 break;
 
@@ -553,7 +567,7 @@ int NxFile::write(const void* buff, UINT btw, UINT* bw)
 
     u32 btw_total = btw, bw_tmp = 0;
     int res;
-    if (isNXA())
+    if (isNXA() && (m_options & VirtualizeNXA))
     {        
         if (!ensure_nxa_file(absoluteOffset()))
             return exit(FR_INVALID_PARAMETER);
@@ -618,7 +632,7 @@ int NxFile::remove()
         return exit(FR_INVALID_OBJECT);
 
     int res;
-    if (isNXA()) {
+    if (isNXA() && (m_options & VirtualizeNXA)) {
         resize(0); // truncate ensures deletion of extra nxa's files
         // Delete cur nxa file
         if ((res =  m_nxp->f_unlink(wstring(completePath() + L"/" + m_files.at(0).file).c_str())))
