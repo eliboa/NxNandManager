@@ -467,33 +467,47 @@ void NxHandle::do_crypto(u8* buffer, u32 buff_size, u64 start_offset)
     if (!is_in(m_crypto, {ENCRYPT, DECRYPT}) || !nxCrypto)
         return;
 
-    m_cur_block = start_offset / CLUSTER_SIZE; // Current cluster number
-    u64 clus_off = (u64)m_cur_block * (u64)CLUSTER_SIZE; // Current cluster offset
-    auto t_buff_offset = start_offset - clus_off; // Start offset for real data in tmp buff
-    auto t_buff_size = t_buff_offset + buff_size; // Size of tmp buff in bytes
-    u32 t_buff_cl_size = (u32)(t_buff_size / CLUSTER_SIZE); // Size of tmp buff in clusters
-    if (!t_buff_cl_size || t_buff_size % CLUSTER_SIZE) t_buff_cl_size++;
+    // Current cluster number
+    size_t cur_block = start_offset / CLUSTER_SIZE;
 
-    // Allocate temp buffer & Copy buffer to temp buffer
-    u8* t_buff = (u8*)malloc(t_buff_cl_size*CLUSTER_SIZE);
-    memcpy(&t_buff[t_buff_offset], buffer, buff_size);
+    // Working buffer
+    bool malloc_buff = buff_size < CLUSTER_SIZE || buff_size % CLUSTER_SIZE || start_offset / CLUSTER_SIZE;
+    u8* t_buff;
+    u32 t_buff_cl_size = buff_size / CLUSTER_SIZE;
+    u64 t_buff_offset = 0;
+    if (malloc_buff)
+    {
+        // Allocate working buffer (cluster aligned)
+        u64 clus_off = (u64)cur_block * (u64)CLUSTER_SIZE; // Current cluster offset
+        t_buff_offset = start_offset - clus_off; // Start offset for real data in tmp buff
+        auto t_buff_size = t_buff_offset + buff_size; // Size of working buffer in bytes
+        t_buff_cl_size = (u32)(t_buff_size / CLUSTER_SIZE); // Size of working buffer in clusters
+        if (!t_buff_cl_size || t_buff_size % CLUSTER_SIZE)
+            t_buff_cl_size++;
+        t_buff = (u8*)malloc(t_buff_cl_size*CLUSTER_SIZE);
+        // Copy provided buffer in working buffer
+        memcpy(&t_buff[t_buff_offset], buffer, buff_size);
+    }
+    else t_buff = buffer; // Use provided buffer if already cluster aligned
 
-    //printf("Decrypted buffer :\n");
-    //hexStrPrint((u8*)buffer, bytesCount > 0x200 ? 0x200 : buff_size);
+
+    //printf("Buffer before %s crypto :\n", m_crypto == ENCRYPT ? "ENCRYPT" : "DECRYPT");
+    //hexStrPrint((u8*)buffer, 0x20);
 
     // Do crypto
     for (u32 i=0; i < t_buff_cl_size; i++)
         if (m_crypto == DECRYPT)
-            nxCrypto->decrypt(&t_buff[i*CLUSTER_SIZE], m_cur_block+i);
+            nxCrypto->decrypt(&t_buff[i*CLUSTER_SIZE], cur_block++);
         else
-            nxCrypto->encrypt(&t_buff[i*CLUSTER_SIZE], m_cur_block+i);
+            nxCrypto->encrypt(&t_buff[i*CLUSTER_SIZE], cur_block++);
 
-    // Emplace back buffer data
-    memcpy(buffer, &t_buff[t_buff_offset], buff_size);
-
-    //printf("Encrypted buffer :\n");
-    //hexStrPrint((u8*)buffer, bytesCount > 0x200 ? 0x200 : buff_size);
-    free(t_buff);
+    if (malloc_buff) {
+        // Emplace back buffer data & free working buffer
+        memcpy(buffer, &t_buff[t_buff_offset], buff_size);
+        free(t_buff);
+    }
+    //printf("Buffer after %s crypto :\n", m_crypto == ENCRYPT ? "ENCRYPT" : "DECRYPT");
+    //hexStrPrint((u8*)buffer, 0x20);
 }
 
 bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
@@ -577,7 +591,7 @@ bool NxHandle::read(u32 lba, void *buffer, DWORD* bytesRead, DWORD length)
     return read(offset, buffer, bytesRead, length);
 }
 
-bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
+bool NxHandle::write(void *in_buffer, DWORD* bw, DWORD length)
 {    
     if (bw) *bw = 0;
     if (!length) length = getDefaultBuffSize();
@@ -591,7 +605,14 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
     if (m_off_end && lp_CurrentPointer.QuadPart + length > m_off_end)
         length -= lp_CurrentPointer.QuadPart + length - m_off_end - 1;
 
-    do_crypto((u8*)buffer, length, virtual_currentPtr());
+    bool encrypt = m_crypto == ENCRYPT;
+    void* buffer = encrypt ? malloc(length) : in_buffer;
+    if (encrypt == ENCRYPT) {
+        // We want to write encrypted data but we don't want input buffer to be encrypted !!!
+        memcpy(buffer, in_buffer, length);
+        do_crypto((u8*)buffer, length, virtual_currentPtr());
+    }
+    auto exit = [&](bool res) { if (encrypt) free(buffer); return res; };
 
     DWORD bytesToWriteTotal = length;
     DWORD bytesCount = 0;
@@ -605,12 +626,12 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
             {
                 // Set path for new file
                 if (!getNextSplitFile(m_path))
-                    return false;
+                    return exit(false);
 
                 // Clear current handle then create new file
                 clearHandle();
                 if(!createFile((wchar_t*)m_path.c_str(), GENERIC_WRITE))
-                    return false;
+                    return exit(false);
 
                 lp_CurrentPointer.QuadPart = 0;
             }
@@ -630,7 +651,7 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
         if (!WriteFile(m_h, &u8_buff[bytesCount], bytesToWrite, &bytesWrite, nullptr))
         {
             dbg_printf("NxHandle::wrtie WriteFile error %s\n", GetLastErrorAsString().c_str());
-            return false;
+            return exit(false);
         }
         if (!bytesWrite)
             break;
@@ -641,7 +662,7 @@ bool NxHandle::write(void *buffer, DWORD* bw, DWORD length)
 
 
     if (bw) *bw = bytesCount;
-    return true;
+    return exit(true);
 }
 
 bool NxHandle::write(u64 offset, void *buffer, DWORD* bw, DWORD length)
