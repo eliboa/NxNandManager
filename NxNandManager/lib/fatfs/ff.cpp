@@ -5654,7 +5654,7 @@ FRESULT f_forward (
 /* Create FAT/exFAT volume (with sub-functions)                          */
 /*-----------------------------------------------------------------------*/
 
-#define N_SEC_TRACK 63			/* Sectors per track for determination of drive CHS */
+#define N_SEC_TRACK 0			/* Sectors per track for determination of drive CHS */
 #define	GPT_ALIGN	0x100000	/* Alignment of partitions in GPT [byte] (>=128KB) */
 #define GPT_ITEMS	128			/* Number of GPT table size (>=128, sector aligned) */
 
@@ -5902,7 +5902,8 @@ FRESULT f_mkfs (
 			sz_vol = ld_dword(pte + PTE_SizLba);	/* Get volume size */
 		}
 	} else {	/* The volume is associated with a physical drive */
-		if (disk_ioctl(pdrv, GET_SECTOR_COUNT, &sz_vol) != RES_OK) LEAVE_MKFS(FR_DISK_ERR);
+        if (disk_ioctl(pdrv, GET_SECTOR_COUNT, &sz_vol) != RES_OK)
+            LEAVE_MKFS(FR_DISK_ERR);
 		if (!(fsopt & FM_SFD)) {	/* To be partitioned? */
 			/* Create a single-partition on the drive in this function */
 #if FF_LBA64
@@ -5913,7 +5914,8 @@ FRESULT f_mkfs (
 #endif
 			{	/* Partitioning is in MBR */
 				if (sz_vol > N_SEC_TRACK) {
-					b_vol = N_SEC_TRACK; sz_vol -= b_vol;	/* Estimated partition offset and size */
+                    b_vol = N_SEC_TRACK;
+                    sz_vol -= b_vol;	/* Estimated partition offset and size */
 				}
 			}
 		}
@@ -6220,7 +6222,8 @@ FRESULT f_mkfs (
 			memcpy(buf + BS_VolLab, "NO NAME    " "FAT     ", 19);	/* Volume label, FAT signature */
 		}
 		st_word(buf + BS_55AA, 0xAA55);					/* Signature (offset is fixed here regardless of sector size) */
-		if (disk_write(pdrv, buf, b_vol, 1) != RES_OK) LEAVE_MKFS(FR_DISK_ERR);	/* Write it to the VBR sector */
+        if (disk_write(pdrv, buf, b_vol, 1) != RES_OK)
+            LEAVE_MKFS(FR_DISK_ERR);	/* Write it to the VBR sector */
 
 		/* Create FSINFO record if needed */
 		if (fsty == FS_FAT32) {

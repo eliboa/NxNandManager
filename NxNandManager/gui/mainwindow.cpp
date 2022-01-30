@@ -1296,16 +1296,15 @@ void MainWindow::formatPartition()
     if (nullptr == curPartition)
         return;
 
-    if(QMessageBox::question(this, "Warning", "Formatting will erase all data on partition. Are you sure you want to continue ?", QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+    auto text = QString("Formatting will erase all data on %1.")
+            .arg(QString::fromStdString(curPartition->partitionName()));
+    if (curPartition->is_vfs_mounted())
+        text.append(QString("\nVirtual disk (%1) will be unmounted first.")
+                    .arg(QString::fromStdWString(curPartition->vfs()->mount_point).toUpper()));
+    text.append("\nAre you sure you want to continue ?");
+
+    if(QMessageBox::question(this, "Warning", text, QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
         return;
-
-    /*
-    params_t par;
-    par.partition = curPartition->type();
-
-    WorkerInstance wi(this, WorkerMode::format_partition, &par, input);
-    wi.exec();
-    */
 
     auto res = curPartition->formatPartition();
     if (res)
@@ -1313,6 +1312,7 @@ void MainWindow::formatPartition()
     else
         QMessageBox::information(this, "Information", "Partition formated");
 
+    // Reopen NxStorage
     beforeInputSet();
     QString filename = QString::fromWCharArray(input->m_path);
     if (!safe_closeInput())

@@ -461,116 +461,24 @@ int NxPartition::formatPartition(void(*updateProgress)(ProgressInfo))
             return ERR_BAD_CRYPTO;
     }
 
-
-    DWORD br = 0;
-    BYTE first_clust[CLUSTER_SIZE];
-
     if (!is_mounted())
         mount_fs();
 
-    // Read & save first cluster
-    nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
-    if (!nxHandle->read(first_clust, &br, CLUSTER_SIZE))
-        return ERR_WHILE_COPY;
+    if (is_vfs_mounted())
+        unmount_vfs();
 
-    // Set make fs options
-    MKFS_PARM opt;
-    opt.fmt = FM_FAT32;
-    opt.n_fat = m_fs.num_fats;
-    opt.au_size = m_fs.bytes_per_sector * m_fs.sectors_per_cluster;
+    MKFS_PARM opt;                          // FS options:
+    opt.fmt = FM_FAT32 | FM_SFD;            // FAT32, no partitioning
+    opt.n_fat = m_fs.num_fats;              // Let number of FAT unchanged
+    opt.au_size = m_fs.bytes_per_sector *
+                  m_fs.sectors_per_cluster; // Let partition size unchanged
 
     // Make FS
-    auto res = f_mkfs(std::to_wstring(get_ix_by_nx_partition(this)).append(L":").c_str(), &opt, nullptr, CLUSTER_SIZE);
-    if (res == FR_OK)
-    {
-        BYTE buffer[CLUSTER_SIZE];
-
-        // Read new first cluster
-        nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
-        if (!nxHandle->read(buffer, &br, CLUSTER_SIZE))
-            return ERR_WHILE_COPY;
-
-        // Restore first sector
-        memcpy(buffer, first_clust, 0x200);
-
-        // Emplace back first cluster
-        nxHandle->initHandle(isEncryptedPartition() ? ENCRYPT : NO_CRYPTO, this);
-        if (!nxHandle->write(buffer, &br, CLUSTER_SIZE))
-            return ERR_WHILE_COPY;
-    }
+    auto volume_path = std::to_wstring(get_ix_by_nx_partition(this)).append(L":");
+    auto res = f_mkfs(volume_path.c_str(), &opt, nullptr, CLUSTER_SIZE);
 
     return res;
-
-    /*
-    bool sendProgress = nullptr != updateProgress ? true : false;
-    BYTE buffer[CLUSTER_SIZE];
-    DWORD bytesCount = 0, bytesWrite = 0;
-    u32 cur_cluster_num = 1;
-
-    nxHandle->initHandle(isEncryptedPartition() ? DECRYPT : NO_CRYPTO, this);
-
-    // Read reserved sectors
-    if (!nxHandle->read(buffer, &bytesCount, CLUSTER_SIZE))
-        return ERR_WHILE_COPY;
-
-    fat32::fs_attr fs;
-    fat32::boot_sector *bs = (fat32::boot_sector *)(buffer);
-    fat32::read_boot_sector(buffer,&fs);
-    u32 fat_size_in_cluster = bs->fat_size / 32;
-    int num_fats = bs->num_fats;    
-
-    ProgressInfo pi;
-    pi.mode = FORMAT;
-    strcpy_s(pi.storage_name, m_name);
-    pi.begin_time = std::chrono::system_clock::now();
-    pi.bytesTotal = (u32)num_fats * fat_size_in_cluster * CLUSTER_SIZE + CLUSTER_SIZE;
-    if (sendProgress) updateProgress(pi);
-
-    // For each FAT
-    for (int x(0); x < num_fats; x++)
-    {
-        // For each cluster in FAT
-        for (u32 i(0); i < fat_size_in_cluster; i++)
-        {
-            memset(buffer, 0, CLUSTER_SIZE);
-            // Write first 3 FAT entries (each entry is 4 bytes long)
-            if (!i)
-            {
-                u8 first_entries[12] = { 0xf8, 0xff, 0xff, 0x0f, 0xff, 0xff, 0xff, 0x0f, 0xff, 0xff, 0xff, 0x0f };
-                memcpy(buffer, first_entries, ARRAYSIZE(first_entries));
-            }
-
-            if (isEncryptedPartition())
-                crypto()->encrypt(buffer, cur_cluster_num++);
-
-            if (!nxHandle->write(buffer, &bytesWrite, CLUSTER_SIZE))
-                return ERR_WHILE_COPY;
-
-            pi.bytesCount += bytesWrite;
-            if (sendProgress) updateProgress(pi);
-        }
-    }
-
-    // Write empty cluster for root dir
-    memset(buffer, 0, CLUSTER_SIZE);
-    if (isEncryptedPartition())
-        crypto()->encrypt(buffer, cur_cluster_num++);
-
-    if (!nxHandle->write(buffer, &bytesWrite, CLUSTER_SIZE))
-        return ERR_WHILE_COPY;
-
-    pi.bytesCount += bytesWrite;
-
-    // Check completeness
-    if (pi.bytesCount != pi.bytesTotal)
-        return ERR_WHILE_COPY;
-
-    if (sendProgress) updateProgress(pi);
-
-    return SUCCESS;
-    */
 }
-
 
 // Get fat32 entries for given path
 // If path is a file, only one entry is pushed back to entries vector

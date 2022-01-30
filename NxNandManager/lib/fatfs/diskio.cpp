@@ -151,29 +151,7 @@ DRESULT disk_write (
     DWORD bytesWrite = 0;
     if (!fs->nx_handle->write((u32)(sector), (void*)buff, &bytesWrite, count * NX_BLOCKSIZE))
         return RES_PARERR;
-    /*
-    u64 offset = (u64)sector * NX_BLOCKSIZE;
-    DWORD bytesToWrite = count * NX_BLOCKSIZE;
-    DWORD bytesCount = 0;
-    while (bytesCount < bytesToWrite)
-    {
-        DWORD bytesWrite = 0;
-        if (!fs->nx_handle->write(offset, (void*)&buff[bytesCount], &bytesWrite, NX_BLOCKSIZE))
-            return RES_PARERR;
 
-        if (!bytesWrite)
-            break;
-
-        offset += bytesWrite;
-        bytesCount += bytesWrite;
-    }
-
-
-    DWORD bw;
-    for (UINT i(0); i < count; i++)
-        if (!fs->nx_handle->write((u32)(sector+i), (void*)&buff[i*NX_BLOCKSIZE], &bw, NX_BLOCKSIZE))
-            return RES_PARERR;
-    */
     return RES_OK;
 
 }
@@ -191,16 +169,18 @@ DRESULT disk_ioctl (
 	void *buff		/* Buffer to send/receive control data */
 )
 {	
+    NXFS *fs = get_nxfs_by_ix(pdrv);
+    if (fs == nullptr || fs->nx_partition == nullptr)
+        return RES_OK;
+
     if (cmd == GET_SECTOR_COUNT)
     {
-
-        NXFS *fs = get_nxfs_by_ix(pdrv);
-        if (fs == nullptr || fs->nx_partition == nullptr)
-            return RES_OK;
-
         u32 sector_count = fs->nx_partition->lbaEnd() - fs->nx_partition->lbaStart();
         memcpy(buff, &sector_count, sizeof (u32));
-        return RES_OK;
+    }
+    else if (cmd == GET_BLOCK_SIZE) {
+        u32 blocksize = NX_BLOCKSIZE;
+        memcpy(buff, &blocksize, sizeof (u32));
     }
     return RES_OK;
 }
