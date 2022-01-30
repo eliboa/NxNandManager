@@ -269,7 +269,7 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
         std::string in_sum = BuildChecksum(in_hash);
 
         // Recreate outHandle
-        outHandle->clearHandle();
+        outHandle->closeHandle();
         if (outHandle->getChunkSize())
         {
             outHandle->setPath(outHandle->getFistPartPath());
@@ -278,28 +278,8 @@ int NxPartition::dump(NxHandle *outHandle, part_params_t par, void(*updateProgre
         }
         else outHandle->createHandle();
 
-        // Init Progress Info
-        pi.bytesCount = 0;
-        if (sendProgress)
-        {
-            pi.mode = MD5_HASH;
-            pi.begin_time = std::chrono::system_clock::now();
-            pi.elapsed_seconds = 0;
-            updateProgress(pi);
-        }
-
         // Hash output file
-        while (outHandle->hash(&pi.bytesCount))
-        {
-            if(parent->stopWork)
-                error(userAbort());
-
-            if (sendProgress)
-                updateProgress(pi);
-        }
-
-        // Check completeness
-        if (pi.bytesCount != pi.bytesTotal)
+        if (!outHandle->hash(partitionName(), updateProgress))
             return error(ERR_MD5_COMPARE);
 
         // Get checksum for output

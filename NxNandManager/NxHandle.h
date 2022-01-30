@@ -105,7 +105,6 @@ class NxHandle {
         HCRYPTPROV h_WinCryptProv;
         HCRYPTHASH m_md5_hash;
         bool m_isHashLocked = false;
-        BYTE m_md5_buffer[DEFAULT_BUFF_SIZE];
         NxCrypto *nxCrypto;
         int m_crypto = NO_CRYPTO;
 
@@ -166,7 +165,7 @@ class NxHandle {
         bool write(u32 sector, void *buffer, DWORD* bw, DWORD length);
         bool createFile(wchar_t *path, unsigned long io_mode = GENERIC_READ, HANDLE *handle = nullptr);
         void createHandle(unsigned long io_mode = GENERIC_READ);
-        bool hash(u64* bytesCount);
+        bool hash(string storage_name, void(*updateProgress)(ProgressInfo));
         bool setPointer(u64 offset);
         bool dismountVolume();
         bool dismountAllVolumes();

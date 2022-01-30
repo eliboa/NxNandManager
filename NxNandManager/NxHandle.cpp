@@ -144,8 +144,8 @@ void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
     if(nullptr == parent)
     {
         m_off_start = 0;
-        m_off_end = m_size;
-        m_off_max = m_size;
+        m_off_end = m_size - 1;
+        m_off_max = m_size - 1;
         m_readAmount = 0;
         m_cur_block = 0;
         lp_CurrentPointer.QuadPart = 0;
@@ -170,8 +170,8 @@ void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
         {
             m_size = Lsize.QuadPart;
             m_totalSize = m_size;
-            m_off_end = m_size;
-            m_off_max = m_size;
+            m_off_end = m_size - 1;
+            m_off_max = m_size - 1;
             exists = m_size ? true : false;
         }
         return;
@@ -467,7 +467,7 @@ void NxHandle::do_crypto(u8* buffer, u32 buff_size, u64 start_offset)
     if (!is_in(m_crypto, {ENCRYPT, DECRYPT}) || !nxCrypto)
         return;
 
-    // Current cluster number
+    // Cluster block number
     size_t cur_block = start_offset / CLUSTER_SIZE;
 
     // Working buffer
@@ -526,7 +526,7 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
 
     // Resize read length to prevent overflow
     if (real_currentPtr() + (u64)length > m_off_end + 1)
-        length = m_off_end + 1 - real_currentPtr();
+        length = m_off_end - real_currentPtr() + 1;
 
     // Read data to buffer
     DWORD bytesToReadTotal = length;
@@ -686,21 +686,27 @@ bool NxHandle::write(u32 sector, void *buffer, DWORD* bw, DWORD length)
     return write(offset, buffer, bw, length);
 }
 
-bool NxHandle::hash(u64* bytesCount)
+bool NxHandle::hash(string storage_name, void(*updateProgress)(ProgressInfo))
 {
-    if (!*bytesCount)
-    {
-        initHandle(MD5_HASH);
-        memset(m_md5_buffer, 0, DEFAULT_BUFF_SIZE);
-    }
-
+    bool sendProgress = nullptr != updateProgress ? true : false;
+    initHandle(MD5_HASH);
     DWORD bytesRead = 0;
-    bool success = false;
-    if (read(m_md5_buffer, &bytesRead, DEFAULT_BUFF_SIZE))
-        success = true;
+    ProgressInfo pi;
+    pi.mode = MD5_HASH;
+    strcpy_s(pi.storage_name, storage_name.c_str());
+    pi.begin_time = std::chrono::system_clock::now();
+    pi.elapsed_seconds = 0;
+    pi.bytesTotal = m_size;
+    pi.bytesCount = 0;
+    if (sendProgress) updateProgress(pi);
+    u8* buff = new u8[DEFAULT_BUFF_SIZE];
+    while (read(buff, &bytesRead, DEFAULT_BUFF_SIZE)) {
+        pi.bytesCount += bytesRead;
+        if (sendProgress) updateProgress(pi);
+    }
+    delete[] buff;
 
-    *bytesCount += bytesRead;
-    return success;
+    return pi.bytesCount == pi.bytesTotal;
 }
 
 NxSplitFile* NxHandle::getSplitFile(u64 offset)

@@ -1328,7 +1328,7 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         return error(ERR_WHILE_COPY);
 
     if(par.crypto_mode == MD5_HASH && !par.passThroughZero)
-    {
+    {                    
         nxHandle->unlockHash();
 
         // Get checksum for input
@@ -1336,7 +1336,7 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         std::string in_sum = BuildChecksum(in_hash);
 
         // Recreate outHandle
-        outHandle->clearHandle();
+        outHandle->closeHandle();
         if (outHandle->getChunkSize())
         {
             outHandle->setPath(outHandle->getFistPartPath());
@@ -1345,28 +1345,8 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         }
         else outHandle->createHandle();
 
-        // Init Progress Info
-        pi.bytesCount = 0;
-        if (sendProgress)
-        {
-            pi.mode = MD5_HASH;
-            pi.begin_time = std::chrono::system_clock::now();
-            pi.elapsed_seconds = 0;
-            updateProgress(pi);
-        }
-
         // Hash output file
-        while (outHandle->hash(&pi.bytesCount))
-        {
-            if(stopWork)
-                return error(userAbort());
-
-            if (sendProgress)
-                updateProgress(pi);
-        }
-
-        // Check completeness
-        if (pi.bytesCount != pi.bytesTotal)
+        if (!outHandle->hash(getNxTypeAsStr(), updateProgress))
             return error(ERR_MD5_COMPARE);
 
         // Get checksum for output
