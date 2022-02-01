@@ -393,7 +393,6 @@ Explorer::Explorer(QWidget *parent, NxPartition *partition) :
     connect(this, &Explorer::listFS_signal, this, &Explorer::listFS);
     connect(this, &Explorer::extractFS_signal, this, &Explorer::extractFS);
     connect(this, &Explorer::loadingWdgtSetVisibleSignal, this, &Explorer::loadingWdgtSetVisible);
-    connect(&m_vfsRunner, &VfsMountRunner::error, this, &Explorer::error);
     connect(&m_hactool, &HacToolNet::error, [&](QString e){ emit error_signal(1, e); });
 
     setWindowFlags(Qt::Dialog | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
@@ -467,13 +466,19 @@ void Explorer::loadingWdgtSetVisible(bool visible)
 
 void Explorer::askForVfsMount(std::function<void()> callback, const QString &question)
 {
-    connect(&m_vfsRunner, &VfsMountRunner::mounted, [=](){
+    if (m_vfsRunner != nullptr)
+        delete m_vfsRunner;
+
+    m_vfsRunner = new VfsMountRunner(m_partition);
+
+    connect(m_vfsRunner, &VfsMountRunner::error, this, &Explorer::error);
+    connect(m_vfsRunner, &VfsMountRunner::mounted, [=](){
         emit loadingWdgtSetVisible(false);
         if (callback)
             callback();
     });
     emit loadingWdgtSetVisible(true);    
-    m_vfsRunner.run(m_partition, !question.isEmpty() ? question :
+    m_vfsRunner->run(!question.isEmpty() ? question :
             "Partition needs to be mounted as virtual disk (+ virtual FS).\n Click 'Yes' to mount partition.");
     return;
 }
@@ -597,19 +602,12 @@ CpyQueue Explorer::getCopyQueue(NxFileList selectedFiles, bool force_dirOutput)
     QList<int> row_ixs;
 
     // File dialog
-    QString caption = QString("Save to ").append(isDirOutput ? "directoy" : "file");
     QString target = "default_dir\\";
-
-    if (!isDirOutput)        
-        target.append(QString::fromStdWString(selectedFiles.at(0)->filename()));
-
-    QFileDialog fd(this, caption, target);    
-    fd.setFileMode(isDirOutput ? QFileDialog::DirectoryOnly : QFileDialog::AnyFile);
     if (!isDirOutput)
-        fd.setAcceptMode(QFileDialog::AcceptSave);
-    if (!fd.exec())
-        return queue;
-    QString path = fd.selectedFiles().at(0);
+            target.append(QString::fromStdWString(selectedFiles.at(0)->filename()));
+
+    QString path = FileDialog(this, isDirOutput ? save_to_dir : save_as, target);
+
     if (path.isEmpty())
         return queue;
 
@@ -706,35 +704,35 @@ void Explorer::do_extractFS_Hactool(CpyQueue queue)
     if (!pi.bytesTotal)
         return exit("No file to extract");
 
+    QString errors;
+    u32 good_count = 0;
     while (!queue.isEmpty()) // Process queue
     {
         auto entry = queue.dequeue();
         auto file = entry.nxFile;
-        auto cur_des = destination + "/" + (file->titleID() ? QString::fromStdString(file->normalizedTitleLabel())
-                                                            : QString::fromStdWString(file->filename()));
+        auto cur_des = destination + explicitOutputPathForNxFile(file) + "/";
 
         strcpy_s(pi.storage_name, QString::fromStdWString(file->filename()).toStdString().c_str());
         emit sendProgress(pi);
-
-        if (!EnsureOutputDir(cur_des, CreateAlways))
-            return exit(QString("Failed to create dir %1").arg(cur_des));
 
         connect(&m_hactool, &HacToolNet::updateProgress, [&](const ProgressInfo spi){
             emit sendProgress(spi);
         });
 
         if (!m_hactool.extractFiles(entry.source, file->isNCA() ? HacToolNet::Nca : HacToolNet::Save, cur_des))
-            return exit( m_hactool.lastError().isEmpty() ? "Hactoolnet : failed to extract file " + entry.source
-                                                         :  m_hactool.lastError());
+            errors.append(m_hactool.lastError().isEmpty() ? "Hactoolnet : failed to extract file " + entry.source
+                                                         :  m_hactool.lastError() + "\n");
+        else good_count++;
+
         pi.bytesCount++;
         emit sendProgress(pi);
     }
 
-    if (pi.bytesTotal > 1) {
-        sprintf(pi.storage_name, "%d files", (u32)pi.bytesTotal);
-        emit sendProgress(pi);
-    }
-    exit();
+
+    sprintf(pi.storage_name, "from %d file%s", good_count, good_count>1 ? "s" : "");
+    emit sendProgress(pi);
+
+    return exit(errors);
 }
 
 void Explorer::do_extractFS(CpyQueue queue)
@@ -769,9 +767,10 @@ void Explorer::do_extractFS(CpyQueue queue)
 
         for (auto file : save.listFiles())
         {
-            QString cur_dest = destination + "/" + (item.nxFile->titleID() ? QString::fromStdString(item.nxFile->normalizedTitleLabel())
-                                                                           : QString::fromStdWString(item.nxFile->filename()));
-            if (!EnsureOutputDir(cur_dest, CreateAlways))
+
+            QString cur_dest = explicitOutputPathForNxFile(item.nxFile);
+
+            if (!EnsureOutputDir(cur_dest))
                 return exit(QString("Failed to create dir %1").arg(cur_dest));
 
             QFile out_file(cur_dest.append("/" + QString::fromStdString(file.completePath())));
@@ -823,6 +822,8 @@ void Explorer::do_decryptNCA_Hactool(CpyQueue queue)
     if (!pi.bytesTotal)
         return exit("No file to extract");
 
+    QString errors;
+    u32 good_count = 0;
     while (!queue.isEmpty()) // Process queue
     {
         auto entry = queue.dequeue();
@@ -832,17 +833,18 @@ void Explorer::do_decryptNCA_Hactool(CpyQueue queue)
         emit sendProgress(pi);
 
         if (!m_hactool.plaintextNCA(entry.source, entry.destination))
-            return exit(m_hactool.lastError().isEmpty() ? "Hactoolnet : failed to decrypt NCA " + entry.source
-                                                        :  m_hactool.lastError());
+            errors.append(m_hactool.lastError().isEmpty() ? "Hactoolnet : failed to decrypt NCA " + entry.source
+                                                          :  m_hactool.lastError() + "\n");
+        else good_count++;
         pi.bytesCount++;
         emit sendProgress(pi);
     }
 
     if (pi.bytesTotal > 1) {
-        sprintf(pi.storage_name, "%d files", (u32)pi.bytesTotal);
+        sprintf(pi.storage_name, "%d file%s", good_count, good_count>2 ? "s" : "");
         emit sendProgress(pi);
     }
-    exit();
+    exit(errors);
 }
 
 void Explorer::hactool_process(QQueue<QStringList> cmds)
@@ -1068,6 +1070,15 @@ void Explorer::listFS(NxFileList selectedFiles)
         return;
 
     auto entry = selectedFiles.at(0);
+    QString title = QString::fromStdWString(entry->filename());
+    if (entry->hasAdditionalString("title_name"))
+        title.append(" - "+QString::fromStdString(entry->getAdditionalString("title_name")));
+
+    if (entry->hasUserID()) {
+        auto user = userDB ? userDB->getUserByUserId(entry->userID()) : NxUserIdEntry();
+        title.append(" (" + (user.nickname.isEmpty() ? QString::fromStdString(entry->userIDString()) : user.nickname) + ")");
+    }
+
     if (entry->isSAVE())
     {
         NxSave save(entry);
@@ -1081,12 +1092,6 @@ void Explorer::listFS(NxFileList selectedFiles)
             return;
         }
         auto dialog = new QDialog(this, Qt::Dialog | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
-        QString title = QString::fromStdString(entry->hasAdditionalString("title_name") ? entry->getAdditionalString("title_name")
-                                                                                        : entry->titleIDString());
-        if (entry->hasUserID()) {
-            auto user = userDB ? userDB->getUserByUserId(entry->userID()) : NxUserIdEntry();
-            title.append(" (" + (user.nickname.isEmpty() ? QString::fromStdString(entry->userIDString()) : user.nickname) + ")");
-        }
         dialog->setWindowTitle(title);
         auto layout = new QVBoxLayout();
         dialog->setLayout(layout);
@@ -1172,6 +1177,7 @@ void Explorer::listFS(NxFileList selectedFiles)
     auto dialog = new QDialog(this, Qt::Dialog | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
     auto layout = new QHBoxLayout();
     dialog->setLayout(layout);
+    dialog->setWindowTitle(title);
     auto listWdgt = new QTableWidget(dialog);
     listWdgt->setColumnCount(1);
     listWdgt->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -1213,3 +1219,28 @@ void Explorer::extractFS(QList<NxFile*> selectedFiles)
     concurrentSlotWithProgressDlg(m_viewtype == Nca ? &Explorer::do_extractFS_Hactool : &Explorer::do_extractFS, queue);
 }
 
+QString Explorer::explicitOutputPathForNxFile(NxFile* file)
+{
+
+    QString path = "/";
+    if (file == nullptr)
+        return path;
+
+    if (file->titleID())
+    {
+        path.append(QString::fromStdString(file->titleIDString()));
+
+        if (file->hasAdditionalString("title_name"))
+            path.append(" " + QString::fromStdString(file->normalizedTitleLabel()));
+
+        path.append("/");
+    }
+    if (file->hasUserID())
+    {
+        auto user = userDB ? userDB->getUserByUserId(file->userID()) : NxUserIdEntry();
+        path.append((user.nickname.isEmpty() ? QString::fromStdString(file->userIDString()) : user.nickname) + "/");
+    }
+    path.append(QString::fromStdWString(file->filename()));
+
+    return path;
+}

@@ -1017,6 +1017,25 @@ void MainWindow::on_partition_table_itemSelectionChanged()
                 else openMountDialog();
             });
             ui->partition_table->addAction(mountAction);
+
+            if (!selected_part->is_vfs_mounted()) {
+                QAction* quickMountAction = new QAction(mountIcon, "Quick mount");
+                quickMountAction->setStatusTip("Quick mount");
+                ui->partition_table->connect(quickMountAction, &QAction::triggered, [=]() {
+                    if (m_vfsRunner != nullptr)
+                        delete m_vfsRunner;
+
+                    m_vfsRunner = new VfsMountRunner(selected_part);
+                    VfsMountRunner runner(selected_part);
+                    connect(m_vfsRunner, &VfsMountRunner::error, this, &MainWindow::error);
+                    connect(m_vfsRunner, &VfsMountRunner::mounted, [=](){
+                        QMessageBox::information(this, "Success", QString("Partition mounted (%1).").arg(m_vfsRunner->mounPoint()));
+                        on_partition_table_itemSelectionChanged();
+                    });
+                    m_vfsRunner->run();
+                });
+                ui->partition_table->addAction(quickMountAction);
+            }
         }
         button->setStatusTip(statusTip);
         button->setToolTip(statusTip);

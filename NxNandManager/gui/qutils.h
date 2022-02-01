@@ -16,7 +16,7 @@ bool EnsureOutputDir(const QString &dir_path);
 
 QString NxFilePath2VfsPath(NxPartition *nxp, NxFile *file);
 
-enum fdMode { open_file, save_as };
+enum fdMode { open_file, save_as, save_to_dir };
 QString FileDialog(QWidget *parent, fdMode mode, const QString& defaultName = "", const QString& filters = "");
 
 typedef struct _NxTitle {
@@ -142,7 +142,16 @@ class VfsMountRunner : public QObject
 {
      Q_OBJECT
 public:
-    void run(NxPartition *p, const QString &YesNoQuestion = nullptr);
+    VfsMountRunner(NxPartition* partition) : m_partition(partition) { updateSettings(); }
+    void updateSettings();
+    void run(const QString &YesNoQuestion = nullptr);
+    QString mounPoint() { return QString(m_mount_point).toUpper().append(":"); }
+
+private:
+    NxPartition *m_partition;
+    wchar_t m_mount_point = '\0';
+    bool m_readOnly = true;
+
 signals:
     void error(int, QString);
     void mounted();

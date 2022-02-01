@@ -40,10 +40,10 @@ protected:
 private:
     // Pointers
     Ui::Progress *ui;
-    QWidget* m_parent;
+    QWidget* m_parent = nullptr;
     NxStorage *m_workingStorage;
-    QWinTaskbarButton *TaskBarButton;
-    QWinTaskbarProgress *TaskBarProgress;
+    QWinTaskbarButton *TaskBarButton = nullptr;
+    QWinTaskbarProgress *TaskBarProgress = nullptr;
     QPlainTextEdit* console = nullptr;
     QLabel* console_progress_line = nullptr;
     bool bTaskBarSet = false;

@@ -175,8 +175,8 @@ private:
     QFuture<void> future;
     QFutureWatcher<void> *watcher;
     QMovie *m_loading_movie = nullptr;
-    VfsMountRunner m_vfsRunner;
     HacToolNet m_hactool;
+    VfsMountRunner *m_vfsRunner = nullptr;
 
     // Private functions
     CpyQueue getCopyQueue(QList<NxFile*> selectedFiles, bool force_dirOutput = false);
@@ -184,6 +184,7 @@ private:
     NxUserIdEntry getUserByUserId(u8 *user_id);
     QList<NxFile*> selectedFiles();
     void loadingWdgtSetVisible(bool visible);
+    QString explicitOutputPathForNxFile(NxFile* file);
 
     // Helpers
     void concurrentSlotWithProgressDlg(void (Explorer::*functor)(CpyQueue), CpyQueue queue);

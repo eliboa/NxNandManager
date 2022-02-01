@@ -70,6 +70,8 @@ private:
     Debug* DebugDialog = nullptr;
     Explorer* ExplorerDialog = nullptr;
     MountDialog* mountDialog = nullptr;
+    VfsMountRunner *m_vfsRunner = nullptr;
+
 
 	NxStorage* input;
     NxStorage* selected_io = nullptr;

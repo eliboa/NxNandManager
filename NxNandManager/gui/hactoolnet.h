@@ -15,7 +15,7 @@ public:
     enum ProcessFlag {
         NoProcessFlag   = 0x01,
         EmitErrorSignal = 0x02,
-        ConsoleWrite    = 0x03,
+        ConsoleWrite    = 0x04,
     };
     Q_DECLARE_FLAGS(ProcessFlags, ProcessFlag)
 

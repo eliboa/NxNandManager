@@ -26,7 +26,8 @@ CONFIG += console
 CONFIG += static create_prl link_prl
 CONFIG += object_parallel_to_source
 
-QMAKE_CXXFLAGS += -fpermissive
+QMAKE_CXXFLAGS += -fpermissive -std=c++0x -pthread
+LIBS += -pthread
 
 SOURCES += \
     ../NxFile.cpp \
@@ -177,7 +178,6 @@ DEPENDPATH += $${OPENSSL_LIB_PATH}/include
 
 win32:!win32-g++: PRE_TARGETDEPS += $${OPENSSL_LIB_PATH}/lib/crypto.lib
 else:win32-g++: PRE_TARGETDEPS += $${OPENSSL_LIB_PATH}/lib/libcrypto.a
-LIBS += -lpthread
 
 DISTFILES += \
     images/explorer.png

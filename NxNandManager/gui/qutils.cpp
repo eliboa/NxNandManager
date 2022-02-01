@@ -59,9 +59,16 @@ QString FileDialog(QWidget *parent, fdMode mode, const QString& defaultName, con
     {
         filePath = fd.getOpenFileName(parent, "Open file", "default_dir\\", filters);
     }
+    else if (mode == save_to_dir)
+    {
+        fd.setFileMode(QFileDialog::DirectoryOnly);
+        if(!fd.exec())
+            return "";
+        filePath = fd.selectedFiles().at(0);
+    }
     else
     {
-        fd.setAcceptMode(QFileDialog::AcceptSave); // Ask overwrite
+        fd.setAcceptMode(QFileDialog::AcceptSave); // Ask overwrite        
         filePath = fd.getSaveFileName(parent, "Save as", "default_dir\\" + defaultName);
     }
     if (!filePath.isEmpty())
@@ -366,17 +373,50 @@ NxUserIdEntry NxUserDB::getUserByUserId(u8 user_id[0x10])
 
     return NxUserIdEntry();
 }
-void VfsMountRunner::run(NxPartition *p, const QString &YesNoQuestion)
+
+void VfsMountRunner::updateSettings()
+{
+    if (m_partition == nullptr)
+        return;
+
+     QSettings userSettings;
+
+    // Set mount point
+    /// Get available mount points
+    auto mount_points = GetAvailableMountPoints();
+    if (!mount_points.size())
+        emit error(1, "No mount point available");
+    m_mount_point = mount_points.at(0);
+    /// User prefered mount point
+    auto setting_key = QString("mount_%1_mountPoint").arg(QString::fromStdString(m_partition->partitionName()));
+    if (userSettings.contains(setting_key))
+    {
+        auto u_driveLetter = userSettings.value(setting_key).toString().back().unicode();
+        // Check if available
+        for (const auto mount_point : mount_points) if (mount_point == u_driveLetter) {
+            m_mount_point = u_driveLetter;
+            break;
+        }
+    }
+
+    // Set readOnly
+    m_readOnly = true;
+    if (userSettings.contains("mount_readonly"))
+        m_readOnly = userSettings.value("mount_readonly").toBool();
+}
+
+void VfsMountRunner::run(const QString &YesNoQuestion)
 {
     if (YesNoQuestion.length() && QMessageBox::question(nullptr, "Mount partition",
                                         YesNoQuestion, QMessageBox::Yes | QMessageBox::No) == QMessageBox::No)
         return;
 
-    if (p->is_vfs_mounted())
-        p->unmount_vfs();
-    p->disconnect();
-    connect(p, &NxPartition::vfs_mounted_signal, this, &VfsMountRunner::mounted);
-    connect(p, &NxPartition::vfs_callback, [&](long status){
+    if (m_partition->is_vfs_mounted())
+        m_partition->unmount_vfs();
+
+    m_partition->disconnect();
+    connect(m_partition, &NxPartition::vfs_mounted_signal, this, &VfsMountRunner::mounted);
+    connect(m_partition, &NxPartition::vfs_callback, [&](long status){
         if (status == DOKAN_DRIVER_INSTALL_ERROR)
             emit error(1, "Dokan driver not installed. Please mount from main window to install driver.");
         else if (status < -1000)
@@ -385,13 +425,8 @@ void VfsMountRunner::run(NxPartition *p, const QString &YesNoQuestion)
             emit error(1, QString::fromStdString(dokanNtStatusToStr(status)));
     });
 
-    QSettings userSettings;
-    auto setting_key = QString("mount_%1_mountPoint").arg(QString::fromStdString(p->partitionName()));
-    wchar_t driveLetter = '\0';
-    if (userSettings.contains(setting_key))
-        driveLetter = userSettings.value(setting_key).toString().back().unicode();
 
-    QtConcurrent::run(p, &NxPartition::mount_vfs, true, driveLetter, ReadOnly | VirtualNXA, nullptr);
+    QtConcurrent::run(m_partition, &NxPartition::mount_vfs, true, m_mount_point, m_readOnly ? ReadOnly | VirtualNXA : VirtualNXA, nullptr);
 }
 QString rtrimmed(const QString& str) {
   int n = str.size() - 1;
