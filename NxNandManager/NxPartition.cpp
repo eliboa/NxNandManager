@@ -692,6 +692,9 @@ int NxPartition::unmount_fs()
     if (!is_mounted())
         return SUCCESS;
 
+    if (f_mount(nullptr, fs_prefix().c_str(), 0) != FR_OK)
+        return ERR_FAILED_TO_UNMOUNT_FS;
+
     if (nxfs_uninit(&m_fatfs) != RES_OK)
         return ERR_FAILED_TO_UNMOUNT_FS;
 
