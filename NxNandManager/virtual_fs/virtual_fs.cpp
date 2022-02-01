@@ -71,7 +71,8 @@ int virtual_fs::populate()
             bool isDir = fno.fattrib == FILE_ATTRIBUTE_DIRECTORY || (fno.fattrib == FILE_ATTRIBUTE_NX_ARCHIVE && !virtualize_nxa);
             auto filename = wstring(dir).append(dir.back() != L'\\' ? L"\\" : L"").append(fno.fname);
 
-            NxFile *nxFile = isDir ? nullptr : new NxFile(partition, filename, virtualize_nxa ? VirtualizeNXA : SimpleFile);
+            NxFileFlag options = virtualize_nxa ? VirtualizeNXA : SimpleFile;
+            NxFile *nxFile = isDir ? nullptr : new NxFile(partition, filename, options);
             if (nxFile && !nxFile->exists()) {
                 delete nxFile;
                 continue;

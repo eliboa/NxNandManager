@@ -24,8 +24,7 @@ NxPartition::NxPartition(NxStorage *p, const char* p_name, u32 lba_start, u32 lb
     dbg_printf("NxPartition::NxPartition(parent, %s, lba_start=%I32d, lba_end=%I32d)\n", p_name, lba_start, lba_end);
 
     // Init member variables
-    m_fatfs.fs_type = 0;
-    m_fatfs.pdrv = 0;
+    memset(&m_fatfs, 0, sizeof(FATFS));
     for (int i = 0; i < 37 || i < (int)strlen(p_name)-1; i++)
         m_name[i] = p_name[i];
     m_isEncrypted = false;
@@ -805,32 +804,75 @@ FRESULT static (*fs_stat) (const TCHAR* path, FILINFO* fno) = &f_stat;
 FRESULT static (*fs_chmod) (const TCHAR* path, BYTE attr, BYTE mask) = &f_chmod;
 FRESULT static (*fs_utime) (const TCHAR* path, const FILINFO* fno) = &f_utime;
 FRESULT static (*fs_getfree) (const TCHAR* path, DWORD* nclst, FATFS** fatfs) = f_getfree;
+FRESULT static (*fs_readdir) (DIR* dp, FILINFO* fno) = f_readdir;
 
 FRESULT NxPartition::f_open (FIL* fp, const TCHAR* path, BYTE mode) {
-    return !is_mounted() ? FR_NO_FILESYSTEM : fs_open(fp, fs_prefix(path).c_str(), mode);
+    if (!is_mounted())
+        return FR_NO_FILESYSTEM;
+
+    std::lock_guard<std::mutex> lock(_fs_mutex);
+    return fs_open(fp, fs_prefix(path).c_str(), mode);
 }
 FRESULT NxPartition::f_opendir (DIR* dp, const TCHAR* path) {
-    return !is_mounted() ? FR_NO_FILESYSTEM : fs_opendir(dp, fs_prefix(path).c_str());
+    if (!is_mounted())
+        return FR_NO_FILESYSTEM;
+
+    std::lock_guard<std::mutex> lock(_fs_mutex);
+    return fs_opendir(dp, fs_prefix(path).c_str());
 }
 FRESULT NxPartition::f_mkdir (const TCHAR* path) {
-    return !is_mounted() ? FR_NO_FILESYSTEM : fs_mkdir(fs_prefix(path).c_str());
+    if (!is_mounted())
+        return FR_NO_FILESYSTEM;
+
+    std::lock_guard<std::mutex> lock(_fs_mutex);
+    return fs_mkdir(fs_prefix(path).c_str());
 }
 FRESULT NxPartition::f_unlink (const TCHAR* path) {
-    return !is_mounted() ? FR_NO_FILESYSTEM : fs_unlink(fs_prefix(path).c_str());
+    if (!is_mounted())
+        return FR_NO_FILESYSTEM;
+
+    std::lock_guard<std::mutex> lock(_fs_mutex);
+    return fs_unlink(fs_prefix(path).c_str());
 }
 FRESULT NxPartition::f_rename (const TCHAR* path_old, const TCHAR* path_new) {
-    return !is_mounted() ? FR_NO_FILESYSTEM : fs_rename(fs_prefix(path_old).c_str(), fs_prefix(path_new).c_str());
+    if (!is_mounted())
+        return FR_NO_FILESYSTEM;
+
+    std::lock_guard<std::mutex> lock(_fs_mutex);
+    return fs_rename(fs_prefix(path_old).c_str(), fs_prefix(path_new).c_str());
 }
 FRESULT NxPartition::f_stat (const TCHAR* path, FILINFO* fno) {
-    return !is_mounted() ? FR_NO_FILESYSTEM : fs_stat(fs_prefix(path).c_str(), fno);
+    if (!is_mounted())
+        return FR_NO_FILESYSTEM;
+
+    std::lock_guard<std::mutex> lock(_fs_mutex);
+    return fs_stat(fs_prefix(path).c_str(), fno);
 }
 FRESULT NxPartition::f_chmod (const TCHAR* path, BYTE attr, BYTE mask) {
-    return !is_mounted() ? FR_NO_FILESYSTEM : fs_chmod(fs_prefix(path).c_str(), attr, mask);
+    if (!is_mounted())
+        return FR_NO_FILESYSTEM;
+
+    std::lock_guard<std::mutex> lock(_fs_mutex);
+    return fs_chmod(fs_prefix(path).c_str(), attr, mask);
 }
 FRESULT NxPartition::f_utime (const TCHAR* path, const FILINFO* fno) {
-    return !is_mounted() ? FR_NO_FILESYSTEM : fs_utime(fs_prefix(path).c_str(), fno);
+    if (!is_mounted())
+        return FR_NO_FILESYSTEM;
+
+    std::lock_guard<std::mutex> lock(_fs_mutex);
+    return fs_utime(fs_prefix(path).c_str(), fno);
 }
 FRESULT NxPartition::f_getfree (const TCHAR* path, DWORD* nclst, FATFS** fatfs) {
-    return !is_mounted() ? FR_NO_FILESYSTEM : fs_getfree(fs_prefix(path).c_str(), nclst, fatfs);
-}
+    if (!is_mounted())
+        return FR_NO_FILESYSTEM;
 
+    std::lock_guard<std::mutex> lock(_fs_mutex);
+    return fs_getfree(fs_prefix(path).c_str(), nclst, fatfs);
+}
+FRESULT NxPartition::f_readdir (DIR* dp, FILINFO* fno) {
+    if (!is_mounted())
+        return FR_NO_FILESYSTEM;
+
+    std::lock_guard<std::mutex> lock(_fs_mutex);
+    return fs_readdir(dp, fno);
+}

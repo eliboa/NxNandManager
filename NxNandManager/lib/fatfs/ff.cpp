@@ -4730,7 +4730,7 @@ FRESULT f_stat (
 	/* Get logical drive */
 	res = mount_volume(&path, &dj.obj.fs, 0);
 	if (res == FR_OK) {
-		INIT_NAMBUF(dj.obj.fs);
+        INIT_NAMBUF(dj.obj.fs);
 		res = follow_path(&dj, path);	/* Follow the file path */
 		if (res == FR_OK) {				/* Follow completed */
 			if (dj.fn[NSFLAG] & NS_NONAME) {	/* It is origin directory */

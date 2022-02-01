@@ -27,7 +27,7 @@
 #include "NxCrypto.h"
 #include "res/progress_info.h"
 #include "lib/fatfs/diskio.h"
-
+#include <mutex>
 #if defined(ENABLE_GUI)
 #include <QObject>
 #endif
@@ -101,11 +101,11 @@ class NxPartition
         bool m_isValidPartition = false;
         NxCrypto *nxCrypto;
         std::ofstream p_ofstream;
-        BYTE *m_buffer;
-        int m_buff_size;
-        u64 bytes_count;
         fat32::fs_attr m_fs;
         bool m_fsSet = false;
+
+        // Mutex
+        std::mutex _fs_mutex;
 
         // Filesystem
         FATFS m_fatfs;
@@ -177,7 +177,7 @@ class NxPartition
         FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask);			/* Change attribute of a file/dir */
         FRESULT f_utime (const TCHAR* path, const FILINFO* fno);			/* Change timestamp of a file/dir */
         FRESULT f_getfree (const TCHAR* path, DWORD* nclst, FATFS** fatfs);	/* Get number of free clusters on the drive */
-
+        FRESULT f_readdir (DIR* dp, FILINFO* fno);
 #if defined(ENABLE_GUI)
 signals:
         void vfs_mounted_signal();

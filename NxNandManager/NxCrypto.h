@@ -51,6 +51,7 @@ class NxCrypto
         void apply_tweak(const unsigned char* tweak, unsigned char* data, size_t data_len);
 
     public:        
+        void createCtx();
         void decrypt(unsigned char* data, size_t offset);
         void encrypt(unsigned char* data, size_t offset);
         void setSectorSize(size_t s) { sector_size = s; }

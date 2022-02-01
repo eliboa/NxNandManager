@@ -33,6 +33,14 @@ NxCrypto::~NxCrypto()
     tweak_key.clear();
 }
 
+void NxCrypto::createCtx()
+{
+    EVP_CIPHER_CTX_free(ctx_crypto);
+    EVP_CIPHER_CTX_free(ctx_tweak);
+    ctx_crypto = EVP_CIPHER_CTX_new();
+    ctx_tweak = EVP_CIPHER_CTX_new();
+}
+
 // Create & encrypt tweak
 void NxCrypto::create_tweak(unsigned char* tweak, size_t offset) 
 {
@@ -74,6 +82,7 @@ void NxCrypto::decrypt(unsigned char* data, size_t offset)
     int outl, outl2;
     unsigned char tweak[16];
 
+    createCtx();
     create_tweak(tweak, offset);
     apply_tweak(tweak, data, sector_size);
 
@@ -97,6 +106,7 @@ void NxCrypto::encrypt(unsigned char* data, size_t offset)
     int outl, outl2;
     unsigned char tweak[16];
 
+    createCtx();
     create_tweak(tweak, offset);
     apply_tweak(tweak, data, sector_size);
 

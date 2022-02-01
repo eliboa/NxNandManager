@@ -143,6 +143,8 @@ static NxSystemTitles exFatTitlesArr[] = {
     {"9.1.0", "c9bd4eda34c91a676de09951bb8179ae.nca" },
     {"9.0.1", "3b444768f8a36d0ddd85635199f9676f.nca" },
     {"9.0.0", "3b444768f8a36d0ddd85635199f9676f.nca" },
+    {"8.1.1", "96f4b8b729ade072cc661d9700955258.nca"}, /* 8.1.1-12  from chinese gamecard */
+    {"8.1.1", "96f4b8b729ade072cc661d9700955258.nca"}, /* 8.1.1-100 from Lite */
     {"8.1.0", "96f4b8b729ade072cc661d9700955258.nca" },
     {"8.0.1", "b2708136b24bbe206e502578000b1998.nca" },
     {"8.0.0", "b2708136b24bbe206e502578000b1998.nca" },
@@ -570,7 +572,7 @@ void NxStorage::constructor(const wstring &storage)
             if (nxHandle->read((u64)0x200, buff, &bytesRead, NX_BLOCKSIZE))
                 autoRcm = buff[0x10] != 0xF7 ? true : false;
 
-            // Read package1loader header (copied from Atmosphere/fusee/fusee-secondary/src/nxboot.c)
+            // Read package1loader header (copied from fusee/program/source/fusee_setup_horizon.cpp)
             if (nxHandle->read((u64)0x100000, buff, &bytesRead, NX_BLOCKSIZE))
             {
                 package1ldr_header_t pk1ldr;
@@ -629,6 +631,18 @@ void NxStorage::constructor(const wstring &storage)
                         } else if (memcmp(pk1ldr.build_timestamp, "20210422", 8) == 0) {
                             firmware_version_boot0.major = 12;
                             firmware_version_boot0.micro = 2;
+                        }
+                        else if (memcmp(pk1ldr.build_timestamp, "20210607", 8) == 0) {
+                            firmware_version_boot0.major = 12;
+                            firmware_version_boot0.minor = 1;
+                        }
+                        else if (memcmp(pk1ldr.build_timestamp, "20210805", 8) == 0) {
+                            firmware_version_boot0.major = 13;
+                        }
+                        else if (memcmp(pk1ldr.build_timestamp, "20220105", 8) == 0) {
+                            firmware_version_boot0.major = 13;
+                            firmware_version_boot0.minor = 2;
+                            firmware_version_boot0.micro = 1;
                         }
                         break;
                     }
@@ -780,14 +794,36 @@ void NxStorage::setStorageInfo(int partition)
 
     if ((!partition || partition == SYSTEM) && (cur_part = getNxPartition(SYSTEM)) && cur_part->isGood())
     {
+        if (!cur_part->is_mounted())
+            cur_part->mount_fs();
+
+        for (int i(0); i < array_countof(systemTitlesArr); i++)
+        {
+            auto file = NxFile(cur_part, wstring(L"/Contents/registered/").append(wstring(convertCharArrayToLPCWSTR(systemTitlesArr[i].nca_filename))));
+            if (file.exists()) {
+                dbg_printf("Found NCA for fw %s\n", systemTitlesArr[i].fw_version);
+                memcpy(fw_version, systemTitlesArr[i].fw_version, strlen(systemTitlesArr[i].fw_version));
+                setFirmwareVersion(&firmware_version, systemTitlesArr[i].fw_version);
+
+                if ( NxFile(cur_part, wstring(L"/Contents/registered/").append(wstring(convertCharArrayToLPCWSTR(exFatTitlesArr[i].nca_filename)))).exists())
+                    exFat_driver = true;
+                break;
+            }
+
+        }
+        /*
         std::vector<fat32::dir_entry> dir_entries;
         unsigned char buff[CLUSTER_SIZE];
 
         // Retrieve fw version & exFat driver from NCA in /Contents/registered
         if (cur_part->fat32_dir(&dir_entries, "/Contents/registered"))
         {
+
             for (fat32::dir_entry nca : dir_entries)
             {
+                if (!nca.filename.compare("9eb7dd136e156361dc6368f812175e90.nca"))
+                    int i = 0;
+
                 for (auto title : systemTitlesArr) if (!nca.filename.compare(std::string(title.nca_filename)))
                 {
                     dbg_printf("Found NCA for fw %s\n", title.fw_version);
@@ -817,7 +853,7 @@ void NxStorage::setStorageInfo(int partition)
             while (cur_off < max_off && nxHandle->read(cur_off, buff, &bytesRead, CLUSTER_SIZE))
             {
                 std::string haystack(buff, buff + CLUSTER_SIZE);
-                /*
+
                 // Find needle (firmware version) in haystack
                 std::size_t n = haystack.find("OsVersion");
                 if (n != std::string::npos)
@@ -836,7 +872,7 @@ void NxStorage::setStorageInfo(int partition)
                         }
                     }
                 }
-                */
+
                 // Find needle (serial number) in haystack
                 std::size_t n = haystack.find("\xACSerialNumber");
                 if (!strlen(serial_number) && n != std::string::npos)
@@ -845,7 +881,6 @@ void NxStorage::setStorageInfo(int partition)
                 cur_off += bytesRead;
             }
         }
-        /*
         // Read play report => /save/80000000000000a1 --> Let's just assume file is not fragmented in SYSTEM (TODO : Scan FAT for fragmentation)
         if (cur_part->fat32_dir(&dir_entries, "/save/80000000000000a1"))
         {
@@ -880,6 +915,7 @@ void NxStorage::setStorageInfo(int partition)
             }
         }
         */
+
         // overwrite fw version if value found in journal/play report is greater than fw version in
         // package1ldr (trick for downgraded NAND, only works for FULL NAND)
         //if(firmware_version_boot0.major > 0 && firmware_version_boot0.major < firmware_version.major)
@@ -1885,9 +1921,9 @@ int NxStorage::createMmcEmuNand(const char* mmc_path, void(*updateProgress)(Prog
         return ERR_INVALID_NAND;
 
     if (type == RAWNAND) {
-        if (nullptr == boot0_path)
+        if (!boot0_path.length())
             return ERR_INVALID_BOOT0;
-        if (nullptr == boot1_path)
+        if (!boot1_path.length())
             return ERR_INVALID_BOOT1;
 
         dbg_wprintf(L"NxStorage::createMmcEmuNand() - boot0 path : %s\n", boot0_path.c_str());
@@ -2374,20 +2410,21 @@ int NxStorage::createFileBasedEmuNand(EmunandType emu_type, const char* volume_p
     mbstowcs(b0_path, boot0_path, MAX_PATH);
     wchar_t b1_path[MAX_PATH];
     mbstowcs(b1_path, boot1_path, MAX_PATH);
-    createFileBasedEmuNand(emu_type, wstring(vol_path), updateProgress, wstring(b0_path), wstring(b1_path));
+    return createFileBasedEmuNand(emu_type, wstring(vol_path), updateProgress, wstring(b0_path), wstring(b1_path));
 }
+
 int NxStorage::createFileBasedEmuNand(EmunandType emu_type, const wstring &volume_path, void(*updateProgress)(ProgressInfo), const wstring &boot0_path, const wstring &boot1_path)
 {
     if (not_in(type, {RAWMMC, RAWNAND}))
         return ERR_INVALID_NAND;
 
-    if (not_in(emu_type, {fileBasedAMS, fileBasedSXOS}) || nullptr == volume_path)
+    if (not_in(emu_type, {fileBasedAMS, fileBasedSXOS}) || !volume_path.length())
         return -1;
 
     if (type == RAWNAND) {
-        if (nullptr == boot0_path)
+        if (!boot0_path.length())
             return ERR_INVALID_BOOT0;
-        if (nullptr == boot1_path)
+        if (!boot1_path.length())
             return ERR_INVALID_BOOT1;
     }
 

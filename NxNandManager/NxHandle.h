@@ -22,7 +22,7 @@
 #include <Wincrypt.h>
 #include <iostream>
 #include <string>
-
+#include <mutex>
 #include <string.h> 
 #include "res/types.h"
 #include "NxPartition.h"
@@ -69,7 +69,7 @@ class NxHandle {
     // Private member variables
     private:
 
-        NxStorage *parent;
+        NxStorage *parent = nullptr;
         HANDLE m_h;
 
         // Offsets & I/O member variables
@@ -96,8 +96,8 @@ class NxHandle {
         bool m_isReadOnly = false;
 
         // Splitted storage
-        NxSplitFile *m_lastSplitFile;
-        NxSplitFile *m_curSplitFile;
+        NxSplitFile *m_lastSplitFile = nullptr;
+        NxSplitFile *m_curSplitFile = nullptr;
         int m_splitFileCount = 0;
         bool b_isSplitted = false;
 
@@ -115,6 +115,10 @@ class NxHandle {
         void constructor(const wstring &path, u64 chunksize);
         NxSplitFile* getSplitFile(u64 offset);        
         void do_crypto(u8* buffer, u32 buff_size, u64 start_offset);
+
+        // Mutex
+        std::mutex _read_write_mutex;
+
     public:
 
         // Public variables

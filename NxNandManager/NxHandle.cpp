@@ -177,7 +177,7 @@ void NxHandle::initHandle(int crypto_mode, NxPartition *partition)
         return;
     }
 
-    u64 tmp_size = !parent->size() || isSplitted() ? m_size : parent->size();
+    u64 tmp_size = nullptr == parent || !parent->size() || isSplitted() ? m_size : parent->size();
     m_off_start = (u64)parent->mmc_b0_lba_start * NX_BLOCKSIZE;
     m_off_end = m_off_start + tmp_size - 1;
     m_off_max = m_off_end;
@@ -484,7 +484,7 @@ void NxHandle::do_crypto(u8* buffer, u32 buff_size, u64 start_offset)
         t_buff_cl_size = (u32)(t_buff_size / CLUSTER_SIZE); // Size of working buffer in clusters
         if (!t_buff_cl_size || t_buff_size % CLUSTER_SIZE)
             t_buff_cl_size++;
-        t_buff = (u8*)malloc(t_buff_cl_size*CLUSTER_SIZE);
+        t_buff = new u8[t_buff_cl_size*CLUSTER_SIZE];
         // Copy provided buffer in working buffer
         memcpy(&t_buff[t_buff_offset], buffer, buff_size);
     }
@@ -504,7 +504,7 @@ void NxHandle::do_crypto(u8* buffer, u32 buff_size, u64 start_offset)
     if (malloc_buff) {
         // Emplace back buffer data & free working buffer
         memcpy(buffer, &t_buff[t_buff_offset], buff_size);
-        free(t_buff);
+        delete[] t_buff;
     }
     //printf("Buffer after %s crypto :\n", m_crypto == ENCRYPT ? "ENCRYPT" : "DECRYPT");
     //hexStrPrint((u8*)buffer, 0x20);
@@ -531,6 +531,7 @@ bool NxHandle::read(void *buffer, DWORD* br, DWORD length)
     // Read data to buffer
     DWORD bytesToReadTotal = length;
     DWORD bytesCount = 0;
+    //std::lock_guard<std::mutex> lock(_read_write_mutex);
     while(bytesCount < bytesToReadTotal)
     {
         DWORD bytesToRead = bytesToReadTotal - bytesCount;
@@ -606,6 +607,7 @@ bool NxHandle::write(void *in_buffer, DWORD* bw, DWORD length)
         length -= lp_CurrentPointer.QuadPart + length - m_off_end - 1;
 
     bool encrypt = m_crypto == ENCRYPT;
+    //std::lock_guard<std::mutex> lock(_read_write_mutex);
     void* buffer = encrypt ? malloc(length) : in_buffer;
     if (encrypt == ENCRYPT) {
         // We want to write encrypted data but we don't want input buffer to be encrypted !!!

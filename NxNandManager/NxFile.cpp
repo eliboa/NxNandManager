@@ -1,10 +1,11 @@
 #include "NxFile.h"
 
-NxFile::NxFile(NxPartition* nxp, const wstring &name, u8 options)
+NxFile::NxFile(NxPartition* nxp, const wstring &name, NxFileFlag options)
  : m_nxp(nxp), m_options(options)
 {
     memset(m_user_id, 0, 0x10);
     setCompletePath(name);
+    _file_mutex = new std::mutex();
 
     // Controls
     FILINFO fno;
@@ -46,7 +47,7 @@ NxFile::NxFile(NxPartition* nxp, const wstring &name, u8 options)
                 m_fileStatus = NX_NO_FILE;
                 return;
             }
-            while (!f_readdir(&dp, &sub_fno) && sub_fno.fname[0]) {
+            while (!m_nxp->f_readdir(&dp, &sub_fno) && sub_fno.fname[0]) {
                 NxSplitOff f_entry;
                 f_entry.off_start = m_size;
                 f_entry.size = sub_fno.fsize;
@@ -78,6 +79,8 @@ NxFile::~NxFile()
 {
     if (isOpen())
         close();
+
+    delete _file_mutex;
 
     if (isdebug)
         dbg_wprintf(L"NxFile::~NxFile() for %ls\n", completePath().c_str());
@@ -335,7 +338,6 @@ bool NxFile::ensure_nxa_file(u64 offset, NxAccessMode mode)
     else if (!(m_options & VirtualizeNXA))
         return true;
 
-
     if (!isValidOffset(offset)) // Offset is out of range
         return mode == NX_READONLY ? false : resize(offset, true) == FR_OK;
 
@@ -373,6 +375,8 @@ bool NxFile::open(BYTE mode)
 
     if (isOpen())
         return exit(FR_OK);
+
+    std::lock_guard<std::mutex> lock(*_file_mutex);
 
     auto path = this->completePath();
     int res; bool nxa_init = false;
@@ -449,6 +453,8 @@ bool NxFile::close()
     if (!isOpenAndValid())
         return exit(FR_INVALID_OBJECT);
 
+    std::lock_guard<std::mutex> lock(*_file_mutex);
+
     int res = f_close(&m_fp);
     if (!res)
         m_openStatus = NX_CLOSED;
@@ -456,7 +462,7 @@ bool NxFile::close()
     return exit(res);
 }
 
-bool NxFile::seek(u64 offset)
+bool NxFile::seek(u64 offset, bool no_lock)
 {
     auto exit = [&](int res) {
         if (isdebug && res)
@@ -474,6 +480,8 @@ bool NxFile::seek(u64 offset)
     if (absoluteOffset() == offset) // no need to move current pointer
         return exit(FR_OK);
 
+    if (!no_lock)
+        std::lock_guard<std::mutex> lock(*_file_mutex);
     auto res = f_lseek(&m_fp, relativeOffset(offset)); // move current pointer
 
     if (!res && absoluteOffset() > m_size) // resize needed ?
@@ -494,6 +502,7 @@ int NxFile::truncate()
     if (!isOpenAndValid())
         return exit(FR_INVALID_OBJECT);
 
+    std::lock_guard<std::mutex> lock(*_file_mutex);
     return exit(resize(absoluteOffset()));
 }
 
@@ -513,6 +522,7 @@ int NxFile::read(void* buff, UINT btr, UINT* br)
 
     u32 bytesCount = 0, bytesTotal = btr;
     int res = FR_OK;
+
     while (bytesCount < bytesTotal)
     {
         btr = bytesTotal - bytesCount;
@@ -529,12 +539,14 @@ int NxFile::read(void* buff, UINT btr, UINT* br)
         }
 
         void* p = static_cast<u8*>(buff) + bytesCount;
+
         res = f_read(&m_fp, p, btr, br);
 
         bytesCount += *br;
         if (*br != btr)
             break;
     }
+
     *br = bytesCount;
     return exit(!*br && !res ? FR_NO_FILE : res);
 }
@@ -544,8 +556,10 @@ int NxFile::read(u64 offset, void* buff, UINT btr, UINT* br)
     if (br)
         *br = 0;
 
-    if (!seek(offset))
-        return FR_INVALID_OBJECT;
+    std::lock_guard<std::mutex> lock(*_file_mutex);
+
+    if (!seek(offset, true))
+            return FR_INVALID_OBJECT;
 
     return read(buff, btr, br);
 }
@@ -578,6 +592,7 @@ int NxFile::write(const void* buff, UINT btw, UINT* bw)
     }
 
     res = f_write(&m_fp, buff, btw, &bw_tmp);
+
     *bw += bw_tmp;
 
     if (res == FR_OK && absoluteOffset() > m_size)  // Update file size
@@ -613,8 +628,10 @@ int NxFile::write(u64 offset, const void* buff, UINT btw, UINT* bw)
     if (bw)
         *bw = 0;
 
-    if (!seek(offset))
-        return FR_INVALID_OBJECT;
+    std::lock_guard<std::mutex> lock(*_file_mutex);
+
+    if (!seek(offset, true))
+            return FR_INVALID_OBJECT;
 
     return write(buff, btw, bw);
 }
@@ -633,12 +650,15 @@ int NxFile::remove()
 
     int res;
     if (isNXA() && (m_options & VirtualizeNXA)) {
+        std::lock_guard<std::mutex> lock(*_file_mutex);
         resize(0); // truncate ensures deletion of extra nxa's files
         // Delete cur nxa file
         if ((res =  m_nxp->f_unlink(wstring(completePath() + L"/" + m_files.at(0).file).c_str())))
             return exit(res);
     }
     else close();
+
+    std::lock_guard<std::mutex> lock(*_file_mutex);
 
     // Unlink file (or NXA dir)
     res = m_nxp->f_unlink(completePath().c_str());
@@ -665,6 +685,8 @@ int NxFile::rename(const wstring &new_name)
 
     if (!is_valid_nxp())
         return exit(FR_INVALID_OBJECT);
+
+    std::lock_guard<std::mutex> lock(*_file_mutex);
 
     auto res = m_nxp->f_rename(completePath().c_str(), new_name.c_str());
     if (res == FR_OK)
@@ -806,7 +828,6 @@ string NxFile::normalizedTitleLabel()
 
 bool NxFile::setFileTime(const FILETIME* time)
 {
-    return true;
     auto exit = [&](bool res) {
         if (!res && isdebug)
             dbg_wprintf(L"NxFile::setFileTime() FAILED for %ls [this=%I64d]\n", completePath().c_str(), (u64)this);
@@ -821,25 +842,28 @@ bool NxFile::setFileTime(const FILETIME* time)
         return exit(false);
 
     FileTimeToDosDateTime(time, &fno.fdate, &fno.ftime);
+
     bool is_open = isOpen();
     if (is_open)
         close();
 
+    std::lock_guard<std::mutex> lock(*_file_mutex);
+
     if (m_nxp->f_utime(completePath().c_str(), &fno) != FR_OK)
         return exit(false);
 
+    m_fdate = fno.fdate;
+    m_ftime = fno.ftime;
+
+    _file_mutex->unlock();
     if (is_open)
         open(m_openMode);
 
-    m_fdate = fno.fdate;
-    m_ftime = fno.ftime;
     return exit(true);
 }
 
 bool NxFile::setFileAttr(const BYTE fattr)
 {
-    return true;
-
     auto exit = [&](bool res) {
         if (!res && isdebug)
             dbg_wprintf(L"NxFile::setFileAttr() FAILED for %ls [this=%I64d]\n", completePath().c_str(), (u64)this);
@@ -849,17 +873,22 @@ bool NxFile::setFileAttr(const BYTE fattr)
     if (!isOpenAndValid())
         return exit(false);
 
+
     bool is_open = isOpen();
     if (is_open)
         close();
 
+    std::lock_guard<std::mutex> lock(*_file_mutex);
+
     if (m_nxp->f_chmod(completePath().c_str(), fattr, 0x3F) != FR_OK)
         return exit(false);
 
+    m_fattrib = fattr;
+
+    _file_mutex->unlock();
     if (is_open)
         open(m_openMode);
 
-    m_fattrib = fattr;
     return exit(true);
 }
 

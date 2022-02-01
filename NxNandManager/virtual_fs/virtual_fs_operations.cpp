@@ -182,7 +182,8 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO
         auto alloc_NxFile = [&](BYTE desiredAccess)
         {
             NxFile *ffile = f ? f->get_nxfile() : nullptr;
-            NxFile *file = new NxFile(nxp, ffile ? ffile->completePath().c_str() : filename_str.c_str(), nxp->vfs()->virtualize_nxa ? VirtualizeNXA : SimpleFile);
+            NxFileFlag options = nxp->vfs()->virtualize_nxa ? VirtualizeNXA : SimpleFile;
+            NxFile *file = new NxFile(nxp, ffile ? ffile->completePath().c_str() : filename_str.c_str(), options);
             if (!file->open(desiredAccess)) {
                 delete file;
                 file = nullptr;
@@ -321,7 +322,7 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_createfile(LPCWSTR filename, PDOKAN_IO
     return STATUS_OBJECT_NAME_COLLISION;
 
 
-    if (!dokanfileinfo->IsDirectory)
+    if (!dokanfileinfo->IsDirectory && isdebug)
         {
             wstring dbg;
             if (creation_disposition == CREATE_NEW)
@@ -761,7 +762,7 @@ static NTSTATUS DOKAN_CALLBACK virtual_fs_getdiskfreespace(
   if (!fs->free_clst || fs->free_clst == 0xFFFFFFFF)
   {
       DWORD free_clst;
-      f_getfree(nxp->fs_prefix().c_str(), &free_clst, &fs);
+      nxp->f_getfree(L"", &free_clst, &fs);
       tb = (u64)free_clst * (u64)fs->csize * (u64)512;
   }
   else fb = (u64)fs->free_clst * (u64)fs->csize * (u64)512;

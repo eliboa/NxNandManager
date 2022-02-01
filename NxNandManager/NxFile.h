@@ -24,7 +24,7 @@ using namespace std;
 #define MAGIC_NCA0 0x3041434E /* "NCA0" */
 #define MAGIC_DISF 0x46534944
 
-// Nca structs (taken from hactool's sources)
+// Nca structs (from hactool's sources)
 typedef struct {
     uint8_t fixed_key_sig[0x100]; /* RSA-PSS signature over header with fixed key. */
     uint8_t npdm_key_sig[0x100]; /* RSA-PSS signature over header with key in NPDM. */
@@ -148,11 +148,12 @@ enum NxFileFlag {
     SetAdditionalInfo   = 0x02,
     VirtualizeNXA       = 0x04,
 };
+DEFINE_ENUM_FLAG_OPERATORS(NxFileFlag)
 
 class NxFile
 {
 public:
-    NxFile(NxPartition* nxp, const wstring &name, u8 options = SetAdditionalInfo | VirtualizeNXA);
+    NxFile(NxPartition* nxp, const wstring &name, NxFileFlag options = SetAdditionalInfo | VirtualizeNXA);
     ~NxFile();
 
 private:
@@ -179,6 +180,9 @@ private:
 
     // Variable strings
     vector<AdditionalString> m_addStrings;
+
+    //Mutex
+    std::mutex *_file_mutex;
 
 protected:
     NxFileStatus m_fileStatus = NX_INVALID;
@@ -253,7 +257,7 @@ public:
     // Member functions
     bool open(BYTE mode = FA_READ);
     bool close();
-    bool seek(u64 offset);
+    bool seek(u64 offset, bool no_lock = false);
     int truncate();
     int read(void* buff, UINT btr, UINT* br);
     int read(u64 offset, void* buff, UINT btr, UINT* br);
