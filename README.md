@@ -1,10 +1,10 @@
+![Png](https://img.shields.io/badge/latest%20stable%20release-5.1-yellow) 
 ![Png](https://img.shields.io/badge/platform-windows-lightgrey)
-![Png](https://img.shields.io/badge/latest%20stable%20release-4.1.2-yellow)
+![GitHub contributors](https://img.shields.io/github/contributors/eliboa/NxNandManager)
 ![GitHub](https://img.shields.io/github/license/eliboa/NxNandManager)
 ![GitHub All Releases](https://img.shields.io/github/downloads/eliboa/NxNandManager/total)
 ![GitHub repo size](https://img.shields.io/github/repo-size/eliboa/NxNandManager)
 ![GitHub issues](https://img.shields.io/github/issues/eliboa/NxNandManager)
-![GitHub contributors](https://img.shields.io/github/contributors/eliboa/NxNandManager)
 
 # NxNandManager
 
@@ -24,7 +24,14 @@
 - "Advanced copy" feature (passthrough zeroes, split output, zip output, etc.)   
 ![Png](https://www.eliboa.com/NxNandManager4.0b_02.png)
 - Mount any FAT partition (USER, SYSTEM, etc.) as virtual disk. Follow steps to install Dokan's driver first.
-![Gif](https://www.eliboa.com/NxNandManager_v5.0_mount.gif)
+![Png](https://eliboa.com/nxnm_5.1_mount_dialog.png)
+- Explorer (Beta):
+   - Explore the content of USER & SYSTEM partitions. Provides useful info: title name & id, user name & id, etc.
+   - List, save or extract files from saveFS (title saves, under /save folder)
+   - List, save, decrypt or extract content from NCAs (installed titles) using hactoolnet 
+![Png](https://eliboa.com/nxnm_5.1_explorer_dialog_01.png)   
+![Png](https://eliboa.com/nxnm_5.1_explorer_dialog_02.png)   
+![Png](https://eliboa.com/nxnm_5.1_explorer_dialog_03.png)   
 
 ## Supported file format
 
