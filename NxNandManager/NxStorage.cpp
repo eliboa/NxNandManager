@@ -1856,9 +1856,10 @@ int NxStorage::applyIncognito()
     memset(&buffer[0x35E1], 0, 0x006);  // deviceId
     memset(&buffer[0x36E1], 0, 0x006);  // deviceId
     memset(&buffer[0x02B0], 0, 0x180);  // device cert
+    /* Doesn't work for mariko
     memset(&buffer[0x3D70], 0, 0x240);  // device cert
     memset(&buffer[0x3FC0], 0, 0x240);  // device key
-
+    */
     const char junkSerial[] = "XAW00000000000";
     memcpy(&buffer[0x0250], junkSerial, strlen(junkSerial));
 
