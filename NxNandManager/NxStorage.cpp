@@ -646,6 +646,9 @@ void NxStorage::constructor(const wstring &storage)
                             firmware_version_boot0.minor = 2;
                             firmware_version_boot0.micro = 1;
                         }
+                        else if (memcmp(pk1ldr.build_timestamp, "20220209", 8) == 0) {
+                            firmware_version_boot0.major = 14;
+                        }
                         break;
                     }
                 }
@@ -1108,7 +1111,8 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
 
     // UserDataRoot (GPT header)
     nxHandle->initHandle(par.crypto_mode);
-    nxHandle->setPointer(pi.bytesCount);
+    auto rawnand_off = pi.bytesCount;
+    nxHandle->setPointer(rawnand_off);
     if(!nxHandle->read(buffer, &bytesCount, 0x4400))
         return error(ERR_WHILE_COPY);
 
@@ -1145,6 +1149,11 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
 
         // Save GPT header
         memcpy(gpt_header_backup, &hdr[0], 0x200);
+    }
+    else if (isBackupGptMissing())
+    {
+        // Backup GPT header
+        memcpy(gpt_header_backup, buffer + 0x200, 0x200);
     }
 
     // Write UserDataRoot
@@ -1340,7 +1349,7 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         if (sendProgress) updateProgress(pi);
     }
 
-    // Ovewrite backup GPT after resize
+    // Ovewrite backup GPT after resize or if backup GPT is missing from input
     if (par.user_new_size)
     {
          GptHeader *hdr = (GptHeader *)(gpt_header_backup);
@@ -1353,10 +1362,13 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
          }
          else outHandle->createHandle();
 
-         outHandle->setPointer((u64)(hdr->alt_lba * NX_BLOCKSIZE));
+         u64 alt_off = (u64)(hdr->alt_lba * NX_BLOCKSIZE) + rawnand_off;
+         auto res = outHandle->setPointer(alt_off);
          if(!outHandle->write(gpt_header_backup, &bytesWrite, NX_BLOCKSIZE))
             return error(ERR_WHILE_COPY);
     }
+    else if (isBackupGptMissing() && !outHandle->write(gpt_header_backup, &bytesWrite, NX_BLOCKSIZE))
+        return error(ERR_WHILE_COPY);
 
     if (isDrive())
         nxHandle->unlockVolume();
@@ -1365,7 +1377,7 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
     if (pi.bytesCount != pi.bytesTotal)
         return error(ERR_WHILE_COPY);
 
-    if(par.crypto_mode == MD5_HASH && !par.passThroughZero)
+    if(par.crypto_mode == MD5_HASH && !par.passThroughZero && !isBackupGptMissing())
     {                    
         nxHandle->unlockHash();
 
@@ -1494,10 +1506,13 @@ int NxStorage::restore(NxStorage* input, params_t par, void(*updateProgress)(Pro
     u64 in_size = input->size() - in_skip;
     u64 out_size = this->size() - out_skip;
 
+    if (isBackupGptMissing() && !input->isBackupGptMissing())
+        in_size -= 0x200;
 
+    /*
     if (in_size != out_size) // Alow restore overflow if freeSpace is available ?
         return ERR_IO_MISMATCH;
-
+    */
     if (input->isEncrypted() && !isEncrypted())
         return ERR_RESTORE_CRYPTO_MISSIN2;
 

@@ -190,6 +190,7 @@ class NxStorage
         bool isNxStorage();
         bool partitionExists(const char* partition_name);
         bool is_vfs_mounted();
+        bool isBackupGptMissing() { return is_in(type, {RAWMMC, RAWNAND}) && !backupGPT(); }
 
         // Public methods                
         int setKeys(const char* keyset_path);
