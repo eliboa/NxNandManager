@@ -122,7 +122,7 @@ static NxSystemTitles systemTitlesArr[] = {
 
 // Title ID 010000000000081B (BootImagePackageExFat)
 static NxSystemTitles exFatTitlesArr[] = {
-    { "14.0.0", "0319d27ebdc4f4556b0ca948e2ccc081.nca"},
+    { "14.1.0", "0319d27ebdc4f4556b0ca948e2ccc081.nca"},
     { "14.0.0", "0319d27ebdc4f4556b0ca948e2ccc081.nca"},
     { "13.2.1", "d1358d28252ceccbfd1d8d8339f5137d.nca"},
     { "13.2.0", "492bb2c020fa62f32a417eaeee67c647.nca"},
