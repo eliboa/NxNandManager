@@ -224,7 +224,6 @@ void Emunand::on_emunandType_toggled(int type)
                 "An hidden partition for emuNAND will be created on target disk.\n"
                 "A second partition (FAT32) for user purpose (SD Files) will be \n"
                 "created with space left. All data on target disk will be erased.\n"
-                "emuNAND will be compatible with both Atmosphere and SX OS."
             );
             ui->driveListBox->setTitle("Select target disk:");
             updateDisksList();
