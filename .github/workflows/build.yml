@@ -1,0 +1,34 @@
+name: build
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
+            mingw64/mingw-w64-x86_64-qt5-static
+      - name: build
+        shell: msys2 {0}
+        run: |
+          ln -s $(pwd) ~/NxNandManager
+          cd ~/NxNandManager/NxNandManager/gui
+          /mingw64/qt5-static/bin/qmake.exe NxNandManager.pro 'CONFIG += STATIC ARCH64'
+          make -j"$(nproc)"
+          mkdir -p $GITHUB_WORKSPACE/bin
+          cp release/NxNandManager.exe $GITHUB_WORKSPACE/bin
+          cp ../virtual_fs/dokan/x64/dokan1.dll $GITHUB_WORKSPACE/bin
+      - uses: actions/upload-artifact@v2
+        with:
+          name: NxNandManager
+          path: bin/*
