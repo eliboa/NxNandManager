@@ -15,7 +15,7 @@
  * this permanently in zconf.h using "./configure --zprefix".
  */
 
-//#ifdef Z_PREFIX     /* may be set to #if 1 by ./configure */
+#ifdef Z_PREFIX     /* may be set to #if 1 by ./configure */
 #  define Z_PREFIX_SET
 
 /* all linked symbols */
@@ -148,7 +148,7 @@
 #  define gz_header_s           z_gz_header_s
 #  define internal_state        z_internal_state
 
-//#endif
+#endif
 
 #if defined(__MSDOS__) && !defined(MSDOS)
 #  define MSDOS
