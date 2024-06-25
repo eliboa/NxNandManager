@@ -773,7 +773,22 @@ void Explorer::do_extractFS(CpyQueue queue)
             if (!EnsureOutputDir(cur_dest))
                 return exit(QString("Failed to create dir %1").arg(cur_dest));
 
-            QFile out_file(cur_dest.append("/" + QString::fromStdString(file.completePath())));
+            // Avoid duplicating slashes
+            string file_path(file.completePath());
+            QFile out_file;
+
+            if (file_path.at(0) == '/') {
+                out_file.setFileName(cur_dest.append(QString::fromStdString(file_path)));
+            } else {
+                out_file.setFileName(cur_dest.append("/" + QString::fromStdString(file_path)));
+            }
+
+            // Ensure the out path is created
+            QString out_dir = QFileInfo(out_file).absolutePath();
+
+            if (!EnsureOutputDir(out_dir))
+                return exit(QString("Failed to create dir %1").arg(out_dir));
+
             if (!out_file.open(QIODevice::WriteOnly))
                 return exit(QString("Failed to open file for writing: %1").arg(cur_dest));
 
