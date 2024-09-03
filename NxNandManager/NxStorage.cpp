@@ -1147,7 +1147,9 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         return error(ERR_WHILE_COPY);
 
     // NAND resize => Update GPT
-    unsigned char gpt_header_backup[0x200];
+    bool gen_gpt_backup = false;
+    BYTE gpt_header_backup[0x200];
+    BYTE *gpt_entries_backup = new BYTE[0x4000];
     if (par.user_new_size)
     {
         // Cluster align new size (32 sectors per cluster)
@@ -1172,18 +1174,31 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
         hdr->alt_lba = hdr->last_use_lba + 33;
 
         // New CRC32 for header
-        unsigned char header[92];
-        memcpy(&header[0], &hdr[0], 92);
-        memset(&header[16], 0, 4);
-        hdr->c_crc32 = crc32Hash(header, 92);
+        hdr->c_crc32 = 0;   // clear old crc32 before compute new crc32
+        hdr->c_crc32 = crc32Hash(hdr, hdr->size);
 
-        // Save GPT header
-        memcpy(gpt_header_backup, &hdr[0], 0x200);
+        gen_gpt_backup = true;
     }
     else if (isBackupGptMissing())
     {
-        // Backup GPT header
-        memcpy(gpt_header_backup, buffer + 0x200, 0x200);
+        gen_gpt_backup = true;
+    }
+
+    // Generate gpt backup
+    if (gen_gpt_backup) {
+        // Copy GPT backup
+        memcpy(gpt_header_backup, &buffer[0x200], 0x200);
+        memcpy(gpt_entries_backup, &buffer[0x400], 0x4000);
+
+        GptHeader *hdr = (GptHeader *)(buffer + 0x200);
+        GptHeader *hdr_bak = (GptHeader *)gpt_header_backup;
+        hdr_bak->my_lba = hdr->alt_lba;
+        hdr_bak->alt_lba = hdr->my_lba;
+        hdr_bak->part_ent_lba = hdr_bak->my_lba - 32;
+
+        // New CRC32 for header
+        hdr_bak->c_crc32 = 0;   // clear old crc32 before compute new crc32
+        hdr_bak->c_crc32 = crc32Hash(hdr_bak, hdr_bak->size);
     }
 
     // Write UserDataRoot
@@ -1380,9 +1395,9 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
     }
 
     // Ovewrite backup GPT after resize or if backup GPT is missing from input
+    bool save_gpt_backup = false;
     if (par.user_new_size)
     {
-         GptHeader *hdr = (GptHeader *)(gpt_header_backup);
          outHandle->clearHandle();
          if (outHandle->getChunkSize())
          {
@@ -1392,13 +1407,27 @@ int NxStorage::dump(NxHandle *outHandle, params_t par, void(*updateProgress)(Pro
          }
          else outHandle->createHandle();
 
-         u64 alt_off = (u64)(hdr->alt_lba * NX_BLOCKSIZE) + rawnand_off;
-         auto res = outHandle->setPointer(alt_off);
-         if(!outHandle->write(gpt_header_backup, &bytesWrite, NX_BLOCKSIZE))
+         save_gpt_backup = true;
+    }
+    else if (isBackupGptMissing()) {
+        save_gpt_backup = true;
+    }
+
+    // Save gpt backup
+    if (save_gpt_backup) {
+        // Write gpt partition entries backup
+        GptHeader *hdr_bak = (GptHeader *)gpt_header_backup;
+        u64 write_off = (u64)(hdr_bak->part_ent_lba * NX_BLOCKSIZE) + rawnand_off;
+        outHandle->setPointer(write_off);
+        if(!outHandle->write(gpt_entries_backup, &bytesWrite, NX_BLOCKSIZE * 32))
+            return error(ERR_WHILE_COPY);
+
+        // Write gpt header backup
+        write_off = (u64)(hdr_bak->my_lba * NX_BLOCKSIZE) + rawnand_off;
+        outHandle->setPointer(write_off);
+        if(!outHandle->write(gpt_header_backup, &bytesWrite, NX_BLOCKSIZE))
             return error(ERR_WHILE_COPY);
     }
-    else if (isBackupGptMissing() && !outHandle->write(gpt_header_backup, &bytesWrite, NX_BLOCKSIZE))
-        return error(ERR_WHILE_COPY);
 
     if (isDrive())
         nxHandle->unlockVolume();
