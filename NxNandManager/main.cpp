@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
     //std::setlocale(LC_ALL, "en_US.utf8");
     std::setlocale(LC_ALL, "");
     std::locale::global(std::locale(""));
-    printf("[ NxNandManager v5.2 by eliboa ]\n\n");
+    printf("[ NxNandManager v5.2.1 by eliboa ]\n\n");
     const char *input = nullptr, *output = nullptr, *partitions = nullptr, *keyset = nullptr, *user_resize = nullptr, *boot0 = nullptr, *boot1 = nullptr, *std_redir_output = nullptr;
     wchar_t driveLetter = L'\0';
     BOOL dokan_install = false, info = false, gui = false, setAutoRCM = false, autoRCM = false, decrypt = false, encrypt = false;
