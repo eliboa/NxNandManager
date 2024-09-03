@@ -101,9 +101,15 @@ typedef DWORD TCHAR;
 #elif FF_USE_LFN && (FF_LFN_UNICODE < 0 || FF_LFN_UNICODE > 3)
 #error Wrong FF_LFN_UNICODE setting
 #else									/* ANSI/OEM code in SBCS/DBCS */
-//typedef char TCHAR;
+#ifndef _TCHAR_DEFINED
+typedef char TCHAR;
+#endif
+#ifndef _T
 #define _T(x) x
+#endif
+#ifndef _TEXT
 #define _TEXT(x) x
+#endif
 #endif
 
 

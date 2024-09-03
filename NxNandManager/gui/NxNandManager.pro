@@ -114,19 +114,20 @@ HEADERS += \
     dump.h \
     progress.h \
     emunand.h \
-    ../lib/ZipLib/*.h \
-    ../lib/ZipLib/utils/*.h \
-    ../lib/ZipLib/detail/*.h \
-    ../lib/ZipLib/extlibs/bzip2/*.h \
-    ../lib/ZipLib/extlibs/lzma/*.h \
+    $$files(../lib/ZipLib/*.h, false) \
+    $$files(../lib/ZipLib/utils/*.h, false) \
+    $$files(../lib/ZipLib/detail/*.h, false) \
+    $$files(../lib/ZipLib/extlibs/bzip2/*.h, false) \
+    $$files(../lib/ZipLib/extlibs/lzma/*.h, false) \
     debug.h
 
 CONFIG(STATIC) {
-    HEADERS -= ../lib/ZipLib/extlibs/zlib/zconf.h
+    SOURCES += $$files(../lib/ZipLib/extlibs/zlib/*.c, false)
+    HEADERS += $$files(../lib/ZipLib/extlibs/zlib/*.h)
 }
 CONFIG(DYNAMIC) {
     SOURCES += $$files(../lib/ZipLib/extlibs/zlib/*.c, false)
-    HEADERS += ../lib/ZipLib/extlibs/zlib/*.h \
+    HEADERS += $$files(../lib/ZipLib/extlibs/zlib/*.h)
 }
 
 FORMS += \
@@ -158,14 +159,14 @@ RC_FILE = NxNandManager.rc
 CONFIG(ARCH32) {
     DEFINES += ARCH32
     #OPENSSL PATH
-    OPENSSL_LIB_PATH = $$PWD/../../../../../mingw32
+    OPENSSL_LIB_PATH = $$PWD/../../../OpenSSL_mingw32
     LIBS += -L$$PWD/../virtual_fs/dokan/x86/lib/ -ldokan1
 
 }
 CONFIG(ARCH64) {
     DEFINES += ARCH64
     #OPENSSL PATH
-    OPENSSL_LIB_PATH = $$PWD/../../../../../mingw64
+    OPENSSL_LIB_PATH = $$PWD/../../../OpenSSL_mingw64
     LIBS += -L$$PWD/../virtual_fs/dokan/x64/lib/ -ldokan1
 }
 
