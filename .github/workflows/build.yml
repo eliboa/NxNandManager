@@ -28,7 +28,7 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/bin
           cp release/NxNandManager.exe $GITHUB_WORKSPACE/bin
           cp ../virtual_fs/dokan/x64/dokan1.dll $GITHUB_WORKSPACE/bin
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: NxNandManager
           path: bin/*
