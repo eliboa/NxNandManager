@@ -18,6 +18,7 @@ jobs:
             base-devel
             mingw-w64-x86_64-toolchain
             mingw64/mingw-w64-x86_64-qt5-static
+            mingw-w64-x86_64-openssl
       - name: build
         shell: msys2 {0}
         run: |
