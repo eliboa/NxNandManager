@@ -114,20 +114,19 @@ HEADERS += \
     dump.h \
     progress.h \
     emunand.h \
-    $$files(../lib/ZipLib/*.h, false) \
-    $$files(../lib/ZipLib/utils/*.h, false) \
-    $$files(../lib/ZipLib/detail/*.h, false) \
-    $$files(../lib/ZipLib/extlibs/bzip2/*.h, false) \
-    $$files(../lib/ZipLib/extlibs/lzma/*.h, false) \
+    ../lib/ZipLib/*.h \
+    ../lib/ZipLib/utils/*.h \
+    ../lib/ZipLib/detail/*.h \
+    ../lib/ZipLib/extlibs/bzip2/*.h \
+    ../lib/ZipLib/extlibs/lzma/*.h \
     debug.h
 
 CONFIG(STATIC) {
-    SOURCES += $$files(../lib/ZipLib/extlibs/zlib/*.c, false)
-    HEADERS += $$files(../lib/ZipLib/extlibs/zlib/*.h)
+    HEADERS -= ../lib/ZipLib/extlibs/zlib/zconf.h
 }
 CONFIG(DYNAMIC) {
     SOURCES += $$files(../lib/ZipLib/extlibs/zlib/*.c, false)
-    HEADERS += $$files(../lib/ZipLib/extlibs/zlib/*.h)
+    HEADERS += ../lib/ZipLib/extlibs/zlib/*.h \
 }
 
 FORMS += \
