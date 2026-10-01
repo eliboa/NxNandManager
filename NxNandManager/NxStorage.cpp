@@ -202,7 +202,7 @@ static NxSystemTitles exFatTitlesArr[] = {
     { "12.0.1", "22f8b6e12000aa530c1d301b5ed4d70a.nca"},
     { "12.0.0", "22f8b6e12000aa530c1d301b5ed4d70a.nca"},
     { "11.0.1", "0fd89afc0d0f1ee7021084df503bcc19.nca"},
-    { "11.0.0", "c70785465de83c7feed3ae28139b506.nca"},
+    { "11.0.0", "c70785465de83c7feed3ae28139b5063.nca"},
     { "10.2.0", "be8a259f84590c0ad9aa78312ed1e9fe.nca"},
     { "10.1.1", "3df13daa7f553c8fa85bbff79a189d6c.nca"},
     { "10.1.0", "3df13daa7f553c8fa85bbff79a189d6c.nca"},
