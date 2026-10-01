@@ -1,3 +1,8 @@
+🚨This project is no longer maintained by its original author. You can find contributor builds [here](https://github.com/eliboa/NxNandManager/actions) or download an updated version of the program from these trusted forks:
+- [THZoria/NxNandManager](https://github.com/THZoria/NxNandManager)
+- [sthetix/NxNandManager](https://github.com/sthetix/NxNandManager)
+_____________________________
+
 ![Png](https://img.shields.io/badge/latest%20stable%20release-5.1-yellow) 
 ![Png](https://img.shields.io/badge/platform-windows-lightgrey)
 ![GitHub contributors](https://img.shields.io/github/contributors/eliboa/NxNandManager)
