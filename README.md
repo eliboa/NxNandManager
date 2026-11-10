@@ -1,3 +1,6 @@
+[![Discord](https://img.shields.io/discord/454099185416011776?label=Rejoindre%20le%20Discord&logo=discord&logoColor=white&style=for-the-badge)](https://discord.sighya.fr) <br>
+[![Dernière version](https://img.shields.io/github/v/release/THZoria/NxNandManager?label=Dernière%20Version&color=05c09a&style=for-the-badge)](https://github.com/THZoria/NxNandManager/latest)
+[![Téléchargements](https://img.shields.io/github/downloads/THZoria/NxNandManager/total?label=Téléchargements&color=blue&style=for-the-badge)](https://github.com/THZoria/NxNandManager)
 🚨This project is no longer maintained by its original author. You can find contributor builds [here](https://github.com/eliboa/NxNandManager/actions) or download an updated version of the program from these trusted forks:
 - [THZoria/NxNandManager](https://github.com/THZoria/NxNandManager)
 - [sthetix/NxNandManager](https://github.com/sthetix/NxNandManager)
